@@ -165,7 +165,13 @@ export class SceneManager {
     this.lights = {};
     this.setupLighting('studio');
 
-    // 8. Load official 3D model
+    // 8. Materials & Procedural Attachments (instant synchronous setup)
+    this.hasTriggeredLoaded = false;
+    this.initMaterials();
+    this.setupGarmentAttachments();
+
+    // 9. Load 3D models concurrently in parallel
+    this.loadRealGarmentModels();
     this.loadModel();
 
     // Loop
@@ -179,6 +185,79 @@ export class SceneManager {
 
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
+
+    // Fallback safety: ensure loading overlay clears even on very slow networks
+    setTimeout(() => {
+      this.triggerLoadedIfReady(true);
+    }, 6000);
+  }
+
+  initMaterials() {
+    // Texture maps
+    const textureLoader = new THREE.TextureLoader();
+    const normalMap = textureLoader.load(getAssetUrl('/models/NormalDetails.jpg'));
+    normalMap.wrapS = THREE.ClampToEdgeWrapping;
+    normalMap.wrapT = THREE.ClampToEdgeWrapping;
+    normalMap.flipY = false;
+
+    // Clean, 100% plain photorealistic cloth material with dynamic 2048x2048 canvas
+    this.shirtMaterial = new THREE.MeshStandardMaterial({
+      map: this.designManager.texture,
+      roughness: 0.82,
+      metalness: 0.02,
+      normalMap: normalMap,
+      normalScale: new THREE.Vector2(0.25, 0.25),
+      side: THREE.DoubleSide
+    });
+    applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor);
+
+    this.fabricMaterial = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(this.garmentColor),
+      roughness: 0.82,
+      metalness: 0.02,
+      normalMap: normalMap,
+      normalScale: new THREE.Vector2(0.25, 0.25),
+      side: THREE.DoubleSide
+    });
+
+    this.decalMaterial = new THREE.MeshStandardMaterial({
+      map: this.designManager.decalTexture,
+      roughness: 0.82,
+      metalness: 0.02,
+      normalMap: normalMap,
+      normalScale: new THREE.Vector2(0.25, 0.25),
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1.0,
+      alphaTest: 0.02,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -2.0
+    });
+  }
+
+  triggerLoadedIfReady(force = false) {
+    if (this.hasTriggeredLoaded) return;
+    const t = this.garmentType || 'oversized_tee';
+    const isHoodie = (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie');
+    const isPants = (t === 'sweatpants');
+    const isCap = (t === 'cap');
+    const isTshirt = !isHoodie && !isPants && !isCap;
+
+    let ready = force;
+    if (isHoodie && this.realHoodieRoot) ready = true;
+    else if (isPants && this.realPantsRoot) ready = true;
+    else if (isCap && this.realCapRoot) ready = true;
+    else if (isTshirt && this.tshirtStatic) ready = true;
+    else if (this.realHoodieRoot || this.tshirtStatic || this.realPantsRoot) ready = true;
+
+    if (ready) {
+      this.hasTriggeredLoaded = true;
+      if (this.onLoaded) {
+        this.onLoaded();
+      }
+    }
   }
 
   loadModel() {
@@ -187,50 +266,6 @@ export class SceneManager {
       getAssetUrl('/models/tshirt-sizingtest.gltf'),
       (gltf) => {
         this.gltfScene = gltf.scene;
-
-        // Texture maps
-        const textureLoader = new THREE.TextureLoader();
-        const normalMap = textureLoader.load(getAssetUrl('/models/NormalDetails.jpg'));
-        normalMap.wrapS = THREE.ClampToEdgeWrapping;
-        normalMap.wrapT = THREE.ClampToEdgeWrapping;
-        normalMap.flipY = false;
-
-        // Clean, 100% plain photorealistic cloth material with dynamic 2048x2048 canvas
-        // No baked aoMap to guarantee zero unwanted patterns or arches anywhere
-        this.shirtMaterial = new THREE.MeshStandardMaterial({
-          map: this.designManager.texture,
-          roughness: 0.82,
-          metalness: 0.02,
-          normalMap: normalMap,
-          normalScale: new THREE.Vector2(0.25, 0.25),
-          side: THREE.DoubleSide
-        });
-        applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor);
-
-        this.fabricMaterial = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(this.garmentColor),
-          roughness: 0.82,
-          metalness: 0.02,
-          normalMap: normalMap,
-          normalScale: new THREE.Vector2(0.25, 0.25),
-          side: THREE.DoubleSide
-        });
-
-        this.decalMaterial = new THREE.MeshStandardMaterial({
-          map: this.designManager.decalTexture,
-          roughness: 0.82,
-          metalness: 0.02,
-          normalMap: normalMap,
-          normalScale: new THREE.Vector2(0.25, 0.25),
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 1.0,
-          alphaTest: 0.02,
-          depthWrite: false,
-          polygonOffset: true,
-          polygonOffsetFactor: -2.0,
-          polygonOffsetUnits: -2.0
-        });
 
         // Hide and remove environment spheres, camera planes & extra export meshes from gltf
         ['env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport', 'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017'].forEach((name) => {
@@ -339,10 +374,9 @@ export class SceneManager {
         }
 
         this.scene.add(gltf.scene);
-        this.setupGarmentAttachments();
-        this.loadRealGarmentModels();
         this.setAnimationMode(this.animationMode);
-        this.onLoaded();
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
       },
       undefined,
       (err) => {
@@ -611,6 +645,7 @@ export class SceneManager {
   setGarmentType(type) {
     this.garmentType = type || 'oversized_tee';
     this.applyGarmentTypeVisibility();
+    this.triggerLoadedIfReady();
 
     // Auto adjust camera focus & framing per garment silhouette
     if (this.controls && this.camera) {
@@ -818,6 +853,7 @@ export class SceneManager {
 
         this.scene.add(this.realHoodieRoot);
         this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
       },
       undefined,
       (err) => console.error('Error loading virtualthreads hoodie GLB:', err)
@@ -902,6 +938,7 @@ export class SceneManager {
 
         this.scene.add(this.realPantsRoot);
         this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
       },
       undefined,
       (err) => console.error('Error loading real pants GLB:', err)
@@ -956,6 +993,7 @@ export class SceneManager {
 
         this.scene.add(this.realCapRoot);
         this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
       },
       undefined,
       (err) => console.error('Error loading real cap OBJ:', err)
