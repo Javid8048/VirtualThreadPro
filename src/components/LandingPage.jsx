@@ -91,7 +91,7 @@ export function LandingPage({
               onClick={() => onSelectGarment('oversized_tee')}
               className="hover:text-black transition-colors"
             >
-              Free 2D Mockups
+              2D Mockups
             </button>
             <button
               onClick={() => onSelectGarment('oversized_tee')}
@@ -160,7 +160,6 @@ export function LandingPage({
         <div className="w-full rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-7 md:p-8 backdrop-blur-md shadow-2xl ring-1 ring-white/5 animate-fadeIn">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-7">
             {displayedGarments.map((product) => {
-              const isFree = product.id === 'oversized_tee';
               return (
                 <div
                   key={product.id}
@@ -185,13 +184,6 @@ export function LandingPage({
                         <polygon points="120,120 180,160 140,200" />
                       </g>
                     </svg>
-
-                    {/* FREE Badge for Default Blank */}
-                    {isFree && (
-                      <div className="absolute top-3 left-3 z-10 bg-black text-white text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">
-                        FREE
-                      </div>
-                    )}
 
                     {/* Product Mockup Image */}
                     <img

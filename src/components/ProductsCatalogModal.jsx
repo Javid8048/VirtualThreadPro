@@ -7,7 +7,7 @@ export const GARMENT_PRODUCTS = [
     id: 'oversized_tee',
     title: 'OVERSIZED T-SHIRT STUDIO',
     badge: 'DEFAULT BLANK',
-    badgeType: 'free',
+    badgeType: 'default',
     category: 'Tops',
     description: 'Heavyweight streetwear oversized drop-shoulder t-shirt with authentic cloth drape and wrinkles.',
     features: ['Walk & Wind Animations', 'Front & Back Decals', 'Puff Print & Acid Wash'],
@@ -128,8 +128,8 @@ export const GARMENT_PRODUCTS = [
 
 const FAQS = [
   {
-    q: 'Can I create 3D mockups for free?',
-    a: 'Yes! In this replica application, all 11 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are 100% free with all studio features unlocked.'
+    q: 'Can I create 3D mockups without a subscription?',
+    a: 'Yes! In this application, all 11 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
@@ -282,7 +282,7 @@ export function ProductsCatalogModal({
                     <div className="flex items-center justify-between">
                       <span
                         className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                          product.badgeType === 'free'
+                          product.badgeType === 'default'
                             ? 'bg-emerald-500 text-black'
                             : 'bg-brand-500 text-white shadow-glow-brand'
                         }`}

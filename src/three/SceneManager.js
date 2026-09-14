@@ -211,10 +211,15 @@ export class SceneManager {
     normalMap.wrapT = THREE.ClampToEdgeWrapping;
     normalMap.flipY = false;
 
+    const maxAniso = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 16;
+    normalMap.anisotropy = maxAniso;
+    if (this.designManager.texture) this.designManager.texture.anisotropy = maxAniso;
+    if (this.designManager.decalTexture) this.designManager.decalTexture.anisotropy = maxAniso;
+
     // Clean, 100% plain photorealistic cloth material with dynamic 2048x2048 canvas
     this.shirtMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.texture,
-      roughness: 0.82,
+      roughness: 0.78,
       metalness: 0.02,
       normalMap: normalMap,
       normalScale: new THREE.Vector2(0.25, 0.25),
@@ -224,27 +229,28 @@ export class SceneManager {
 
     this.fabricMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.garmentColor),
-      roughness: 0.82,
+      roughness: 0.78,
       metalness: 0.02,
       normalMap: normalMap,
       normalScale: new THREE.Vector2(0.25, 0.25),
       side: THREE.DoubleSide
     });
 
+    // Vibrant, rich satin ink finish on decals (no dullness, max crispness, sharp anisotropic filtering)
     this.decalMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.decalTexture,
-      roughness: 0.96,
-      metalness: 0.0,
+      roughness: 0.58,
+      metalness: 0.02,
       normalMap: normalMap,
       normalScale: new THREE.Vector2(0.25, 0.25),
       side: THREE.FrontSide,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.01,
+      alphaTest: 0.005,
       depthWrite: false,
       polygonOffset: true,
-      polygonOffsetFactor: -4.0,
-      polygonOffsetUnits: -4.0
+      polygonOffsetFactor: -8.0,
+      polygonOffsetUnits: -8.0
     });
   }
 
@@ -414,10 +420,10 @@ export class SceneManager {
     this.interactionMode = mode;
     if (mode === 'orbit') {
       this.controls.enabled = true;
-      this.renderer.domElement.style.cursor = 'grab';
+      if (this.renderer) this.renderer.domElement.style.cursor = 'grab';
     } else {
       this.controls.enabled = false;
-      this.renderer.domElement.style.cursor = 'crosshair';
+      if (this.renderer) this.renderer.domElement.style.cursor = 'move';
     }
   }
 
@@ -426,32 +432,49 @@ export class SceneManager {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.is3DDragging = false;
+    this.dragStart = null;
 
     const dom = this.renderer.domElement;
 
     dom.addEventListener('pointerdown', (e) => {
       // Direct 3D dragging when interactionMode is 'dragDesign' or when holding Shift
       if (this.interactionMode === 'dragDesign' || e.shiftKey) {
+        const activeLayer = this.designManager?.getActiveLayer() || this.designManager?.layers[0];
+        if (!activeLayer) return;
+
+        if (this.designManager.activeLayerId !== activeLayer.id) {
+          this.designManager.setActiveLayer(activeLayer.id);
+        }
+
+        this.controls.enabled = false;
+        this.is3DDragging = true;
+        try { dom.setPointerCapture(e.pointerId); } catch (err) {}
+
+        this.dragStart = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          startX: activeLayer.x,
+          startY: activeLayer.y,
+          layerId: activeLayer.id,
+          side: activeLayer.side || 'front'
+        };
+
+        // If direct UV hit on mesh, also snap to raycast position
         const rect = dom.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const mesh = this.getActiveMesh();
-        if (!mesh) return;
-
-        const intersects = this.raycaster.intersectObject(mesh, false);
-        if (intersects.length > 0 && intersects[0].uv) {
-          const uv = intersects[0].uv;
-          const activeLayer = this.designManager.getActiveLayer();
-          if (activeLayer) {
-            this.controls.enabled = false;
-            this.is3DDragging = true;
-            try { dom.setPointerCapture(e.pointerId); } catch (err) {}
-
+        if (mesh) {
+          const intersects = this.raycaster.intersectObject(mesh, false);
+          if (intersects.length > 0 && intersects[0].uv) {
+            const uv = intersects[0].uv;
             const x = Math.round(uv.x * 2048);
             const y = Math.round(uv.y * 2048);
             const side = x < 1024 ? 'front' : 'back';
+            this.dragStart.startX = x;
+            this.dragStart.startY = y;
+            this.dragStart.side = side;
             this.designManager.updateLayer(activeLayer.id, { x, y, side });
           }
         }
@@ -459,32 +482,33 @@ export class SceneManager {
     });
 
     dom.addEventListener('pointermove', (e) => {
-      if (this.is3DDragging) {
-        const rect = dom.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      if (this.is3DDragging && this.dragStart) {
+        const deltaX = (e.clientX - this.dragStart.clientX);
+        const deltaY = (e.clientY - this.dragStart.clientY);
 
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const mesh = this.getActiveMesh();
-        if (!mesh) return;
+        // Check if viewing front or back of model
+        const isBackView = this.camera.position.z < 0;
+        const factorX = isBackView ? -2.2 : 2.2;
+        const factorY = 2.2;
 
-        const intersects = this.raycaster.intersectObject(mesh, false);
-        if (intersects.length > 0 && intersects[0].uv) {
-          const uv = intersects[0].uv;
-          const activeLayer = this.designManager.getActiveLayer();
-          if (activeLayer) {
-            const x = Math.round(uv.x * 2048);
-            const y = Math.round(uv.y * 2048);
-            const side = x < 1024 ? 'front' : 'back';
-            this.designManager.updateLayer(activeLayer.id, { x, y, side });
-          }
+        let newX = Math.round(this.dragStart.startX + deltaX * factorX);
+        let newY = Math.round(this.dragStart.startY + deltaY * factorY);
+
+        if (this.dragStart.side === 'front') {
+          newX = Math.max(100, Math.min(924, newX));
+        } else {
+          newX = Math.max(1124, Math.min(1948, newX));
         }
+        newY = Math.max(200, Math.min(1848, newY));
+
+        this.designManager.updateLayer(this.dragStart.layerId, { x: newX, y: newY });
       }
     });
 
     const stop3DDrag = (e) => {
       if (this.is3DDragging) {
         this.is3DDragging = false;
+        this.dragStart = null;
         try { dom.releasePointerCapture(e.pointerId); } catch (err) {}
         this.controls.enabled = (this.interactionMode !== 'dragDesign');
       }
@@ -509,26 +533,38 @@ export class SceneManager {
     this.lights = {};
 
     if (preset === 'studio') {
-      // Key light
-      const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+      // Key light - crisp directional illumination
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
       keyLight.position.set(6, 8, 16);
       this.scene.add(keyLight);
       this.lights.key = keyLight;
 
       // Soft fill light
-      const fillLight = new THREE.DirectionalLight(0xe8f0ff, 1.2);
+      const fillLight = new THREE.DirectionalLight(0xe8f0ff, 1.3);
       fillLight.position.set(-8, 3, 12);
       this.scene.add(fillLight);
       this.lights.fill = fillLight;
 
-      // Rim light
-      const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.4);
+      // Rim light - definition and separation
+      const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.5);
       rimLight.position.set(0, 10, -12);
       this.scene.add(rimLight);
       this.lights.rim = rimLight;
 
+      // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
+      const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      frontGraphicLight.position.set(0, 1.5, 14);
+      this.scene.add(frontGraphicLight);
+      this.lights.frontGraphic = frontGraphicLight;
+
+      // Dedicated Back Graphic Light - keeps back prints bright and clear when rotated
+      const backGraphicLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      backGraphicLight.position.set(0, 1.5, -14);
+      this.scene.add(backGraphicLight);
+      this.lights.backGraphic = backGraphicLight;
+
       // Ambient light
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.85);
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
       this.scene.add(ambLight);
       this.lights.amb = ambLight;
     }
@@ -567,18 +603,35 @@ export class SceneManager {
     }
   }
 
+  getActiveGarmentRoot() {
+    const t = this.garmentType || 'oversized_tee';
+    if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
+      return this.realHoodieRoot;
+    }
+    if (t === 'sweatpants') {
+      return this.realPantsRoot;
+    }
+    if (t === 'cap') {
+      return this.realCapRoot;
+    }
+    return this.tshirtPivot;
+  }
+
   triggerKnitAnimation() {
-    // Weaving / knitting simulation effect: brief scale pulse and waves ripple
-    if (this.tshirtPivot) {
-      const startScale = 0.92;
-      this.tshirtPivot.scale.set(startScale, startScale, startScale);
+    // Weaving / knitting simulation effect: brief elastic scale pulse transitioning into continuous yarn weave
+    this.knitTime = 0;
+    const activeRoot = this.getActiveGarmentRoot();
+    if (activeRoot) {
+      const startScale = 0.94;
+      activeRoot.scale.set(startScale, startScale, startScale);
       const startT = performance.now();
       const knitInterval = () => {
+        if (this.animationMode !== 'knit') return;
         const elapsed = (performance.now() - startT) / 1000;
-        const p = Math.min(elapsed / 1.2, 1);
+        const p = Math.min(elapsed / 0.8, 1);
         const s = startScale + (1.0 - startScale) * (1 - Math.pow(1 - p, 3));
-        if (this.tshirtPivot) {
-          this.tshirtPivot.scale.set(s, s, s);
+        if (activeRoot && this.animationMode === 'knit') {
+          activeRoot.scale.set(s, s, s);
         }
         if (p < 1) {
           requestAnimationFrame(knitInterval);
@@ -784,17 +837,21 @@ export class SceneManager {
     const hoodieDiffuse = textureLoader.load(getAssetUrl('/models/hoodie_diffuse.jpg'));
     const hoodieNormal = textureLoader.load(getAssetUrl('/models/hoodie_normal.jpg'));
     const hoodieRoughness = textureLoader.load(getAssetUrl('/models/hoodie_roughness.jpg'));
+    const maxAniso = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 16;
     hoodieDiffuse.colorSpace = THREE.SRGBColorSpace;
     hoodieDiffuse.flipY = false;
     hoodieNormal.flipY = false;
     hoodieRoughness.flipY = false;
+    hoodieDiffuse.anisotropy = maxAniso;
+    hoodieNormal.anisotropy = maxAniso;
+    hoodieRoughness.anisotropy = maxAniso;
 
     this.hoodieFabricMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.garmentColor || '#ffffff'),
       map: hoodieDiffuse,
       normalMap: hoodieNormal,
       normalScale: new THREE.Vector2(0.35, 0.35),
-      roughness: 0.96,
+      roughness: 0.90,
       metalness: 0.0,
       side: THREE.DoubleSide
     });
@@ -889,7 +946,7 @@ export class SceneManager {
         fUvs.needsUpdate = true;
 
         this.hoodieDecalMeshFront = new THREE.Mesh(frontDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.45);
+        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.46);
         this.hoodieDecalMeshFront.rotation.set(-0.25, 0, 0);
         this.hoodieDecalMeshFront.renderOrder = 2;
         this.hoodieDecalMeshFront.visible = false;
@@ -907,7 +964,7 @@ export class SceneManager {
         bUvs.needsUpdate = true;
 
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.02);
+        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.03);
         this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
         this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
@@ -1073,7 +1130,7 @@ export class SceneManager {
 
     // Show/hide upper body shirt meshes
     if (this.tshirtStatic) {
-      this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable');
+      this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
     }
     if (this.tshirtWaves) {
       this.tshirtWaves.visible = isTshirtFamily && (this.animationMode === 'waves');
@@ -1196,14 +1253,22 @@ export class SceneManager {
           action.play();
         }
       }
-      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
     } else if (mode === 'knit') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = true;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) this.tshirtWalking.visible = false;
       this.triggerKnitAnimation();
     } else if (mode === 'turntable') {
       if (this.tshirtStatic) this.tshirtStatic.visible = true;
       if (this.tshirtWaves) this.tshirtWaves.visible = false;
       if (this.tshirtWalking) this.tshirtWalking.visible = false;
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
+    }
+    if (mode !== 'knit') {
+      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
+      if (this.realHoodieRoot) this.realHoodieRoot.scale.set(1, 1, 1);
+      if (this.realPantsRoot) this.realPantsRoot.scale.set(1, 1, 1);
+      if (this.realCapRoot) this.realCapRoot.scale.set(1, 1, 1);
     }
     if (mode !== 'turntable') {
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
@@ -1329,7 +1394,7 @@ export class SceneManager {
     if (this.isDisposed) return;
     requestAnimationFrame(this.animate);
 
-    // Use locked fixed 60.0 FPS delta during video recording for jitter-free smoothness
+    // Use locked fixed 60.0 FPS delta during video recording for smooth consistent pacing
     const delta = this.isRecordingVideo ? this.recordingFixedDelta : Math.min(this.clock.getDelta(), 0.1);
 
     if (this.mixer) {
@@ -1337,6 +1402,9 @@ export class SceneManager {
     }
     if (this.hoodieMixer && this.animationMode === 'walking' && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
       this.hoodieMixer.update(delta);
+      if (this.realHoodieRoot) {
+        this.realHoodieRoot.updateMatrixWorld(true);
+      }
 
       // Lock front and back decal meshes to upper chest bone during walk animation
       if (this.hoodieSpine2Bone && this.hoodieDecalsGroup && this.realHoodieRoot && this.hoodieInvSpine2M0) {
@@ -1344,6 +1412,20 @@ export class SceneManager {
         this.currentSpine2LocalMatrix.multiplyMatrices(this.invRealHoodieRootMatrix, this.hoodieSpine2Bone.matrixWorld);
         this.hoodieDeltaMatrix.multiplyMatrices(this.currentSpine2LocalMatrix, this.hoodieInvSpine2M0);
         this.hoodieDeltaMatrix.decompose(this.hoodieDecalsGroup.position, this.hoodieDecalsGroup.quaternion, this.tempScale);
+        this.hoodieDecalsGroup.updateMatrixWorld(true);
+      }
+    }
+
+    // Knit animation mode: continuous textile yarn weave & fabric elasticity breathing
+    if (this.animationMode === 'knit') {
+      this.knitTime = (this.knitTime || 0) + delta * (this.walkSpeed || 1.0) * 3.2;
+      const waveX = Math.sin(this.knitTime) * 0.016;
+      const waveY = Math.cos(this.knitTime * 0.85) * 0.012;
+      const waveZ = Math.sin(this.knitTime * 1.1) * 0.016;
+
+      const activeRoot = this.getActiveGarmentRoot();
+      if (activeRoot) {
+        activeRoot.scale.set(1 + waveX, 1 + waveY, 1 + waveZ);
       }
     }
 

@@ -293,10 +293,25 @@ export function PositionGuide({
   if (!isOpen) return null;
 
   return (
-    <aside className="absolute right-6 top-6 bottom-6 w-[440px] bg-white rounded-3xl shadow-2xl border border-gray-150 flex flex-col overflow-hidden select-none z-20 text-gray-800 animate-fadeIn">
+    <aside className="absolute right-6 top-20 bottom-6 w-[440px] bg-white rounded-3xl shadow-2xl border border-gray-150 flex flex-col overflow-hidden select-none z-20 text-gray-800 animate-fadeIn">
+      {/* Header Banner */}
+      <div className="px-4 py-2.5 bg-gray-900 text-white flex items-center justify-between border-b border-gray-800">
+        <div className="flex items-center gap-2">
+          <span className="size-2 rounded-full bg-brand-accent animate-pulse" />
+          <span className="text-xs font-black tracking-wide uppercase">Graphics Drag & Placement Studio</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+          title="Close Graphics Drag Menu"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
       {/* Top Toolbar: High Visibility Text Decal Controls */}
       <div className="p-3 border-b border-gray-100 flex items-center justify-between gap-2 bg-gray-50/90">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <input
             type="color"
             value={textColor}
@@ -315,7 +330,7 @@ export function PositionGuide({
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Type text here..."
-            className="w-32 px-3 py-1.5 text-xs font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-xl shadow-inner placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            className="flex-1 min-w-0 px-3 py-1.5 text-xs font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-xl shadow-inner placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
           />
 
           <button
@@ -336,19 +351,10 @@ export function PositionGuide({
                 designManager.updateLayer(designManager.activeLayerId, { fontSize: sz });
               }
             }}
-            className="w-12 px-1 py-1.5 text-xs font-mono font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-xl text-center shadow-inner focus:outline-none focus:border-brand-500"
+            className="w-12 px-1 py-1.5 text-xs font-mono font-bold text-gray-900 bg-white border-2 border-gray-300 rounded-xl text-center shadow-inner focus:outline-none focus:border-brand-500 shrink-0"
             title="Font Size"
           />
         </div>
-
-        {/* Close X */}
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors"
-          title="Close Design Studio"
-        >
-          <X className="size-4" />
-        </button>
       </div>
 
       {/* Prominent Front & Back Upload Buttons on Right Side */}

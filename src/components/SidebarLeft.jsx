@@ -62,7 +62,7 @@ export function SidebarLeft({
   };
 
   return (
-    <aside className="absolute left-6 top-6 bottom-6 w-64 rounded-3xl bg-white text-gray-900 shadow-2xl p-4 flex flex-col justify-between select-none z-20 border border-gray-100 animate-fadeIn">
+    <aside className="absolute left-6 top-20 bottom-6 w-64 rounded-3xl bg-white text-gray-900 shadow-2xl p-4 flex flex-col justify-between select-none z-20 border border-gray-100 animate-fadeIn">
       
       {/* Top Header Row: Back to Products & VirtualThreads branding */}
       <div className="flex items-center justify-between pb-2.5 mb-1.5 border-b border-gray-100">

@@ -20,13 +20,14 @@ export class CanvasDesignManager {
     this.activeLayerId = null;
     this.listeners = [];
 
-    // Three.js Texture
+    // Three.js Texture (High-resolution with 16x anisotropic filtering to eliminate blur in motion)
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.flipY = false; // Required for GLTF UV coordinates
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.minFilter = THREE.LinearMipMapLinearFilter;
+    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.generateMipmaps = true;
+    this.texture.anisotropy = 16;
 
     // Dedicated Transparent Decal Texture (Zero background patch on 3D meshes)
     this.decalCanvas = document.createElement('canvas');
@@ -37,9 +38,10 @@ export class CanvasDesignManager {
     this.decalTexture = new THREE.CanvasTexture(this.decalCanvas);
     this.decalTexture.flipY = false;
     this.decalTexture.colorSpace = THREE.SRGBColorSpace;
-    this.decalTexture.minFilter = THREE.LinearMipMapLinearFilter;
+    this.decalTexture.minFilter = THREE.LinearMipmapLinearFilter;
     this.decalTexture.magFilter = THREE.LinearFilter;
     this.decalTexture.generateMipmaps = true;
+    this.decalTexture.anisotropy = 16;
 
     // Initial render
     this.render();
@@ -167,6 +169,14 @@ export class CanvasDesignManager {
     const dCtx = this.decalCtx;
     const S = this.size;
 
+    // Enable ultra-high quality smoothing for razor-sharp artwork
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (dCtx) {
+      dCtx.imageSmoothingEnabled = true;
+      dCtx.imageSmoothingQuality = 'high';
+    }
+
     // 1. Fill base garment color (pure, plain and clean) for t-shirt full UV map
     ctx.fillStyle = this.garmentColor;
     ctx.fillRect(0, 0, S, S);
@@ -197,30 +207,53 @@ export class CanvasDesignManager {
           const w = baseW * (layer.scale || 1.0);
           const h = w / aspect;
 
-          // Draw image centered
-          targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
-
-          // Puff print subtle 3D border highlight
+          // Puff print: apply rich 3D embossed depth and subtle drop shadow
           if (layer.printType === 'puff') {
             targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+            targetCtx.shadowBlur = 12;
+            targetCtx.shadowOffsetX = 0;
+            targetCtx.shadowOffsetY = 6;
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            targetCtx.restore();
+
+            // Crisp top bevel highlight
+            targetCtx.save();
             targetCtx.globalCompositeOperation = 'source-atop';
-            targetCtx.strokeStyle = 'rgba(255,255,255,0.18)';
-            targetCtx.lineWidth = 4;
+            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+            targetCtx.lineWidth = 3;
             targetCtx.strokeRect(-w / 2, -h / 2, w, h);
             targetCtx.restore();
+          } else {
+            // Screen print / direct ink: ultra-crisp render
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
           }
         } else if (layer.type === 'text' && layer.text) {
-          targetCtx.fillStyle = layer.textColor || '#000000';
           const fontSize = (layer.fontSize || 48) * (layer.scale || 1.0);
           targetCtx.font = `bold ${fontSize}px "${layer.fontFamily || 'Inter'}", sans-serif`;
           targetCtx.textAlign = 'center';
           targetCtx.textBaseline = 'middle';
-          targetCtx.fillText(layer.text, 0, 0);
 
           if (layer.printType === 'puff') {
-            targetCtx.strokeStyle = 'rgba(255,255,255,0.22)';
-            targetCtx.lineWidth = 2;
+            // Rich puff print drop shadow
+            targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.50)';
+            targetCtx.shadowBlur = 14;
+            targetCtx.shadowOffsetX = 0;
+            targetCtx.shadowOffsetY = 6;
+            targetCtx.fillStyle = layer.textColor || '#000000';
+            targetCtx.fillText(layer.text, 0, 0);
+            targetCtx.restore();
+
+            // Bevel edge highlight
+            targetCtx.save();
+            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            targetCtx.lineWidth = Math.max(1, fontSize * 0.035);
             targetCtx.strokeText(layer.text, 0, 0);
+            targetCtx.restore();
+          } else {
+            targetCtx.fillStyle = layer.textColor || '#000000';
+            targetCtx.fillText(layer.text, 0, 0);
           }
         }
 

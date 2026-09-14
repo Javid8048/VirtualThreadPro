@@ -7,6 +7,7 @@ import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { GetStartedModal } from './components/GetStartedModal';
 import { StaticGarmentView } from './components/StaticGarmentView';
 import { LandingPage } from './components/LandingPage';
+import { HeaderNav } from './components/HeaderNav';
 import { SceneManager } from './three/SceneManager';
 
 export default function App() {
@@ -80,10 +81,38 @@ export default function App() {
 
   const handleSelectGarmentFromLanding = (type) => {
     handleGarmentTypeChange(type);
+    setPositionGuideOpen(true);
     setCurrentPage('studio');
   };
   window.__SELECT_GARMENT_FROM_LANDING__ = handleSelectGarmentFromLanding;
   window.__SET_CURRENT_PAGE__ = setCurrentPage;
+
+  const handleBackToLanding = () => {
+    const hasDesigns = designManager && designManager.layers && designManager.layers.length > 0;
+    if (hasDesigns) {
+      const confirmDiscard = window.confirm("Confirm you want to discard the design");
+      if (confirmDiscard) {
+        if (designManager) {
+          designManager.clearLayers();
+        }
+        if (sceneManagerRef.current) {
+          sceneManagerRef.current.setAnimationMode('static');
+          sceneManagerRef.current.setCameraPreset('front');
+        }
+        setAnimationMode('static');
+        setInteractionMode('orbit');
+        setCurrentPage('landing');
+      }
+    } else {
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.setAnimationMode('static');
+      }
+      setAnimationMode('static');
+      setInteractionMode('orbit');
+      setCurrentPage('landing');
+    }
+  };
+  window.__HANDLE_BACK_TO_LANDING__ = handleBackToLanding;
 
   // Ensure Three.js canvas resizes cleanly whenever entering studio
   useEffect(() => {
@@ -145,6 +174,9 @@ export default function App() {
 
   const handleInteractionModeChange = (mode) => {
     setInteractionMode(mode);
+    if (mode === 'dragDesign') {
+      setPositionGuideOpen(true);
+    }
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setInteractionMode(mode);
     }
@@ -273,21 +305,34 @@ export default function App() {
         </div>
       )}
 
-      {/* Studio UI Controls (Sidebar, Position Guide, Fullscreen) */}
+      {/* Studio UI Controls (Top Menu Bar, Sidebar, Position Guide) */}
       {currentPage === 'studio' && (
         <>
-          {/* Top Right Fullscreen Button */}
-          <button
-            onClick={toggleFullscreen}
-            className={`absolute top-6 ${positionGuideOpen ? 'right-[464px]' : 'right-6'} p-2.5 rounded-2xl bg-studio-900/80 backdrop-blur-md border border-studio-800 text-white shadow-xl hover:bg-studio-800 transition-all z-20`}
-            title="Toggle Fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-          </button>
+          {/* Top Menu Bar: Rotate, Design Drag, Camera Presets, 360 Turntable, Garment Switcher & Export */}
+          <HeaderNav
+            currentGarmentType={garmentType}
+            onSelectGarment={handleGarmentTypeChange}
+            onOpenProductsCatalog={() => setProductsCatalogOpen(true)}
+            interactionMode={interactionMode}
+            onInteractionModeChange={handleInteractionModeChange}
+            currentCamera="front"
+            onCameraChange={handleCameraChange}
+            animationMode={animationMode}
+            onToggleTurntable={() => handleAnimationModeChange(animationMode === 'turntable' ? 'static' : 'turntable')}
+            positionGuideOpen={positionGuideOpen}
+            onTogglePositionGuide={() => setPositionGuideOpen(!positionGuideOpen)}
+            onOpenExport={(tab = 'video') => {
+              setExportModalTab(typeof tab === 'string' ? tab : 'video');
+              setExportModalOpen(true);
+            }}
+            onBackToLanding={handleBackToLanding}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+          />
 
           {/* Left Floating Menu */}
           <SidebarLeft
-            onBackToLanding={() => setCurrentPage('landing')}
+            onBackToLanding={handleBackToLanding}
             garmentColor={garmentColor}
         onGarmentColorChange={handleGarmentColorChange}
         backdropMode={backdropMode}
