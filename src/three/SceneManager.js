@@ -856,7 +856,7 @@ export class SceneManager {
         for (let i = 0; i < bPos.count; i++) {
           const x = bPos.getX(i);
           const y = bPos.getY(i);
-          bPos.setZ(i, (x * x) * 0.10 - (y * y) * 0.02);
+          bPos.setZ(i, Math.abs(x) * 0.16 - (y * y) * 0.02);
         }
         backDecalGeom.computeVertexNormals();
 
@@ -869,7 +869,7 @@ export class SceneManager {
         bUvs.needsUpdate = true;
 
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.85, -0.89);
+        this.hoodieDecalMeshBack.position.set(0, 0.85, -0.90);
         this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
         this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
