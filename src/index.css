@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+/* Custom Scrollbar for studio panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 18, 25, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(66, 88, 216, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(66, 88, 216, 0.6);
+}
+
+/* Range input styling */
+input[type="range"] {
+  @apply accent-brand-500 bg-studio-800 rounded-lg cursor-pointer h-1.5;
+}
+
+/* Studio Canvas Container */
+canvas:focus {
+  outline: none;
+}

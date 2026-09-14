@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="2048" height="2048">
+  <defs>
+    <style>
+      .panel { fill: #f5f5f7; stroke: #e0e0e6; stroke-width: 3; }
+      .label { fill: #b8b8c2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 800; letter-spacing: 6px; text-anchor: middle; dominant-baseline: middle; }
+      .sublabel { fill: #d0d0d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 3px; text-anchor: middle; dominant-baseline: middle; }
+      .center-mark { stroke: #dcdce2; stroke-width: 2; stroke-dasharray: 8,8; }
+    </style>
+  </defs>
+
+  <!-- Top Collar Rib Pieces -->
+  <path class="panel" d="M 370 420 C 370 540, 690 540, 690 420 C 690 465, 370 465, 370 420 Z" />
+  <path class="panel" d="M 1360 420 C 1360 480, 1680 480, 1680 420 C 1680 450, 1360 450, 1360 420 Z" />
+
+  <!-- FRONT PANEL (Left) -->
+  <!-- Outline based on CLO3D/GLTF UV coordinates: Center approx x=530, y=1050 -->
+  <path class="panel" d="
+    M 375 585
+    C 450 670, 610 670, 685 585
+    L 940 700
+    L 870 1020
+    L 815 1020
+    L 815 1580
+    L 245 1580
+    L 245 1020
+    L 190 1020
+    L 120 700
+    Z
+  " />
+
+  <!-- Front Print Safe Area Guide (Subtle Dashed Box) -->
+  <rect x="360" y="750" width="340" height="420" rx="12" fill="none" stroke="#e8e8ee" stroke-width="2" stroke-dasharray="6,6" />
+  <line x1="530" y1="730" x2="530" y2="1190" class="center-mark" />
+
+  <!-- FRONT Label -->
+  <text x="530" y="960" class="label">FRONT</text>
+  <text x="530" y="1020" class="sublabel">CHEST PRINT AREA</text>
+
+  <!-- BACK PANEL (Right) -->
+  <!-- Outline based on CLO3D/GLTF UV coordinates: Center approx x=1520, y=1050 -->
+  <path class="panel" d="
+    M 1365 605
+    C 1440 645, 1600 645, 1675 605
+    L 1930 700
+    L 1860 1020
+    L 1805 1020
+    L 1805 1580
+    L 1235 1580
+    L 1235 1020
+    L 1180 1020
+    L 1110 700
+    Z
+  " />
+
+  <!-- Back Print Safe Area Guide (Subtle Dashed Box) -->
+  <rect x="1350" y="750" width="340" height="420" rx="12" fill="none" stroke="#e8e8ee" stroke-width="2" stroke-dasharray="6,6" />
+  <line x1="1520" y1="730" x2="1520" y2="1190" class="center-mark" />
+
+  <!-- BACK Label -->
+  <text x="1520" y="960" class="label">BACK</text>
+  <text x="1520" y="1020" class="sublabel">CENTER BACK AREA</text>
+
+  <!-- Bottom Sleeve Panels -->
+  <path class="panel" d="M 230 1710 L 830 1710 L 800 1960 L 260 1960 Z" />
+  <text x="530" y="1840" class="sublabel">LEFT SLEEVE</text>
+
+  <path class="panel" d="M 1220 1710 L 1820 1710 L 1790 1960 L 1250 1960 Z" />
+  <text x="1520" y="1840" class="sublabel">RIGHT SLEEVE</text>
+</svg>
