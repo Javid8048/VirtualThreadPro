@@ -222,18 +222,18 @@ export class SceneManager {
 
     this.decalMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.decalTexture,
-      roughness: 0.82,
-      metalness: 0.02,
+      roughness: 0.96,
+      metalness: 0.0,
       normalMap: normalMap,
       normalScale: new THREE.Vector2(0.25, 0.25),
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.02,
+      alphaTest: 0.01,
       depthWrite: false,
       polygonOffset: true,
-      polygonOffsetFactor: -2.0,
-      polygonOffsetUnits: -2.0
+      polygonOffsetFactor: -4.0,
+      polygonOffsetUnits: -4.0
     });
   }
 
@@ -390,6 +390,8 @@ export class SceneManager {
     if (t === 'sweatpants') return this.pantsDecalMeshThigh || this.realPantsRoot;
     if (t === 'cap') return this.capDecalMeshFront || this.realCapRoot;
     if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
+      const activeSide = this.designManager?.getActiveLayer()?.side;
+      if (activeSide === 'back' && this.hoodieDecalMeshBack) return this.hoodieDecalMeshBack;
       return this.hoodieDecalMeshFront || this.realHoodieRoot;
     }
     if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
@@ -654,8 +656,9 @@ export class SceneManager {
         // Streetwear catalog 3/4 beauty perspective
         this.camera.position.set(2.8, 1.6, 13.5);
       } else if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') {
-        // Optimal framing for official streetwear hoodie
-        this.camera.position.set(0, 0, 26.5);
+        // Optimal framing for official streetwear hoodie (centered between sidebar and position guide)
+        this.camera.position.set(-0.55, 0.15, 23.5);
+        this.controls.target.set(-0.55, 0.15, 0);
       } else {
         // Standard studio framing for sweatpants, t-shirt
         this.camera.position.set(0, 0, 24.5);
@@ -776,9 +779,8 @@ export class SceneManager {
       map: hoodieDiffuse,
       normalMap: hoodieNormal,
       normalScale: new THREE.Vector2(0.35, 0.35),
-      roughnessMap: hoodieRoughness,
-      roughness: 0.85,
-      metalness: 0.02,
+      roughness: 0.96,
+      metalness: 0.0,
       side: THREE.DoubleSide
     });
 
@@ -799,10 +801,10 @@ export class SceneManager {
           this.hoodieMixer.setTime(0.033); // Frame 1: natural relaxed symmetrical standing pose!
         }
 
-        // Align ModelPosition_Hoodie as configured in virtualthreads visual_logic
+        // Align ModelPosition_Hoodie symmetrically at origin
         const mp = hoodieModel.getObjectByName('ModelPosition_Hoodie');
         if (mp) {
-          mp.position.set(0, 2, 0);
+          mp.position.set(0, 0, 0);
           mp.rotation.set(0, 0, 0);
         }
 
@@ -818,36 +820,57 @@ export class SceneManager {
           }
         });
 
-        // Center the hoodie at (0, 0, 0)
-        hoodieModel.position.set(-5.0, 1.2, 0);
+        // Center the hoodie model at origin (0, 0, 0)
+        hoodieModel.position.set(0, 0, 0);
         this.realHoodieRoot.add(hoodieModel);
 
-        // Front Chest Decal Mesh (conforming flush to front chest)
-        const frontDecalGeom = new THREE.PlaneGeometry(2.4, 2.4, 16, 16);
+        // Front Chest Decal Mesh (curved flush to front chest surface)
+        const frontDecalGeom = new THREE.PlaneGeometry(2.4, 2.2, 16, 16);
+        const fPos = frontDecalGeom.attributes.position;
+        for (let i = 0; i < fPos.count; i++) {
+          const x = fPos.getX(i);
+          const y = fPos.getY(i);
+          fPos.setZ(i, (x * x) * 0.04 - (y * y) * 0.01);
+        }
+        frontDecalGeom.computeVertexNormals();
+
+        // Correct UV mapping (upright, readable left-to-right, centered at 530, 800)
         const fUvs = frontDecalGeom.attributes.uv;
         for (let i = 0; i < fUvs.count; i++) {
           const u = fUvs.getX(i);
           const v = fUvs.getY(i);
-          fUvs.setXY(i, 0.06 + u * 0.40, 0.28 + v * 0.40);
+          fUvs.setXY(i, 0.0888 + u * 0.34, 0.5606 - v * 0.34);
         }
         fUvs.needsUpdate = true;
+
         this.hoodieDecalMeshFront = new THREE.Mesh(frontDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshFront.position.set(0, 0.55, 1.30);
+        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.45);
+        this.hoodieDecalMeshFront.rotation.set(-0.25, 0, 0);
+        this.hoodieDecalMeshFront.renderOrder = 2;
         this.hoodieDecalMeshFront.visible = false;
         this.realHoodieRoot.add(this.hoodieDecalMeshFront);
 
-        // Back Torso Decal Mesh
-        const backDecalGeom = new THREE.PlaneGeometry(2.4, 2.5, 16, 16);
+        // Back Torso Decal Mesh (curved flush to back torso surface)
+        const backDecalGeom = new THREE.PlaneGeometry(2.4, 2.4, 16, 16);
+        const bPos = backDecalGeom.attributes.position;
+        for (let i = 0; i < bPos.count; i++) {
+          const x = bPos.getX(i);
+          bPos.setZ(i, (x * x) * 0.06);
+        }
+        backDecalGeom.computeVertexNormals();
+
         const bUvs = backDecalGeom.attributes.uv;
         for (let i = 0; i < bUvs.count; i++) {
           const u = bUvs.getX(i);
           const v = bUvs.getY(i);
-          bUvs.setXY(i, 0.54 + u * 0.40, 0.28 + v * 0.40);
+          bUvs.setXY(i, 0.9122 - u * 0.34, 0.5606 - v * 0.34);
         }
         bUvs.needsUpdate = true;
+
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.55, -1.30);
-        this.hoodieDecalMeshBack.rotation.y = Math.PI;
+        this.hoodieDecalMeshBack.position.set(0, 1.05, -0.88);
+        this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
+        this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
         this.realHoodieRoot.add(this.hoodieDecalMeshBack);
 
@@ -1165,9 +1188,21 @@ export class SceneManager {
 
     const isPants = (this.garmentType === 'sweatpants');
     const isCap = (this.garmentType === 'cap');
+    const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie' || this.garmentType === 'hanging_hoodie');
     let controlsTarget = new THREE.Vector3(0, 0, 0);
 
-    if (isPants) {
+    if (isHoodie) {
+      controlsTarget.set(-0.55, 0.15, 0);
+      switch (view) {
+        case 'front': targetPos.set(-0.55, 0.15, 23.5); break;
+        case 'back': targetPos.set(-0.55, 0.15, -23.5); break;
+        case 'hero': targetPos.set(11.5, 1.8, 19.0); break;
+        case 'chest':
+        default:
+          targetPos.set(-0.55, 1.0, 14.0);
+          break;
+      }
+    } else if (isPants) {
       controlsTarget.set(0, 0, 0);
       switch (view) {
         case 'front': targetPos.set(0, 0, 24.5); break;
