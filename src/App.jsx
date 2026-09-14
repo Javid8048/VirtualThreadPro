@@ -15,11 +15,16 @@ export default function App() {
   const fileInputRef = useRef(null);
   const uploadTargetSideRef = useRef('front');
 
+  // URL search params support (e.g. ?garment=hoodie or ?page=studio)
+  const initialParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const initialGarment = initialParams.get('garment') || 'oversized_tee';
+  const initialPage = initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing');
+
   // App Page Route State ('landing' | 'studio')
-  const [currentPage, setCurrentPage] = useState('landing');
+  const [currentPage, setCurrentPage] = useState(initialPage);
 
   // Garment Blank Type State (11 Blanks from virtualthreads.io/products)
-  const [garmentType, setGarmentType] = useState('oversized_tee');
+  const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -51,6 +56,7 @@ export default function App() {
     });
 
     sceneManagerRef.current = sm;
+    sm.setGarmentType(garmentType);
     window.__SCENE_MANAGER__ = sm;
     setDesignManager(sm.designManager);
 
@@ -123,9 +129,10 @@ export default function App() {
   };
 
   const handleAnimationModeChange = (mode) => {
-    setAnimationMode(mode);
+    const normalizedMode = (mode === 'walk') ? 'walking' : (mode === 'none') ? 'static' : (mode === 'wind') ? 'waves' : mode;
+    setAnimationMode(normalizedMode);
     if (sceneManagerRef.current) {
-      sceneManagerRef.current.setAnimationMode(mode);
+      sceneManagerRef.current.setAnimationMode(normalizedMode);
     }
   };
 

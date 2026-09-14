@@ -142,7 +142,7 @@ export function SidebarRight({
           <button
             onClick={() => onAnimationModeChange('wind')}
             className={`p-2.5 rounded-xl border text-left transition-all ${
-              animationMode === 'wind'
+              (animationMode === 'wind' || animationMode === 'waves')
                 ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
                 : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
             }`}
@@ -157,7 +157,7 @@ export function SidebarRight({
           <button
             onClick={() => onAnimationModeChange('walk')}
             className={`p-2.5 rounded-xl border text-left transition-all ${
-              animationMode === 'walk'
+              (animationMode === 'walk' || animationMode === 'walking')
                 ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
                 : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
             }`}
@@ -172,7 +172,7 @@ export function SidebarRight({
           <button
             onClick={() => onAnimationModeChange('none')}
             className={`p-2.5 rounded-xl border text-left transition-all ${
-              animationMode === 'none'
+              (animationMode === 'none' || animationMode === 'static')
                 ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
                 : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
             }`}

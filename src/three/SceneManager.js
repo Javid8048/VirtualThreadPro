@@ -144,8 +144,19 @@ export class SceneManager {
     this.realCapRoot = null;
     this.hoodieDecalMeshFront = null;
     this.hoodieDecalMeshBack = null;
+    this.hoodieDecalsGroup = null;
     this.hoodieMixer = null;
     this.hoodieWalkAction = null;
+    this.hoodieIdleAction = null;
+    this.hoodieWalkClip = null;
+    this.hoodieIdleClip = null;
+    this.hoodieSpine2Bone = null;
+    this.hoodieSpine2M0 = null;
+    this.hoodieInvSpine2M0 = null;
+    this.tempScale = new THREE.Vector3();
+    this.invRealHoodieRootMatrix = new THREE.Matrix4();
+    this.currentSpine2LocalMatrix = new THREE.Matrix4();
+    this.hoodieDeltaMatrix = new THREE.Matrix4();
     this.hoodieFabricMaterial = null;
     this.pantsDecalMeshThigh = null;
     this.pantsDecalMeshPocket = null;
@@ -488,6 +499,9 @@ export class SceneManager {
     if (this.actions['tshirt_walking']) {
       this.actions['tshirt_walking'].setEffectiveTimeScale(speed);
     }
+    if (this.hoodieWalkAction) {
+      this.hoodieWalkAction.setEffectiveTimeScale(speed);
+    }
   }
 
   setupLighting(preset = 'studio') {
@@ -647,6 +661,7 @@ export class SceneManager {
   setGarmentType(type) {
     this.garmentType = type || 'oversized_tee';
     this.applyGarmentTypeVisibility();
+    this.setAnimationMode(this.animationMode);
     this.triggerLoadedIfReady();
 
     // Auto adjust camera focus & framing per garment silhouette
@@ -792,15 +807,6 @@ export class SceneManager {
 
         const hoodieModel = gltf.scene;
 
-        // Setup walking animation from virtualthreads
-        if (gltf.animations && gltf.animations.length > 0) {
-          this.hoodieMixer = new THREE.AnimationMixer(hoodieModel);
-          const walkClip = gltf.animations.find(a => a.name === 'WALK_Hoodie') || gltf.animations[0];
-          this.hoodieWalkAction = this.hoodieMixer.clipAction(walkClip);
-          this.hoodieWalkAction.play();
-          this.hoodieMixer.setTime(0.033); // Frame 1: natural relaxed symmetrical standing pose!
-        }
-
         // Align ModelPosition_Hoodie symmetrically at origin
         const mp = hoodieModel.getObjectByName('ModelPosition_Hoodie');
         if (mp) {
@@ -823,6 +829,45 @@ export class SceneManager {
         // Center the hoodie model at origin (0, 0, 0)
         hoodieModel.position.set(0, 0, 0);
         this.realHoodieRoot.add(hoodieModel);
+
+        // Setup authentic walk cycle animation from virtualthreads
+        if (gltf.animations && gltf.animations.length > 0) {
+          this.hoodieMixer = new THREE.AnimationMixer(hoodieModel);
+          const masterClip = gltf.animations.find(a => a.name === 'WALK_Hoodie') || gltf.animations[0];
+
+          // Subclip the clean, in-place walk cycle (frames 3 to 34 at 30 fps, duration 1.033s)
+          // The raw 10.9s master clip contains walk, crouch, jump, side look, and run.
+          // Frames 3..34 provide the authentic, smooth in-place runway stride loop with identical start/end keys.
+          this.hoodieWalkClip = THREE.AnimationUtils.subclip(masterClip, 'WALK_Loop', 3, 34, 30);
+          this.hoodieIdleClip = THREE.AnimationUtils.subclip(masterClip, 'IDLE_Pose', 0, 2, 30);
+
+          this.hoodieWalkAction = this.hoodieMixer.clipAction(this.hoodieWalkClip);
+          this.hoodieWalkAction.setLoop(THREE.LoopRepeat, Infinity);
+          this.hoodieWalkAction.clampWhenFinished = false;
+
+          this.hoodieIdleAction = this.hoodieMixer.clipAction(this.hoodieIdleClip);
+          this.hoodieIdleAction.setLoop(THREE.LoopRepeat, Infinity);
+          this.hoodieIdleAction.clampWhenFinished = false;
+
+          // Start in IDLE relaxed symmetrical standing pose
+          this.hoodieIdleAction.play();
+          this.hoodieMixer.update(0);
+        }
+
+        // Chest bone tracking for decal mesh lock
+        this.hoodieSpine2Bone = hoodieModel.getObjectByName('mixamorigSpine2');
+        if (this.hoodieSpine2Bone) {
+          hoodieModel.updateMatrixWorld(true);
+          this.realHoodieRoot.updateMatrixWorld(true);
+
+          const invRoot0 = this.realHoodieRoot.matrixWorld.clone().invert();
+          this.hoodieSpine2M0 = new THREE.Matrix4().multiplyMatrices(invRoot0, this.hoodieSpine2Bone.matrixWorld);
+          this.hoodieInvSpine2M0 = this.hoodieSpine2M0.clone().invert();
+        }
+
+        // Decals rig group that follows chest bone during animation
+        this.hoodieDecalsGroup = new THREE.Group();
+        this.hoodieDecalsGroup.name = 'hoodie_decals_group';
 
         // Front Chest Decal Mesh (curved flush to front chest surface)
         const frontDecalGeom = new THREE.PlaneGeometry(2.7, 2.4, 16, 16);
@@ -848,17 +893,10 @@ export class SceneManager {
         this.hoodieDecalMeshFront.rotation.set(-0.25, 0, 0);
         this.hoodieDecalMeshFront.renderOrder = 2;
         this.hoodieDecalMeshFront.visible = false;
-        this.realHoodieRoot.add(this.hoodieDecalMeshFront);
+        this.hoodieDecalsGroup.add(this.hoodieDecalMeshFront);
 
-        // Back Torso Decal Mesh (curved flush to back torso surface below hood)
-        const backDecalGeom = new THREE.PlaneGeometry(2.7, 2.4, 16, 16);
-        const bPos = backDecalGeom.attributes.position;
-        for (let i = 0; i < bPos.count; i++) {
-          const x = bPos.getX(i);
-          const y = bPos.getY(i);
-          bPos.setZ(i, Math.abs(x) * 0.16 - (y * y) * 0.02);
-        }
-        backDecalGeom.computeVertexNormals();
+        // Back Torso Decal Mesh (smooth planar flush to back torso surface below hood)
+        const backDecalGeom = new THREE.PlaneGeometry(2.7, 2.4);
 
         const bUvs = backDecalGeom.attributes.uv;
         for (let i = 0; i < bUvs.count; i++) {
@@ -869,11 +907,13 @@ export class SceneManager {
         bUvs.needsUpdate = true;
 
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.85, -0.90);
+        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.02);
         this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
         this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
-        this.realHoodieRoot.add(this.hoodieDecalMeshBack);
+        this.hoodieDecalsGroup.add(this.hoodieDecalMeshBack);
+
+        this.realHoodieRoot.add(this.hoodieDecalsGroup);
 
         this.scene.add(this.realHoodieRoot);
         this.applyGarmentTypeVisibility();
@@ -1112,6 +1152,9 @@ export class SceneManager {
   }
 
   setAnimationMode(mode) {
+    if (mode === 'walk') mode = 'walking';
+    if (mode === 'wind') mode = 'waves';
+    if (mode === 'none') mode = 'static';
     this.animationMode = mode;
 
     // Reset current actions
@@ -1169,12 +1212,24 @@ export class SceneManager {
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
     }
 
-    if (this.hoodieMixer && this.hoodieWalkAction) {
+    if (this.hoodieMixer) {
       if (mode === 'walking') {
-        this.hoodieWalkAction.paused = false;
+        if (this.hoodieIdleAction) this.hoodieIdleAction.stop();
+        if (this.hoodieWalkAction) {
+          this.hoodieWalkAction.reset();
+          this.hoodieWalkAction.setEffectiveTimeScale(this.walkSpeed || 1.0);
+          this.hoodieWalkAction.play();
+        }
       } else {
-        this.hoodieWalkAction.paused = true;
-        this.hoodieMixer.setTime(0.033);
+        if (this.hoodieWalkAction) this.hoodieWalkAction.stop();
+        if (this.hoodieIdleAction) {
+          this.hoodieIdleAction.reset();
+          this.hoodieIdleAction.play();
+        }
+        if (this.hoodieDecalsGroup) {
+          this.hoodieDecalsGroup.position.set(0, 0, 0);
+          this.hoodieDecalsGroup.quaternion.identity();
+        }
       }
     }
 
@@ -1282,6 +1337,14 @@ export class SceneManager {
     }
     if (this.hoodieMixer && this.animationMode === 'walking' && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
       this.hoodieMixer.update(delta);
+
+      // Lock front and back decal meshes to upper chest bone during walk animation
+      if (this.hoodieSpine2Bone && this.hoodieDecalsGroup && this.realHoodieRoot && this.hoodieInvSpine2M0) {
+        this.invRealHoodieRootMatrix.copy(this.realHoodieRoot.matrixWorld).invert();
+        this.currentSpine2LocalMatrix.multiplyMatrices(this.invRealHoodieRootMatrix, this.hoodieSpine2Bone.matrixWorld);
+        this.hoodieDeltaMatrix.multiplyMatrices(this.currentSpine2LocalMatrix, this.hoodieInvSpine2M0);
+        this.hoodieDeltaMatrix.decompose(this.hoodieDecalsGroup.position, this.hoodieDecalsGroup.quaternion, this.tempScale);
+      }
     }
 
     // 360 Turntable rotation of garment
