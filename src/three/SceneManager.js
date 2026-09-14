@@ -850,12 +850,13 @@ export class SceneManager {
         this.hoodieDecalMeshFront.visible = false;
         this.realHoodieRoot.add(this.hoodieDecalMeshFront);
 
-        // Back Torso Decal Mesh (curved flush to back torso surface)
+        // Back Torso Decal Mesh (curved flush to back torso surface below hood)
         const backDecalGeom = new THREE.PlaneGeometry(2.4, 2.4, 16, 16);
         const bPos = backDecalGeom.attributes.position;
         for (let i = 0; i < bPos.count; i++) {
           const x = bPos.getX(i);
-          bPos.setZ(i, (x * x) * 0.06);
+          const y = bPos.getY(i);
+          bPos.setZ(i, (x * x) * 0.12 - (y * y) * 0.02);
         }
         backDecalGeom.computeVertexNormals();
 
@@ -863,12 +864,12 @@ export class SceneManager {
         for (let i = 0; i < bUvs.count; i++) {
           const u = bUvs.getX(i);
           const v = bUvs.getY(i);
-          bUvs.setXY(i, 0.9122 - u * 0.34, 0.5606 - v * 0.34);
+          bUvs.setXY(i, 0.5722 + u * 0.34, 0.5606 - v * 0.34);
         }
         bUvs.needsUpdate = true;
 
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 1.05, -0.88);
+        this.hoodieDecalMeshBack.position.set(0, 0.85, -0.89);
         this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
         this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
