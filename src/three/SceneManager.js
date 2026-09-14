@@ -825,12 +825,12 @@ export class SceneManager {
         this.realHoodieRoot.add(hoodieModel);
 
         // Front Chest Decal Mesh (curved flush to front chest surface)
-        const frontDecalGeom = new THREE.PlaneGeometry(2.4, 2.2, 16, 16);
+        const frontDecalGeom = new THREE.PlaneGeometry(2.7, 2.4, 16, 16);
         const fPos = frontDecalGeom.attributes.position;
         for (let i = 0; i < fPos.count; i++) {
           const x = fPos.getX(i);
           const y = fPos.getY(i);
-          fPos.setZ(i, (x * x) * 0.04 - (y * y) * 0.01);
+          fPos.setZ(i, (x * x) * 0.035 - (y * y) * 0.01);
         }
         frontDecalGeom.computeVertexNormals();
 
@@ -839,7 +839,7 @@ export class SceneManager {
         for (let i = 0; i < fUvs.count; i++) {
           const u = fUvs.getX(i);
           const v = fUvs.getY(i);
-          fUvs.setXY(i, 0.0888 + u * 0.34, 0.5606 - v * 0.34);
+          fUvs.setXY(i, 0.0588 + u * 0.40, 0.5906 - v * 0.40);
         }
         fUvs.needsUpdate = true;
 
@@ -851,12 +851,12 @@ export class SceneManager {
         this.realHoodieRoot.add(this.hoodieDecalMeshFront);
 
         // Back Torso Decal Mesh (curved flush to back torso surface below hood)
-        const backDecalGeom = new THREE.PlaneGeometry(2.4, 2.4, 16, 16);
+        const backDecalGeom = new THREE.PlaneGeometry(2.7, 2.4, 16, 16);
         const bPos = backDecalGeom.attributes.position;
         for (let i = 0; i < bPos.count; i++) {
           const x = bPos.getX(i);
           const y = bPos.getY(i);
-          bPos.setZ(i, (x * x) * 0.12 - (y * y) * 0.02);
+          bPos.setZ(i, (x * x) * 0.10 - (y * y) * 0.02);
         }
         backDecalGeom.computeVertexNormals();
 
@@ -864,7 +864,7 @@ export class SceneManager {
         for (let i = 0; i < bUvs.count; i++) {
           const u = bUvs.getX(i);
           const v = bUvs.getY(i);
-          bUvs.setXY(i, 0.5722 + u * 0.34, 0.5606 - v * 0.34);
+          bUvs.setXY(i, 0.5422 + u * 0.40, 0.5906 - v * 0.40);
         }
         bUvs.needsUpdate = true;
 

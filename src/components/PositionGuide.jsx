@@ -512,35 +512,51 @@ export function PositionGuide({
           )}
 
           {/* Draggable Layer Overlays */}
-          {layers.map((layer) => {
-            const isActive = layer.id === (designManager?.activeLayerId);
-            const isImage = layer.type === 'image' && layer.image;
-            const baseW = 420;
-            const aspect = isImage && layer.image.width && layer.image.height
-              ? layer.image.width / layer.image.height
-              : 1;
-            const wPercent = ((baseW * (layer.scale || 1.0)) / 2048) * 100;
-            const hPercent = wPercent / aspect;
-            const leftPercent = (layer.x / 2048) * 100;
-            const topPercent = (layer.y / 2048) * 100;
+          {(() => {
+            const isSingleGarmentView = currentGarmentType !== 'oversized_tee' && currentGarmentType !== 'regular_tee' && currentGarmentType !== 'cropped_tee';
+            const displayedLayers = isSingleGarmentView
+              ? layers.filter((l) => (l.side || 'front') === selectedSide)
+              : layers;
 
-            return (
-              <div
-                key={layer.id}
-                onPointerDown={(e) => handleLayerPointerDown(e, layer.id)}
-                style={{
-                  left: `${leftPercent}%`,
-                  top: `${topPercent}%`,
-                  width: `${wPercent}%`,
-                  height: isImage ? `${hPercent}%` : 'auto',
-                  transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`,
-                }}
-                className={`absolute touch-none select-none z-20 flex items-center justify-center ${
-                  isActive
-                    ? 'cursor-grab active:cursor-grabbing ring-2 ring-indigo-600 ring-offset-2 rounded shadow-lg'
-                    : 'cursor-pointer hover:ring-2 hover:ring-gray-400/60 rounded opacity-80'
-                }`}
-              >
+            return displayedLayers.map((layer) => {
+              const isActive = layer.id === (designManager?.activeLayerId);
+              const isImage = layer.type === 'image' && layer.image;
+              const baseW = 420;
+              const aspect = isImage && layer.image.width && layer.image.height
+                ? layer.image.width / layer.image.height
+                : 1;
+              const wPercent = ((baseW * (layer.scale || 1.0)) / 2048) * 100 * (isSingleGarmentView ? 1.6 : 1.0);
+              const hPercent = wPercent / aspect;
+
+              let leftPercent, topPercent;
+              if (isSingleGarmentView) {
+                const sideCenterX = layer.side === 'back' ? 1520 : 530;
+                const offsetX = layer.x - sideCenterX;
+                const offsetY = layer.y - 800;
+                leftPercent = 50 + (offsetX / 2048) * 100 * 2.0;
+                topPercent = 42 + (offsetY / 2048) * 100 * 2.0;
+              } else {
+                leftPercent = (layer.x / 2048) * 100;
+                topPercent = (layer.y / 2048) * 100;
+              }
+
+              return (
+                <div
+                  key={layer.id}
+                  onPointerDown={(e) => handleLayerPointerDown(e, layer.id)}
+                  style={{
+                    left: `${leftPercent}%`,
+                    top: `${topPercent}%`,
+                    width: `${wPercent}%`,
+                    height: isImage ? `${hPercent}%` : 'auto',
+                    transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`,
+                  }}
+                  className={`absolute touch-none select-none z-20 flex items-center justify-center ${
+                    isActive
+                      ? 'cursor-grab active:cursor-grabbing ring-2 ring-indigo-600 ring-offset-2 rounded shadow-lg'
+                      : 'cursor-pointer hover:ring-2 hover:ring-gray-400/60 rounded opacity-80'
+                  }`}
+                >
                 {isImage ? (
                   <img
                     src={layer.image.src}
@@ -575,7 +591,8 @@ export function PositionGuide({
                 )}
               </div>
             );
-          })}
+          });
+        })()}
 
           {/* Empty hint */}
           {currentSideLayers.length === 0 && (
