@@ -256,8 +256,19 @@ export default function App() {
     }
   };
 
+  // Ensure landing page has active scrollbar, and studio is locked to viewport
+  useEffect(() => {
+    if (currentPage === 'landing') {
+      document.documentElement.style.overflowY = 'auto';
+      document.body.style.overflowY = 'auto';
+    } else {
+      document.documentElement.style.overflowY = 'hidden';
+      document.body.style.overflowY = 'hidden';
+    }
+  }, [currentPage]);
+
   return (
-    <div className={`relative h-screen w-screen overflow-hidden ${getBackdropClass()}`}>
+    <div className={`relative w-full ${currentPage === 'landing' ? 'min-h-screen' : 'h-screen w-screen overflow-hidden'} ${getBackdropClass()}`}>
       
       {/* Hidden Global File Input */}
       <input
