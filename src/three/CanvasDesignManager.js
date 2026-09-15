@@ -108,8 +108,8 @@ export class CanvasDesignManager {
       image: null, // HTMLImageElement or dataUrl
       text: 'VIRTUAL THREADS',
       textColor: '#000000',
-      fontSize: 48,
-      fontFamily: 'Inter',
+      fontSize: 12,
+      fontFamily: 'Roboto',
       x: side === 'back' ? 1520 : 530,
       y: 800,
       scale: 1.0,
@@ -229,8 +229,8 @@ export class CanvasDesignManager {
             targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
           }
         } else if (layer.type === 'text' && layer.text) {
-          const fontSize = (layer.fontSize || 48) * (layer.scale || 1.0);
-          targetCtx.font = `bold ${fontSize}px "${layer.fontFamily || 'Inter'}", sans-serif`;
+          const fontSize = ((layer.fontSize || 12) * 4) * (layer.scale || 1.0);
+          targetCtx.font = `bold ${fontSize}px "${layer.fontFamily || 'Roboto'}", sans-serif`;
           targetCtx.textAlign = 'center';
           targetCtx.textBaseline = 'middle';
 

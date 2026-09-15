@@ -29,6 +29,7 @@ export function PositionGuide({
   const fileInputRef = useRef(null);
   const garmentColorInputRef = useRef(null);
   const textColorInputRef = useRef(null);
+  const textInputRef = useRef(null);
   const containerRef = useRef(null);
 
   // Sync state with designManager
@@ -81,12 +82,13 @@ export function PositionGuide({
   const handleAddText = () => {
     if (!designManager) return;
     const centerX = selectedSide === 'back' ? 1520 : 530;
+    const textToAdd = textInput.trim() || 'CUSTOM TEXT';
     const newLayer = designManager.addLayer({
       type: 'text',
       side: selectedSide,
-      text: textInput || 'VIRTUAL THREADS',
+      text: textToAdd,
       textColor: textColor,
-      fontSize: fontSize * 4, // Scale for 2048px canvas
+      fontSize: fontSize || 12,
       fontFamily: fontFamily,
       x: centerX,
       y: 920,
@@ -97,6 +99,19 @@ export function PositionGuide({
     if (newLayer) {
       setActiveLayerId(newLayer.id);
       showFeedback('Text decal added');
+      setTimeout(() => textInputRef.current?.focus(), 50);
+    }
+  };
+
+  // Live text input editing for selected text layer
+  const handleTextChange = (e) => {
+    const val = e.target.value;
+    setTextInput(val);
+    if (designManager && activeLayerId) {
+      const active = designManager.getActiveLayer();
+      if (active && active.type === 'text') {
+        designManager.updateLayer(activeLayerId, { text: val });
+      }
     }
   };
 
@@ -108,11 +123,20 @@ export function PositionGuide({
     }
   };
 
+  // Font size handler: exact point size without jumping
   const handleFontSizeChange = (e) => {
-    const sz = Math.max(6, Math.min(72, parseInt(e.target.value) || 12));
+    const raw = e.target.value;
+    if (raw === '') {
+      setFontSize('');
+      return;
+    }
+    const sz = Math.max(1, Math.min(120, parseInt(raw, 10) || 12));
     setFontSize(sz);
     if (designManager && activeLayerId) {
-      designManager.updateLayer(activeLayerId, { fontSize: sz * 4 });
+      const active = designManager.getActiveLayer();
+      if (active && active.type === 'text') {
+        designManager.updateLayer(activeLayerId, { fontSize: sz });
+      }
     }
   };
 
@@ -425,17 +449,31 @@ export function PositionGuide({
       </div>
 
       {/* ========================================================================= */}
-      {/* ROW 2: Add Text Button | Text Color Swatch | Font Size | Font Family Dropdown */}
+      {/* ROW 2: Add Text Button | Text Input Box | Text Color Swatch | Font Size | Font Family Dropdown */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-2.5 px-5 py-2.5 bg-[#f8f9fa] border-b border-gray-100">
+      <div className="flex items-center gap-2 px-5 py-2.5 bg-[#f8f9fa] border-b border-gray-100">
         {/* Add Text Pill Button */}
         <button
           type="button"
           onClick={handleAddText}
-          className="px-3.5 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-300 rounded-md shadow-2xs hover:bg-gray-50 active:scale-95 transition-all shrink-0"
+          className="px-3 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-300 rounded-md shadow-2xs hover:bg-gray-50 active:scale-95 transition-all shrink-0"
         >
           Add Text
         </button>
+
+        {/* Input box for typing custom text */}
+        <input
+          ref={textInputRef}
+          type="text"
+          value={textInput}
+          onChange={handleTextChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleAddText();
+          }}
+          placeholder="Enter text..."
+          className="flex-1 min-w-[90px] h-7 px-2.5 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded shadow-2xs placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
+          title="Type text to add or edit"
+        />
 
         {/* Circular Text Color Swatch */}
         <button
@@ -451,8 +489,8 @@ export function PositionGuide({
           type="number"
           value={fontSize}
           onChange={handleFontSizeChange}
-          min="6"
-          max="72"
+          min="1"
+          max="120"
           className="w-11 h-7 px-1 text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
           title="Font Size"
         />
@@ -461,7 +499,7 @@ export function PositionGuide({
         <select
           value={fontFamily}
           onChange={handleFontFamilyChange}
-          className="h-7 px-2 text-xs font-medium text-gray-800 bg-white border border-gray-300 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer flex-1 min-w-0"
+          className="h-7 px-2 text-xs font-medium text-gray-800 bg-white border border-gray-300 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-24 shrink-0"
           title="Font Family"
         >
           <option value="Roboto">Roboto</option>
@@ -642,7 +680,7 @@ export function PositionGuide({
                     <div
                       style={{
                         color: layer.textColor || '#000000',
-                        fontSize: 'clamp(10px, 2.5vw, 16px)',
+                        fontSize: `${Math.max(9, (layer.fontSize || 12) * 1.15)}px`,
                         fontFamily: layer.fontFamily || 'Roboto',
                         fontWeight: 'bold',
                         whiteSpace: 'nowrap',
