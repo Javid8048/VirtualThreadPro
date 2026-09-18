@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { 
   Info, Sparkles, Layers, Box, Check, ArrowRight, 
   ExternalLink, ShieldCheck, Shirt, Search, Play, 
-  Sliders, Compass, Video, Eye, X
+  Sliders, Compass, Video, Eye, X, Sun, Moon
 } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 import { getAssetUrl } from '../utils/assets';
+import { WaterWaveCanvas } from './WaterWaveCanvas';
 
 // Garment categories definition
 const CATEGORIES = [
@@ -35,7 +36,9 @@ const BLANK_SPECS = {
 export function LandingPage({
   onSelectGarment,
   onOpenPricing,
-  onOpenCatalog
+  onOpenCatalog,
+  theme = 'dark',
+  onToggleTheme
 }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,18 +73,19 @@ export function LandingPage({
   }, [selectedCategory, searchQuery]);
 
   return (
-    <div className="min-h-screen w-full bg-[#090b10] text-gray-100 font-sans selection:bg-brand-500 selection:text-white flex flex-col justify-between">
+    <div className="min-h-screen w-full bg-[#f8f9fc] dark:bg-[#090b10] text-gray-900 dark:text-gray-100 font-sans selection:bg-brand-500 selection:text-white flex flex-col justify-between transition-colors duration-300">
       
-      {/* Background Ambient Glows */}
+      {/* Background Interactive Liquid Water Moving Animation */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute top-[-10%] left-[20%] w-[600px] h-[500px] bg-blue-600/10 rounded-full blur-[140px]" />
-        <div className="absolute top-[40%] right-[10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[160px]" />
-        <div className="absolute bottom-[-10%] left-[30%] w-[700px] h-[400px] bg-purple-600/10 rounded-full blur-[150px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:28px_28px] opacity-60" />
+        <WaterWaveCanvas theme={theme} />
+        <div className="absolute top-[-10%] left-[20%] w-[600px] h-[500px] bg-blue-600/10 dark:bg-blue-600/15 rounded-full blur-[140px]" />
+        <div className="absolute top-[35%] right-[10%] w-[500px] h-[500px] bg-cyan-500/10 dark:bg-cyan-500/10 rounded-full blur-[160px]" />
+        <div className="absolute bottom-[-10%] left-[30%] w-[700px] h-[400px] bg-purple-600/10 dark:bg-indigo-600/15 rounded-full blur-[150px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(#00000008_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:28px_28px] opacity-50" />
       </div>
 
       {/* Modern Studio Glassmorphic Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#090b10]/85 backdrop-blur-xl transition-all">
+      <header className="sticky top-0 z-40 w-full border-b border-gray-200/80 dark:border-white/10 bg-white/85 dark:bg-[#090b10]/85 backdrop-blur-xl transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           
           {/* Logo Brand */}
@@ -98,42 +102,42 @@ export function LandingPage({
               </svg>
             </div>
             <div>
-              <div className="font-display font-black text-lg tracking-tight text-white flex items-center gap-2">
+              <div className="font-display font-black text-lg tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
                 <span>VirtualThreads</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30">
+                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-brand-500/15 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/30">
                   3D Studio
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 font-medium hidden sm:block">Interactive 3D Apparel Mockups</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium hidden sm:block">Interactive 3D Apparel Mockups</p>
             </div>
           </div>
 
           {/* Quick Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-300">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600 dark:text-gray-300">
             <button 
               onClick={() => {
                 const catalogEl = document.getElementById('garments-section');
                 catalogEl?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="hover:text-white transition-colors"
+              className="hover:text-black dark:hover:text-white transition-colors"
             >
               Blank Garments
             </button>
             <button 
               onClick={() => onSelectGarment('oversized_tee')}
-              className="hover:text-white transition-colors flex items-center gap-1.5"
+              className="hover:text-black dark:hover:text-white transition-colors flex items-center gap-1.5"
             >
               <span>Position Guide</span>
             </button>
             <button 
               onClick={() => onSelectGarment('oversized_tee')}
-              className="hover:text-white transition-colors"
+              className="hover:text-black dark:hover:text-white transition-colors"
             >
               3D Animations
             </button>
             <button 
               onClick={onOpenCatalog}
-              className="hover:text-white transition-colors"
+              className="hover:text-black dark:hover:text-white transition-colors"
             >
               Specifications
             </button>
@@ -141,6 +145,17 @@ export function LandingPage({
 
           {/* Right Action */}
           <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            {onToggleTheme && (
+              <button
+                onClick={onToggleTheme}
+                className="p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white shadow-sm hover:scale-105 active:scale-95 transition-all"
+                title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {theme === 'dark' ? <Sun className="size-4 text-amber-400" /> : <Moon className="size-4 text-indigo-600" />}
+              </button>
+            )}
+
             <button
               onClick={() => onSelectGarment('oversized_tee')}
               className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 shadow-lg shadow-brand-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
@@ -156,43 +171,66 @@ export function LandingPage({
       <section className="relative z-10 pt-12 sm:pt-16 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
         
         {/* Accent Tag */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-xs font-semibold text-gray-300 mb-6 backdrop-blur-md">
-          <span className="size-2 rounded-full bg-brand-accent animate-pulse" />
-          <span>Real-Time 3D Apparel Mockups with Walking Physics</span>
+        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/90 dark:bg-white/[0.08] border border-gray-200/90 dark:border-white/15 text-xs font-semibold text-gray-800 dark:text-zinc-200 mb-6 backdrop-blur-xl shadow-md">
+          <span className="size-2 rounded-full bg-brand-accent animate-ping" />
+          <span className="font-extrabold uppercase tracking-wider text-[11px] bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-300 bg-clip-text text-transparent">
+            Real-Time 3D Apparel Mockups with Walking Physics
+          </span>
         </div>
 
         {/* Hero Title */}
-        <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl tracking-tight text-white max-w-4xl leading-[1.1] mb-6">
-          Next-Generation 3D Apparel Mockup & Animation Studio
+        <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-gray-900 dark:text-white max-w-5xl leading-[1.1] mb-6">
+          Next-Generation 3D Apparel Mockup &amp; <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-cyan-400 dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent">Animation Studio</span>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base sm:text-lg text-gray-400 max-w-2xl leading-relaxed mb-10">
-          Select from 11 photorealistic streetwear blanks, map custom graphics with the 2D Position Guide, apply 3D puff print textures, and render smooth 60fps walking animations.
+        <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl leading-relaxed mb-8 font-medium">
+          Select from 11 photorealistic streetwear blanks, map custom graphics with the 2D Position Guide, apply 3D puff print textures, and render smooth walking animations.
         </p>
+
+        {/* CTA Button Group */}
+        <div className="flex flex-wrap items-center justify-center gap-3.5 mb-12">
+          <button
+            onClick={() => onSelectGarment('oversized_tee')}
+            className="px-7 py-3.5 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:via-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-600/30 hover:scale-[1.03] active:scale-[0.98] transition-all flex items-center gap-2.5 group"
+          >
+            <span>Launch 3D Studio</span>
+            <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+          <button
+            onClick={() => {
+              const catalogEl = document.getElementById('garments-section');
+              catalogEl?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-6 py-3.5 rounded-2xl text-sm font-bold text-gray-800 dark:text-white bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.12] border border-gray-200/90 dark:border-white/15 backdrop-blur-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+          >
+            <Shirt className="size-4 text-indigo-500 dark:text-brand-accent" />
+            <span>Explore 11 Blanks</span>
+          </button>
+        </div>
 
         {/* Studio Highlights Pills */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full max-w-3xl mb-12">
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md flex flex-col items-center justify-center">
-            <span className="font-display font-black text-xl text-white">11</span>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Studio Blanks</span>
+          <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-white/[0.04] border border-gray-200/90 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center shadow-sm hover:border-brand-500/40 transition-colors">
+            <span className="font-display font-black text-xl text-gray-900 dark:text-white">11</span>
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Studio Blanks</span>
           </div>
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md flex flex-col items-center justify-center">
-            <span className="font-display font-black text-xl text-brand-400">4K WebGL</span>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Realtime Engine</span>
+          <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-white/[0.04] border border-gray-200/90 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center shadow-sm hover:border-brand-500/40 transition-colors">
+            <span className="font-display font-black text-xl text-brand-600 dark:text-brand-400">4K WebGL</span>
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Realtime Engine</span>
           </div>
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md flex flex-col items-center justify-center">
-            <span className="font-display font-black text-xl text-purple-400">3D Physics</span>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Walk & Gravity Sway</span>
+          <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-white/[0.04] border border-gray-200/90 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center shadow-sm hover:border-brand-500/40 transition-colors">
+            <span className="font-display font-black text-xl text-purple-600 dark:text-purple-400">3D Physics</span>
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Walk &amp; Gravity Sway</span>
           </div>
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md flex flex-col items-center justify-center">
-            <span className="font-display font-black text-xl text-emerald-400">1:1 Decals</span>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Position Guide</span>
+          <div className="p-3.5 rounded-2xl bg-white/85 dark:bg-white/[0.04] border border-gray-200/90 dark:border-white/10 backdrop-blur-md flex flex-col items-center justify-center shadow-sm hover:border-brand-500/40 transition-colors">
+            <span className="font-display font-black text-xl text-emerald-600 dark:text-emerald-400">1:1 Decals</span>
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Position Guide</span>
           </div>
         </div>
 
         {/* Search & Category Filter Toolbar */}
-        <div id="garments-section" className="w-full max-w-5xl bg-[#121622]/90 border border-white/10 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-xl flex flex-col gap-4">
+        <div id="garments-section" className="w-full max-w-5xl bg-white/90 dark:bg-[#121622]/90 border border-gray-200/90 dark:border-white/10 rounded-3xl p-4 sm:p-5 shadow-xl dark:shadow-2xl backdrop-blur-xl flex flex-col gap-4">
           
           {/* Top Row: Search Input */}
           <div className="relative w-full">
@@ -202,12 +240,12 @@ export function LandingPage({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search blank garments by style, fabric weight, or fit (e.g., French Terry, Hoodie, Oversized)..."
-              className="w-full bg-[#0d1017] border border-white/10 rounded-2xl pl-11 pr-10 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+              className="w-full bg-gray-50 dark:bg-[#0d1017] border border-gray-200 dark:border-white/10 rounded-2xl pl-11 pr-10 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-white/10"
               >
                 <X className="size-3.5" />
               </button>
@@ -225,11 +263,11 @@ export function LandingPage({
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 shrink-0 ${
                     isActive
                       ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 ring-1 ring-white/20'
-                      : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/5'
+                      : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white border border-gray-200/60 dark:border-white/5'
                   }`}
                 >
                   <span>{cat.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-black/25 text-white' : 'bg-white/10 text-gray-400'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-black/25 text-white' : 'bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400'}`}>
                     {cat.count}
                   </span>
                 </button>
@@ -279,21 +317,21 @@ export function LandingPage({
                 key={product.id}
                 data-garment-id={product.id}
                 onClick={() => onSelectGarment(product.id)}
-                className="group relative flex flex-col rounded-3xl bg-[#121622] border border-white/10 hover:border-brand-500/50 shadow-xl hover:shadow-2xl hover:shadow-brand-500/10 overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1.5"
+                className="group relative flex flex-col rounded-3xl bg-white dark:bg-[#121622] border border-gray-200/90 dark:border-white/10 hover:border-brand-500/50 shadow-md hover:shadow-2xl hover:shadow-brand-500/10 overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1.5"
               >
                 {/* Upper Image Card */}
-                <div className="relative aspect-[4/3] w-full bg-gradient-to-b from-[#181d2a] to-[#121622] flex items-center justify-center p-6 overflow-hidden">
+                <div className="relative aspect-[4/3] w-full bg-gradient-to-b from-gray-100 to-gray-50 dark:from-[#181d2a] dark:to-[#121622] flex items-center justify-center p-6 overflow-hidden">
                   
                   {/* Subtle Glow */}
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(66,88,216,0.12),transparent_70%)] group-hover:opacity-100 transition-opacity" />
 
                   {/* Top Badges */}
                   <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-black/50 text-white border border-white/10 backdrop-blur-md">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-black/60 text-white border border-white/10 backdrop-blur-md">
                       {product.category}
                     </span>
                     {spec.gsm && (
-                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 backdrop-blur-md">
+                      <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-brand-500/20 text-brand-700 dark:text-brand-300 border border-brand-500/30 backdrop-blur-md">
                         {spec.gsm}
                       </span>
                     )}
@@ -318,10 +356,10 @@ export function LandingPage({
                 </div>
 
                 {/* Card Content & Details */}
-                <div className="p-5 flex flex-col flex-1 justify-between bg-[#10131d] border-t border-white/5">
+                <div className="p-5 flex flex-col flex-1 justify-between bg-white dark:bg-[#10131d] border-t border-gray-100 dark:border-white/5">
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-display font-black text-sm tracking-tight text-white group-hover:text-brand-400 transition-colors uppercase">
+                      <h3 className="font-display font-black text-sm tracking-tight text-gray-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors uppercase">
                         {product.title}
                       </h3>
                       <button
@@ -330,38 +368,16 @@ export function LandingPage({
                           e.stopPropagation();
                           setActiveInfoGarment(product);
                         }}
-                        className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+                        className="text-gray-400 hover:text-black dark:hover:text-white p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shrink-0"
                         title="View Blank Specifications"
                       >
                         <Info className="size-4" />
                       </button>
                     </div>
 
-                    <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
                       {product.description}
                     </p>
-                  </div>
-
-                  {/* Fit & Animation Tags */}
-                  <div className="pt-3 border-t border-white/5 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-[11px] text-gray-300">
-                      <span className="text-gray-500 font-medium">Silhouette:</span>
-                      <span className="font-semibold text-gray-200">{spec.fit || 'Tailored'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-gray-300">
-                      <span className="text-gray-500 font-medium">Animation:</span>
-                      <span className="font-semibold text-brand-300">{spec.anim || 'Walk & 360°'}</span>
-                    </div>
-
-                    {/* Action Button */}
-                    <button
-                      type="button"
-                      onClick={() => onSelectGarment(product.id)}
-                      className="mt-3 w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-brand-500 text-gray-200 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 border border-white/10 hover:border-brand-500 active:scale-[0.98]"
-                    >
-                      <span>Launch 3D Customizer</span>
-                      <ArrowRight className="size-3.5" />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -371,58 +387,58 @@ export function LandingPage({
       </section>
 
       {/* Feature Pillars: Real-Time 3D Capabilities */}
-      <section className="relative z-10 border-t border-white/10 bg-[#07090d] py-16">
+      <section className="relative z-10 border-t border-gray-200/80 dark:border-white/10 bg-gray-50/80 dark:bg-[#07090d] py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-extrabold uppercase tracking-widest text-brand-400">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-brand-600 dark:text-brand-400">
               Studio Architecture
             </span>
-            <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight mt-2 mb-3">
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-gray-900 dark:text-white tracking-tight mt-2 mb-3">
               Built for Streetwear Designers & Apparel Brands
             </h2>
-            <p className="text-xs sm:text-sm text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Complete creative control from flat 2D pattern guides to photorealistic 3D garment animations.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 rounded-3xl bg-[#0f121a] border border-white/10 flex flex-col gap-3">
-              <div className="size-11 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <div className="p-6 rounded-3xl bg-white dark:bg-[#0f121a] border border-gray-200/90 dark:border-white/10 shadow-sm flex flex-col gap-3">
+              <div className="size-11 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 dark:text-blue-400">
                 <Play className="size-5" />
               </div>
-              <h3 className="font-display font-black text-sm text-white">Real-Time Walking Physics</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <h3 className="font-display font-black text-sm text-gray-900 dark:text-white">Real-Time Walking Physics</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                 Realistic cloth dynamics with walking strides, running motions, side looks, and natural gravity fabric wrinkles.
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-[#0f121a] border border-white/10 flex flex-col gap-3">
-              <div className="size-11 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+            <div className="p-6 rounded-3xl bg-white dark:bg-[#0f121a] border border-gray-200/90 dark:border-white/10 shadow-sm flex flex-col gap-3">
+              <div className="size-11 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-600 dark:text-brand-400">
                 <Compass className="size-5" />
               </div>
-              <h3 className="font-display font-black text-sm text-white">2D Position Guide</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <h3 className="font-display font-black text-sm text-gray-900 dark:text-white">2D Position Guide</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                 Precision flat garment schematic with collar rib, front chest, back torso, and sleeve placement mapped 1:1 to 3D.
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-[#0f121a] border border-white/10 flex flex-col gap-3">
-              <div className="size-11 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <div className="p-6 rounded-3xl bg-white dark:bg-[#0f121a] border border-gray-200/90 dark:border-white/10 shadow-sm flex flex-col gap-3">
+              <div className="size-11 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 dark:text-purple-400">
                 <Layers className="size-5" />
               </div>
-              <h3 className="font-display font-black text-sm text-white">Puff Print & Embroidery</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <h3 className="font-display font-black text-sm text-gray-900 dark:text-white">Puff Print & Embroidery</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                 Tactile 3D normal-map extrusion for elevated puff prints, screen prints, acid wash, and fine embroidery relief.
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-[#0f121a] border border-white/10 flex flex-col gap-3">
-              <div className="size-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="p-6 rounded-3xl bg-white dark:bg-[#0f121a] border border-gray-200/90 dark:border-white/10 shadow-sm flex flex-col gap-3">
+              <div className="size-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                 <Video className="size-5" />
               </div>
-              <h3 className="font-display font-black text-sm text-white">4K Video & 3D glTF Export</h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Capture 60fps rotating video loops, high-resolution 4K transparent PNGs, and download standard glTF/GLB models.
+              <h3 className="font-display font-black text-sm text-gray-900 dark:text-white">4K Video & Snapshot Export</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                Capture 30fps rotating video loops, high-resolution 4K transparent PNGs, and crisp social media reels.
               </p>
             </div>
           </div>
@@ -430,16 +446,16 @@ export function LandingPage({
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-[#050609] py-10 text-xs text-gray-500">
+      <footer className="relative z-10 border-t border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#050609] py-10 text-xs text-gray-500 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <div className="size-6 rounded-lg bg-brand-500 flex items-center justify-center text-white text-[10px] font-bold">
               VT
             </div>
-            <span className="font-display font-bold text-gray-400">VirtualThreads 3D Mockup Studio</span>
+            <span className="font-display font-bold text-gray-700 dark:text-gray-400">VirtualThreads 3D Mockup Studio</span>
           </div>
           <p className="text-center sm:text-right text-gray-500">
-            Professional 3D apparel customization for modern streetwear brands.
+            Studio-grade 3D apparel customization for modern streetwear brands.
           </p>
         </div>
       </footer>
@@ -447,27 +463,27 @@ export function LandingPage({
       {/* Blank Specifications Info Modal */}
       {activeInfoGarment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-[#121622] text-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-white/10">
+          <div className="bg-white dark:bg-[#121622] text-gray-900 dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-gray-200 dark:border-white/10">
             <button
               onClick={() => setActiveInfoGarment(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+              className="absolute top-4 right-4 text-gray-400 hover:text-black dark:hover:text-white p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             >
               <X className="size-4" />
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="size-10 rounded-2xl bg-brand-500/20 text-brand-400 border border-brand-500/30 flex items-center justify-center">
+              <div className="size-10 rounded-2xl bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/30 flex items-center justify-center">
                 <Shirt className="size-5" />
               </div>
               <div>
-                <h3 className="font-display font-black text-base text-white">{activeInfoGarment.title}</h3>
-                <span className="text-xs font-semibold text-brand-400 uppercase tracking-wider">
+                <h3 className="font-display font-black text-base text-gray-900 dark:text-white">{activeInfoGarment.title}</h3>
+                <span className="text-xs font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
                   {activeInfoGarment.category}
                 </span>
               </div>
             </div>
 
-            <div className="w-full aspect-video bg-[#0d1017] rounded-2xl flex items-center justify-center p-4 mb-4 border border-white/10">
+            <div className="w-full aspect-video bg-gray-50 dark:bg-[#0d1017] rounded-2xl flex items-center justify-center p-4 mb-4 border border-gray-200 dark:border-white/10">
               <img
                 src={getAssetUrl(`/garments/${activeInfoGarment.id}.png`)}
                 alt={activeInfoGarment.title}
@@ -475,14 +491,14 @@ export function LandingPage({
               />
             </div>
 
-            <p className="text-xs text-gray-300 mb-4 leading-relaxed">
+            <p className="text-xs text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
               {activeInfoGarment.description}
             </p>
 
             <div className="space-y-2 mb-6">
               {activeInfoGarment.features.map((feat, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-gray-200 font-medium">
-                  <Check className="size-3.5 text-emerald-400 shrink-0" />
+                <div key={i} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-200 font-medium">
+                  <Check className="size-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
                   <span>{feat}</span>
                 </div>
               ))}
@@ -502,7 +518,7 @@ export function LandingPage({
               </button>
               <button
                 onClick={() => setActiveInfoGarment(null)}
-                className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5"
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
               >
                 Close
               </button>

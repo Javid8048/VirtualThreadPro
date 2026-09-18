@@ -81,7 +81,7 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
  * Photorealistic 3D Scene Manager using the official VirtualThreads 3D T-shirt model.
  */
 export class SceneManager {
-  constructor(canvasContainer, onLoaded = () => {}) {
+  constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'oversized_tee') {
     this.container = canvasContainer;
     this.width = canvasContainer.clientWidth || window.innerWidth;
     this.height = canvasContainer.clientHeight || window.innerHeight;
@@ -132,11 +132,29 @@ export class SceneManager {
     this.turntableSpeed = 0.8;
 
     // Apparel styling & fit options
-    this.garmentType = 'oversized_tee';
+    this.garmentType = initialGarmentType;
     this.attachmentsGroup = null;
     this.garmentColor = '#ffffff';
     this.acidWash = 0.0;
     this.puffPrint = 0.0;
+
+    // On-demand model loading status
+    this.modelsLoading = {
+      tshirt: false,
+      hoodie: false,
+      pants: false,
+      cap: false
+    };
+    this.modelsLoaded = {
+      tshirt: false,
+      hoodie: false,
+      pants: false,
+      cap: false
+    };
+    this.tshirtCallbacks = [];
+    this.hoodieCallbacks = [];
+    this.pantsCallbacks = [];
+    this.capCallbacks = [];
 
     // Real 3D Garment Models (Hoodie GLB, Pants OBJ, Cap OBJ)
     this.realHoodieRoot = null;
@@ -181,13 +199,13 @@ export class SceneManager {
     this.initMaterials();
     this.setupGarmentAttachments();
 
-    // 9. Load 3D models concurrently in parallel
-    this.loadRealGarmentModels();
-    this.loadModel();
+    // 9. Load ONLY the active garment model on demand (avoid downloading 46MB upfront)
+    this.ensureGarmentModelLoaded(this.garmentType);
 
     // Loop
     this.clock = new THREE.Clock();
     this.isDisposed = false;
+    this.animFrameId = null;
 
     this.handleResize = this.handleResize.bind(this);
     window.addEventListener('resize', this.handleResize);
@@ -195,7 +213,7 @@ export class SceneManager {
     this.setupInteractions();
 
     this.animate = this.animate.bind(this);
-    requestAnimationFrame(this.animate);
+    this.animFrameId = requestAnimationFrame(this.animate);
 
     // Fallback safety: ensure loading overlay clears even on very slow networks
     setTimeout(() => {
@@ -216,13 +234,13 @@ export class SceneManager {
     if (this.designManager.texture) this.designManager.texture.anisotropy = maxAniso;
     if (this.designManager.decalTexture) this.designManager.decalTexture.anisotropy = maxAniso;
 
-    // Clean, 100% plain photorealistic cloth material with dynamic 2048x2048 canvas
+    // Clean, 100% plain photorealistic cloth material with dynamic 4096x4096 canvas
     this.shirtMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.texture,
-      roughness: 0.78,
+      roughness: 0.82,
       metalness: 0.02,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.25, 0.25),
+      normalScale: new THREE.Vector2(0.16, 0.16),
       side: THREE.DoubleSide
     });
     applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor);
@@ -256,18 +274,7 @@ export class SceneManager {
 
   triggerLoadedIfReady(force = false) {
     if (this.hasTriggeredLoaded) return;
-    const t = this.garmentType || 'oversized_tee';
-    const isHoodie = (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie');
-    const isPants = (t === 'sweatpants');
-    const isCap = (t === 'cap');
-    const isTshirt = !isHoodie && !isPants && !isCap;
-
-    let ready = force;
-    if (isHoodie && this.realHoodieRoot) ready = true;
-    else if (isPants && this.realPantsRoot) ready = true;
-    else if (isCap && this.realCapRoot) ready = true;
-    else if (isTshirt && this.tshirtStatic) ready = true;
-    else if (this.realHoodieRoot || this.tshirtStatic || this.realPantsRoot) ready = true;
+    const ready = force || this.isGarmentModelLoaded(this.garmentType);
 
     if (ready) {
       this.hasTriggeredLoaded = true;
@@ -277,7 +284,69 @@ export class SceneManager {
     }
   }
 
-  loadModel() {
+  getGarmentFamily(type) {
+    const t = type || this.garmentType || 'oversized_tee';
+    if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') return 'hoodie';
+    if (t === 'sweatpants') return 'pants';
+    if (t === 'cap') return 'cap';
+    return 'tshirt';
+  }
+
+  isGarmentModelLoaded(type) {
+    const family = this.getGarmentFamily(type);
+    return !!this.modelsLoaded[family];
+  }
+
+  ensureGarmentModelLoaded(type, onComplete) {
+    const family = this.getGarmentFamily(type);
+    if (this.modelsLoaded[family]) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    if (family === 'hoodie') {
+      this.loadHoodieModel(() => {
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
+        if (onComplete) onComplete();
+      });
+    } else if (family === 'pants') {
+      this.loadPantsModel(() => {
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
+        if (onComplete) onComplete();
+      });
+    } else if (family === 'cap') {
+      this.loadCapModel(() => {
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
+        if (onComplete) onComplete();
+      });
+    } else {
+      this.loadTshirtModel(() => {
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
+        if (onComplete) onComplete();
+      });
+    }
+  }
+
+  loadModel(onDone) {
+    return this.loadTshirtModel(onDone);
+  }
+
+  loadTshirtModel(onDone) {
+    if (this.modelsLoaded.tshirt) {
+      if (onDone) onDone();
+      return;
+    }
+    if (this.modelsLoading.tshirt) {
+      if (onDone) this.tshirtCallbacks.push(onDone);
+      return;
+    }
+    this.modelsLoading.tshirt = true;
+    if (onDone) this.tshirtCallbacks.push(onDone);
+
     const loader = new GLTFLoader();
     loader.load(
       getAssetUrl('/models/tshirt-sizingtest.gltf'),
@@ -354,12 +423,9 @@ export class SceneManager {
               action.setLoop(THREE.LoopRepeat, Infinity);
               this.actions[clip.name] = action;
             } else if (clip.name === 'tshirt_walking') {
-              // Construct a 100% seamless, continuous walking cycle:
-              // The walking mesh has 16 morph targets (0..15), where Target 15 is 100% identical to Target 0.
-              // We rebuild 16 continuous keyframes so Target 15 seamlessly transitions into Target 0 across the loop boundary with ZERO pop or glitch.
               const numTargets = 16;
-              const duration = 0.96; // Smooth, natural runway stride cadence (~62 strides/min)
-              const dt = duration / (numTargets - 1); // 15 intervals
+              const duration = 0.96;
+              const dt = duration / (numTargets - 1);
               const times = new Float32Array(numTargets);
               const values = new Float32Array(numTargets * numTargets);
 
@@ -391,13 +457,20 @@ export class SceneManager {
         }
 
         this.scene.add(gltf.scene);
+        this.modelsLoaded.tshirt = true;
+        this.modelsLoading.tshirt = false;
         this.setAnimationMode(this.animationMode);
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
+
+        const cbs = [...this.tshirtCallbacks];
+        this.tshirtCallbacks = [];
+        cbs.forEach(cb => cb());
       },
       undefined,
       (err) => {
         console.error('Error loading 3D apparel model:', err);
+        this.modelsLoading.tshirt = false;
       }
     );
   }
@@ -455,8 +528,10 @@ export class SceneManager {
           clientY: e.clientY,
           startX: activeLayer.x,
           startY: activeLayer.y,
+          startScale: activeLayer.scale || 1.0,
           layerId: activeLayer.id,
-          side: activeLayer.side || 'front'
+          side: activeLayer.side || 'front',
+          isResizing: e.altKey || false
         };
 
         // If direct UV hit on mesh, also snap to raycast position
@@ -465,7 +540,7 @@ export class SceneManager {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const mesh = this.getActiveMesh();
-        if (mesh) {
+        if (mesh && !e.altKey) {
           const intersects = this.raycaster.intersectObject(mesh, false);
           if (intersects.length > 0 && intersects[0].uv) {
             const uv = intersects[0].uv;
@@ -485,6 +560,14 @@ export class SceneManager {
       if (this.is3DDragging && this.dragStart) {
         const deltaX = (e.clientX - this.dragStart.clientX);
         const deltaY = (e.clientY - this.dragStart.clientY);
+
+        // Resize mode (via Alt+Drag or isResizing flag)
+        if (this.dragStart.isResizing || e.altKey) {
+          const scaleFactor = (deltaX - deltaY) * 0.006;
+          const newScale = Math.max(0.2, Math.min(3.5, (this.dragStart.startScale || 1.0) + scaleFactor));
+          this.designManager.updateLayer(this.dragStart.layerId, { scale: parseFloat(newScale.toFixed(2)) });
+          return;
+        }
 
         // Check if viewing front or back of model
         const isBackView = this.camera.position.z < 0;
@@ -516,6 +599,19 @@ export class SceneManager {
 
     dom.addEventListener('pointerup', stop3DDrag);
     dom.addEventListener('pointercancel', stop3DDrag);
+
+    // Mouse wheel resizing when in Drag Design mode
+    dom.addEventListener('wheel', (e) => {
+      if (this.interactionMode === 'dragDesign') {
+        const activeLayer = this.designManager?.getActiveLayer() || this.designManager?.layers[0];
+        if (activeLayer) {
+          e.preventDefault();
+          const zoomDelta = -Math.sign(e.deltaY) * 0.05;
+          const newScale = Math.max(0.2, Math.min(3.5, (activeLayer.scale || 1.0) + zoomDelta));
+          this.designManager.updateLayer(activeLayer.id, { scale: parseFloat(newScale.toFixed(2)) });
+        }
+      }
+    }, { passive: false });
   }
 
   setWalkSpeed(speed) {
@@ -532,42 +628,43 @@ export class SceneManager {
     Object.values(this.lights).forEach((l) => this.scene.remove(l));
     this.lights = {};
 
-    if (preset === 'studio') {
-      // Key light - crisp directional illumination
-      const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-      keyLight.position.set(6, 8, 16);
-      this.scene.add(keyLight);
-      this.lights.key = keyLight;
+    // Standard high-end photorealistic studio lighting rig (always active for all presets/backdrops)
+    // Key light - crisp directional illumination
+    const keyIntensity = preset === 'light' ? 2.0 : 2.4;
+    const keyLight = new THREE.DirectionalLight(0xffffff, keyIntensity);
+    keyLight.position.set(6, 8, 16);
+    this.scene.add(keyLight);
+    this.lights.key = keyLight;
 
-      // Soft fill light
-      const fillLight = new THREE.DirectionalLight(0xe8f0ff, 1.3);
-      fillLight.position.set(-8, 3, 12);
-      this.scene.add(fillLight);
-      this.lights.fill = fillLight;
+    // Soft fill light
+    const fillLight = new THREE.DirectionalLight(0xe8f0ff, 1.4);
+    fillLight.position.set(-8, 3, 12);
+    this.scene.add(fillLight);
+    this.lights.fill = fillLight;
 
-      // Rim light - definition and separation
-      const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.5);
-      rimLight.position.set(0, 10, -12);
-      this.scene.add(rimLight);
-      this.lights.rim = rimLight;
+    // Rim light - definition and separation
+    const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.6);
+    rimLight.position.set(0, 10, -12);
+    this.scene.add(rimLight);
+    this.lights.rim = rimLight;
 
-      // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
-      const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 1.0);
-      frontGraphicLight.position.set(0, 1.5, 14);
-      this.scene.add(frontGraphicLight);
-      this.lights.frontGraphic = frontGraphicLight;
+    // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
+    const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    frontGraphicLight.position.set(0, 1.5, 14);
+    this.scene.add(frontGraphicLight);
+    this.lights.frontGraphic = frontGraphicLight;
 
-      // Dedicated Back Graphic Light - keeps back prints bright and clear when rotated
-      const backGraphicLight = new THREE.DirectionalLight(0xffffff, 1.0);
-      backGraphicLight.position.set(0, 1.5, -14);
-      this.scene.add(backGraphicLight);
-      this.lights.backGraphic = backGraphicLight;
+    // Dedicated Back Graphic Light - keeps back prints bright and clear when rotated
+    const backGraphicLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    backGraphicLight.position.set(0, 1.5, -14);
+    this.scene.add(backGraphicLight);
+    this.lights.backGraphic = backGraphicLight;
 
-      // Ambient light
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.95);
-      this.scene.add(ambLight);
-      this.lights.amb = ambLight;
-    }
+    // Ambient light - ensures unshadowed cloth areas stay clean authentic white
+    const ambIntensity = preset === 'light' ? 1.0 : 1.15;
+    const ambLight = new THREE.AmbientLight(0xffffff, ambIntensity);
+    this.scene.add(ambLight);
+    this.lights.amb = ambLight;
   }
 
   setAcidWash(intensity) {
@@ -641,31 +738,6 @@ export class SceneManager {
     }
   }
 
-  export3DModel() {
-    const exporter = new GLTFExporter();
-    const activeMesh = this.getActiveMesh() || this.tshirtPivot;
-    if (!activeMesh) return;
-
-    exporter.parse(
-      activeMesh,
-      (gltf) => {
-        const output = JSON.stringify(gltf, null, 2);
-        const blob = new Blob([output], { type: 'model/gltf+json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'VirtualThreads-Mockup.gltf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-      },
-      (err) => {
-        console.error('Error exporting GLTF:', err);
-        alert('Could not export 3D model: ' + err.message);
-      },
-      { binary: false, embedImages: true }
-    );
-  }
 
   setGarmentColor(hex) {
     this.garmentColor = hex;
@@ -713,6 +785,11 @@ export class SceneManager {
   // --- Dynamic Garment Type Switching (All 11 Garments in 3D) ---
   setGarmentType(type) {
     this.garmentType = type || 'oversized_tee';
+    this.ensureGarmentModelLoaded(this.garmentType, () => {
+      this.applyGarmentTypeVisibility();
+      this.setAnimationMode(this.animationMode);
+      this.triggerLoadedIfReady();
+    });
     this.applyGarmentTypeVisibility();
     this.setAnimationMode(this.animationMode);
     this.triggerLoadedIfReady();
@@ -828,11 +905,19 @@ export class SceneManager {
     this.applyGarmentTypeVisibility();
   }
 
-  loadRealGarmentModels() {
-    const gltfLoader = new GLTFLoader();
-    const objLoader = new OBJLoader();
+  loadHoodieModel(onDone) {
+    if (this.modelsLoaded.hoodie) {
+      if (onDone) onDone();
+      return;
+    }
+    if (this.modelsLoading.hoodie) {
+      if (onDone) this.hoodieCallbacks.push(onDone);
+      return;
+    }
+    this.modelsLoading.hoodie = true;
+    if (onDone) this.hoodieCallbacks.push(onDone);
 
-    // 1. Official VirtualThreads 3D Streetwear Plain Hoodie (from virtualthreads.io/studio/hoodie)
+    const gltfLoader = new GLTFLoader();
     const textureLoader = new THREE.TextureLoader();
     const hoodieDiffuse = textureLoader.load(getAssetUrl('/models/hoodie_diffuse.jpg'));
     const hoodieNormal = textureLoader.load(getAssetUrl('/models/hoodie_normal.jpg'));
@@ -973,14 +1058,37 @@ export class SceneManager {
         this.realHoodieRoot.add(this.hoodieDecalsGroup);
 
         this.scene.add(this.realHoodieRoot);
+        this.modelsLoaded.hoodie = true;
+        this.modelsLoading.hoodie = false;
+        this.setAnimationMode(this.animationMode);
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
+
+        const cbs = [...this.hoodieCallbacks];
+        this.hoodieCallbacks = [];
+        cbs.forEach(cb => cb());
       },
       undefined,
-      (err) => console.error('Error loading virtualthreads hoodie GLB:', err)
+      (err) => {
+        console.error('Error loading virtualthreads hoodie GLB:', err);
+        this.modelsLoading.hoodie = false;
+      }
     );
+  }
 
-    // 2. Real 3D Streetwear Jogger Sweatpants Model
+  loadPantsModel(onDone) {
+    if (this.modelsLoaded.pants) {
+      if (onDone) onDone();
+      return;
+    }
+    if (this.modelsLoading.pants) {
+      if (onDone) this.pantsCallbacks.push(onDone);
+      return;
+    }
+    this.modelsLoading.pants = true;
+    if (onDone) this.pantsCallbacks.push(onDone);
+
+    const gltfLoader = new GLTFLoader();
     gltfLoader.load(
       getAssetUrl('/models/hiphop_joggers.glb'),
       (gltf) => {
@@ -1058,14 +1166,37 @@ export class SceneManager {
         this.realPantsRoot.add(this.pantsDecalMeshPocket);
 
         this.scene.add(this.realPantsRoot);
+        this.modelsLoaded.pants = true;
+        this.modelsLoading.pants = false;
+        this.setAnimationMode(this.animationMode);
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
+
+        const cbs = [...this.pantsCallbacks];
+        this.pantsCallbacks = [];
+        cbs.forEach(cb => cb());
       },
       undefined,
-      (err) => console.error('Error loading real pants GLB:', err)
+      (err) => {
+        console.error('Error loading real pants GLB:', err);
+        this.modelsLoading.pants = false;
+      }
     );
+  }
 
-    // 3. Real 3D Baseball / Dad Cap Model (Authentic 6-Panel Structured Cap)
+  loadCapModel(onDone) {
+    if (this.modelsLoaded.cap) {
+      if (onDone) onDone();
+      return;
+    }
+    if (this.modelsLoading.cap) {
+      if (onDone) this.capCallbacks.push(onDone);
+      return;
+    }
+    this.modelsLoading.cap = true;
+    if (onDone) this.capCallbacks.push(onDone);
+
+    const objLoader = new OBJLoader();
     objLoader.load(
       getAssetUrl('/models/cap.obj'),
       (capObj) => {
@@ -1113,12 +1244,28 @@ export class SceneManager {
         this.realCapRoot.add(this.capDecalMeshFront);
 
         this.scene.add(this.realCapRoot);
+        this.modelsLoaded.cap = true;
+        this.modelsLoading.cap = false;
+        this.setAnimationMode(this.animationMode);
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
+
+        const cbs = [...this.capCallbacks];
+        this.capCallbacks = [];
+        cbs.forEach(cb => cb());
       },
       undefined,
-      (err) => console.error('Error loading real cap OBJ:', err)
+      (err) => {
+        console.error('Error loading real cap OBJ:', err);
+        this.modelsLoading.cap = false;
+      }
     );
+  }
+
+  loadRealGarmentModels() {
+    this.ensureGarmentModelLoaded('hoodie');
+    this.ensureGarmentModelLoaded('sweatpants');
+    this.ensureGarmentModelLoaded('cap');
   }
 
   applyGarmentTypeVisibility() {
@@ -1136,7 +1283,7 @@ export class SceneManager {
       this.tshirtWaves.visible = isTshirtFamily && (this.animationMode === 'waves');
     }
     if (this.tshirtWalking) {
-      this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking');
+      this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
     // Upper body t-shirt scaling
@@ -1194,17 +1341,18 @@ export class SceneManager {
     if (this.capDecalMeshFront) this.capDecalMeshFront.visible = hasFront;
   }
 
-  // --- Deterministic 60 FPS Video Recording Pipeline ---
-  startVideoRecording({ fps = 60, onFrame } = {}) {
+  // --- High-Performance Video Recording Pipeline ---
+  startVideoRecording({ fps = 30, onFrame } = {}) {
     this.isRecordingVideo = true;
     this.recordingFixedDelta = 1 / fps;
     this.onRecordingFrame = onFrame;
+    this.clock.getDelta(); // Clear previous delta
   }
 
   stopVideoRecording() {
     this.isRecordingVideo = false;
     this.onRecordingFrame = null;
-    this.recordingFixedDelta = 1 / 60;
+    this.recordingFixedDelta = 1 / 30;
     this.clock.getDelta(); // Clear time delta backlog to prevent sudden jump
   }
 
@@ -1263,14 +1411,31 @@ export class SceneManager {
       if (this.tshirtWaves) this.tshirtWaves.visible = false;
       if (this.tshirtWalking) this.tshirtWalking.visible = false;
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
+    } else if (mode === 'rotate_walk') {
+      // Rotate & Walk: dynamic walk cycle while rotating 360 degrees
+      if (this.tshirtStatic) this.tshirtStatic.visible = false;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) {
+        this.tshirtWalking.visible = true;
+        const action = this.actions['tshirt_walking'];
+        if (action) {
+          action.reset();
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.setEffectiveTimeScale(this.walkSpeed || 1.0);
+          action.play();
+        }
+      }
+      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
     }
+
     if (mode !== 'knit') {
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
       if (this.realHoodieRoot) this.realHoodieRoot.scale.set(1, 1, 1);
       if (this.realPantsRoot) this.realPantsRoot.scale.set(1, 1, 1);
       if (this.realCapRoot) this.realCapRoot.scale.set(1, 1, 1);
     }
-    if (mode !== 'turntable') {
+    if (mode !== 'turntable' && mode !== 'rotate_walk') {
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
       if (this.realPantsRoot) this.realPantsRoot.rotation.y = 0;
       if (this.realCapRoot) this.realCapRoot.rotation.y = 0;
@@ -1278,7 +1443,7 @@ export class SceneManager {
     }
 
     if (this.hoodieMixer) {
-      if (mode === 'walking') {
+      if (mode === 'walking' || mode === 'rotate_walk') {
         if (this.hoodieIdleAction) this.hoodieIdleAction.stop();
         if (this.hoodieWalkAction) {
           this.hoodieWalkAction.reset();
@@ -1317,6 +1482,7 @@ export class SceneManager {
       switch (view) {
         case 'front': targetPos.set(-0.55, 0.15, 23.5); break;
         case 'back': targetPos.set(-0.55, 0.15, -23.5); break;
+        case 'side': targetPos.set(23.5, 0.15, 0); break;
         case 'hero': targetPos.set(11.5, 1.8, 19.0); break;
         case 'chest':
         default:
@@ -1328,6 +1494,7 @@ export class SceneManager {
       switch (view) {
         case 'front': targetPos.set(0, 0, 24.5); break;
         case 'back': targetPos.set(0, 0, -24.5); break;
+        case 'side': targetPos.set(24.5, 0, 0); break;
         case 'hero': targetPos.set(12, 1.5, 20.0); break;
         case 'chest':
         default:
@@ -1339,6 +1506,7 @@ export class SceneManager {
       switch (view) {
         case 'front': targetPos.set(0, 0, 14.5); break;
         case 'back': targetPos.set(0, 0, -14.5); break;
+        case 'side': targetPos.set(14.5, 0, 0); break;
         case 'hero': targetPos.set(2.8, 1.6, 13.5); break;
         case 'chest':
         default:
@@ -1354,6 +1522,9 @@ export class SceneManager {
         case 'back':
           targetPos.set(0, 0, -24.5);
           break;
+        case 'side':
+          targetPos.set(24.5, 0, 0);
+          break;
         case 'hero':
           targetPos.set(13, 1.8, 20.0);
           break;
@@ -1365,13 +1536,41 @@ export class SceneManager {
       }
     }
 
+    // Calculate spherical/orbital trajectory relative to controlsTarget so camera never passes through (0,0,0)
+    const startRel = new THREE.Vector3().subVectors(startPos, controlsTarget);
+    const targetRel = new THREE.Vector3().subVectors(targetPos, controlsTarget);
+
+    const startRadius = Math.sqrt(startRel.x * startRel.x + startRel.z * startRel.z);
+    const targetRadius = Math.sqrt(targetRel.x * targetRel.x + targetRel.z * targetRel.z);
+
+    const startAngle = Math.atan2(startRel.x, startRel.z);
+    const targetAngle = Math.atan2(targetRel.x, targetRel.z);
+
+    let diffAngle = targetAngle - startAngle;
+    while (diffAngle > Math.PI) diffAngle -= 2 * Math.PI;
+    while (diffAngle < -Math.PI) diffAngle += 2 * Math.PI;
+
+    // For direct 180° front-to-back rotation, enforce a positive clockwise arc around the garment
+    if (Math.abs(Math.abs(diffAngle) - Math.PI) < 0.05) {
+      diffAngle = Math.PI;
+    }
+
     const animateCam = (now) => {
       const elapsed = (now - startTime) / 1000;
       const progress = Math.min(elapsed / duration, 1);
       const ease = 1 - Math.pow(1 - progress, 3);
 
-      this.camera.position.lerpVectors(startPos, targetPos, ease);
+      const currentRadius = THREE.MathUtils.lerp(startRadius, targetRadius, ease);
+      const currentAngle = startAngle + diffAngle * ease;
+      const currentY = THREE.MathUtils.lerp(startPos.y, targetPos.y, ease);
+
+      this.camera.position.set(
+        controlsTarget.x + Math.sin(currentAngle) * currentRadius,
+        currentY,
+        controlsTarget.z + Math.cos(currentAngle) * currentRadius
+      );
       this.controls.target.lerp(controlsTarget, ease);
+      if (this.controls.update) this.controls.update();
 
       if (progress < 1) {
         requestAnimationFrame(animateCam);
@@ -1388,19 +1587,20 @@ export class SceneManager {
     this.camera.aspect = this.width / this.height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.width, this.height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   }
 
   animate() {
     if (this.isDisposed) return;
-    requestAnimationFrame(this.animate);
+    this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Use locked fixed 60.0 FPS delta during video recording for smooth consistent pacing
-    const delta = this.isRecordingVideo ? this.recordingFixedDelta : Math.min(this.clock.getDelta(), 0.1);
+    // Use true elapsed delta capped at 50ms so video recordings and animations play back at 100% natural real-time speed
+    const delta = Math.min(this.clock.getDelta(), 0.05);
 
     if (this.mixer) {
       this.mixer.update(delta);
     }
-    if (this.hoodieMixer && this.animationMode === 'walking' && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
+    if (this.hoodieMixer && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
       this.hoodieMixer.update(delta);
       if (this.realHoodieRoot) {
         this.realHoodieRoot.updateMatrixWorld(true);
@@ -1430,7 +1630,7 @@ export class SceneManager {
     }
 
     // 360 Turntable rotation of garment
-    if (this.animationMode === 'turntable') {
+    if (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk') {
       if (this.tshirtPivot) {
         this.tshirtPivot.rotation.y += delta * this.turntableSpeed;
       }
@@ -1499,9 +1699,19 @@ export class SceneManager {
 
   dispose() {
     this.isDisposed = true;
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
     window.removeEventListener('resize', this.handleResize);
     if (this.renderer && this.renderer.domElement && this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+    }
+    if (this.renderer) {
+      this.renderer.dispose();
+    }
+    if (this.designManager && this.designManager.dispose) {
+      this.designManager.dispose();
     }
   }
 }

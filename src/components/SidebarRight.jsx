@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, Play, Wind, Sun, Compass, Sparkles, Moon, Layers, Sliders } from 'lucide-react';
+import { Palette, Play, Wind, Sun, Compass, Sparkles, Moon, Layers, Sliders, RotateCw } from 'lucide-react';
 
 const COLOR_SWATCHES = [
   { name: 'Vintage Black', hex: '#14161b' },
@@ -140,18 +140,18 @@ export function SidebarRight({
           </button>
 
           <button
-            onClick={() => onAnimationModeChange('wind')}
+            onClick={() => onAnimationModeChange('rotate_walk')}
             className={`p-2.5 rounded-xl border text-left transition-all ${
-              (animationMode === 'wind' || animationMode === 'waves')
-                ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
+              animationMode === 'rotate_walk'
+                ? 'border-emerald-500 bg-emerald-500/20 text-white shadow-sm'
                 : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
             }`}
           >
             <div className="text-xs font-bold flex items-center gap-1.5">
-              <Wind className="size-3.5 text-sky-400" />
-              <span>Wind Flutter</span>
+              <RotateCw className="size-3.5 text-emerald-400 animate-spin" style={{ animationDuration: '4s' }} />
+              <span>Rotate & Walk</span>
             </div>
-            <div className="text-[10px] text-studio-500 mt-0.5">Dynamic cloth ripple</div>
+            <div className="text-[10px] text-studio-500 mt-0.5">Walk cycle with 360° spin</div>
           </button>
 
           <button
@@ -170,20 +170,35 @@ export function SidebarRight({
           </button>
 
           <button
-            onClick={() => onAnimationModeChange('none')}
+            onClick={() => onAnimationModeChange('wind')}
             className={`p-2.5 rounded-xl border text-left transition-all ${
+              (animationMode === 'wind' || animationMode === 'waves')
+                ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
+                : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
+            }`}
+          >
+            <div className="text-xs font-bold flex items-center gap-1.5">
+              <Wind className="size-3.5 text-sky-400" />
+              <span>Wind Flutter</span>
+            </div>
+            <div className="text-[10px] text-studio-500 mt-0.5">Dynamic cloth ripple</div>
+          </button>
+
+          <button
+            onClick={() => onAnimationModeChange('none')}
+            className={`p-2.5 rounded-xl border text-left transition-all col-span-2 ${
               (animationMode === 'none' || animationMode === 'static')
                 ? 'border-brand-500 bg-brand-500/20 text-white shadow-sm'
                 : 'border-studio-800 bg-studio-850 text-studio-400 hover:text-studio-200'
             }`}
           >
             <div className="text-xs font-bold">Static Frame</div>
-            <div className="text-[10px] text-studio-500 mt-0.5">Freeze motion</div>
+            <div className="text-[10px] text-studio-500 mt-0.5">Pause motion</div>
           </button>
         </div>
 
         {/* Turntable speed control */}
-        {animationMode === 'turntable' && (
+        {(animationMode === 'turntable' || animationMode === 'rotate_walk') && (
           <div className="mt-3">
             <div className="flex justify-between text-xs mb-1.5">
               <span className="text-studio-400 font-medium">Rotation Speed</span>

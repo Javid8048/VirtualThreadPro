@@ -6,7 +6,9 @@ import * as THREE from 'three';
  */
 export class CanvasDesignManager {
   constructor(garmentColor = '#ffffff') {
-    this.size = 2048;
+    this.logicalSize = 2048;
+    this.scaleFactor = 2; // 4096 / 2048 for razor-sharp supersampling
+    this.size = 4096;
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.size;
     this.canvas.height = this.size;
@@ -20,13 +22,13 @@ export class CanvasDesignManager {
     this.activeLayerId = null;
     this.listeners = [];
 
-    // Three.js Texture (High-resolution with 16x anisotropic filtering to eliminate blur in motion)
+    // Three.js Texture (Ultra-crisp 4K with direct LinearFilter to bypass mipmap downsampling blur)
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.flipY = false; // Required for GLTF UV coordinates
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
-    this.texture.generateMipmaps = true;
+    this.texture.generateMipmaps = false;
     this.texture.anisotropy = 16;
 
     // Dedicated Transparent Decal Texture (Zero background patch on 3D meshes)
@@ -38,9 +40,9 @@ export class CanvasDesignManager {
     this.decalTexture = new THREE.CanvasTexture(this.decalCanvas);
     this.decalTexture.flipY = false;
     this.decalTexture.colorSpace = THREE.SRGBColorSpace;
-    this.decalTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.decalTexture.minFilter = THREE.LinearFilter;
     this.decalTexture.magFilter = THREE.LinearFilter;
-    this.decalTexture.generateMipmaps = true;
+    this.decalTexture.generateMipmaps = false;
     this.decalTexture.anisotropy = 16;
 
     // Initial render
@@ -115,7 +117,7 @@ export class CanvasDesignManager {
       scale: 1.0,
       rotation: 0, // degrees
       opacity: 1.0,
-      printType: 'puff' // 'screen' | 'puff'
+      printType: 'screen' // 'screen' | 'puff'
     };
 
     const newLayer = { ...defaultLayer, ...layer };
@@ -192,6 +194,8 @@ export class CanvasDesignManager {
     this.layers.forEach((layer) => {
       targets.forEach((targetCtx) => {
         targetCtx.save();
+        // Scale 2x from 2048 logical coordinate space to 4096 high-resolution canvas pixels
+        targetCtx.scale(this.scaleFactor, this.scaleFactor);
         targetCtx.globalAlpha = layer.opacity || 1.0;
 
         // Position center
@@ -207,22 +211,14 @@ export class CanvasDesignManager {
           const w = baseW * (layer.scale || 1.0);
           const h = w / aspect;
 
-          // Puff print: apply rich 3D embossed depth and subtle drop shadow
+          // Puff print: apply subtle tactile 3D embossed depth without blurring or box border
           if (layer.printType === 'puff') {
             targetCtx.save();
-            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.42)';
-            targetCtx.shadowBlur = 12;
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            targetCtx.shadowBlur = 4;
             targetCtx.shadowOffsetX = 0;
-            targetCtx.shadowOffsetY = 6;
+            targetCtx.shadowOffsetY = 2;
             targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
-            targetCtx.restore();
-
-            // Crisp top bevel highlight
-            targetCtx.save();
-            targetCtx.globalCompositeOperation = 'source-atop';
-            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
-            targetCtx.lineWidth = 3;
-            targetCtx.strokeRect(-w / 2, -h / 2, w, h);
             targetCtx.restore();
           } else {
             // Screen print / direct ink: ultra-crisp render
@@ -235,21 +231,14 @@ export class CanvasDesignManager {
           targetCtx.textBaseline = 'middle';
 
           if (layer.printType === 'puff') {
-            // Rich puff print drop shadow
+            // Crisp tactile puff print drop shadow
             targetCtx.save();
-            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.50)';
-            targetCtx.shadowBlur = 14;
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            targetCtx.shadowBlur = 4;
             targetCtx.shadowOffsetX = 0;
-            targetCtx.shadowOffsetY = 6;
+            targetCtx.shadowOffsetY = 2;
             targetCtx.fillStyle = layer.textColor || '#000000';
             targetCtx.fillText(layer.text, 0, 0);
-            targetCtx.restore();
-
-            // Bevel edge highlight
-            targetCtx.save();
-            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-            targetCtx.lineWidth = Math.max(1, fontSize * 0.035);
-            targetCtx.strokeText(layer.text, 0, 0);
             targetCtx.restore();
           } else {
             targetCtx.fillStyle = layer.textColor || '#000000';

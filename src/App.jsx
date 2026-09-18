@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { SidebarLeft } from './components/SidebarLeft';
 import { PositionGuide } from './components/PositionGuide';
-import { ExportModal } from './components/ExportModal';
+import { ExportPanel } from './components/ExportPanel';
 import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { GetStartedModal } from './components/GetStartedModal';
 import { StaticGarmentView } from './components/StaticGarmentView';
@@ -27,46 +27,109 @@ export default function App() {
   // Garment Blank Type State (11 Blanks from virtualthreads.io/products)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
+  const [currentCamera, setCurrentCamera] = useState('front');
+  const [activeSide, setActiveSide] = useState('front');
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
 
+  // Theme State ('dark' | 'light')
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vt_theme');
+      if (saved) return saved;
+    }
+    return 'dark';
+  });
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   // States matching official VirtualThreads UI
   const [garmentColor, setGarmentColor] = useState('#ffffff'); // default clean white
-  const [backdropMode, setBackdropMode] = useState('dark');
+  const [backdropMode, setBackdropMode] = useState(theme === 'light' ? 'light' : 'dark');
+
+  // Sync theme changes with DOM and backdrop
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        setBackdropMode('dark');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        setBackdropMode('light');
+      }
+      localStorage.setItem('vt_theme', theme);
+    }
+  }, [theme]);
+
+  // Sync backdrop lighting with SceneManager
+  useEffect(() => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setupLighting(backdropMode);
+    }
+  }, [backdropMode]);
   const [animationMode, setAnimationMode] = useState('static');
   const [walkSpeed, setWalkSpeed] = useState(1.0);
   const [cameraAnimationMode, setCameraAnimationMode] = useState('none'); // 'none' | 'rotate' | 'rotatezoom'
   const [acidWash, setAcidWash] = useState(0); // 0 to 1
   const [puffPrint, setPuffPrint] = useState(0); // 0 to 1
   const [interactionMode, setInteractionMode] = useState('orbit'); // 'orbit' | 'dragDesign'
-  const [positionGuideOpen, setPositionGuideOpen] = useState(true);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportModalTab, setExportModalTab] = useState('video');
+  // Right Drawer Mode: 'design' (PositionGuide) | 'export' (ExportPanel) | null (closed)
+  const [rightDrawerMode, setRightDrawerMode] = useState('design');
+  const [exportTab, setExportTab] = useState('video');
+  const positionGuideOpen = rightDrawerMode === 'design';
+  const setPositionGuideOpen = (open) => {
+    setRightDrawerMode(open ? 'design' : null);
+  };
+  const handleOpenExport = (tab = 'video') => {
+    setExportTab(typeof tab === 'string' ? tab : 'video');
+    setRightDrawerMode('export');
+  };
   const [mobileFrameGuide, setMobileFrameGuide] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   window.__IS_LOADED__ = isLoaded;
   const [designManager, setDesignManager] = useState(null);
 
-  // Initialize Three.js Scene
+  // Initialize Three.js Scene only when entering Studio
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (currentPage !== 'studio' || !containerRef.current) return;
 
-    const sm = new SceneManager(containerRef.current, () => {
-      setIsLoaded(true);
-    });
+    setIsLoaded(false);
+    const sm = new SceneManager(
+      containerRef.current,
+      () => {
+        setIsLoaded(true);
+      },
+      garmentType
+    );
 
     sceneManagerRef.current = sm;
-    sm.setGarmentType(garmentType);
     window.__SCENE_MANAGER__ = sm;
     setDesignManager(sm.designManager);
+
+    if (garmentColor) sm.setGarmentColor(garmentColor);
+    if (backdropMode) sm.setupLighting(backdropMode);
+    if (animationMode) sm.setAnimationMode(animationMode);
+    if (walkSpeed) sm.setWalkSpeed(walkSpeed);
+    if (acidWash) sm.setAcidWash(acidWash);
+    if (puffPrint) sm.setPuffPrint(puffPrint);
+
+    setTimeout(() => {
+      sm.handleResize();
+    }, 50);
 
     return () => {
       sm.dispose();
       sceneManagerRef.current = null;
+      window.__SCENE_MANAGER__ = null;
       setDesignManager(null);
+      setIsLoaded(false);
     };
-  }, []);
+  }, [currentPage]);
 
   // Handlers
   const handleGarmentTypeChange = (type) => {
@@ -113,15 +176,6 @@ export default function App() {
     }
   };
   window.__HANDLE_BACK_TO_LANDING__ = handleBackToLanding;
-
-  // Ensure Three.js canvas resizes cleanly whenever entering studio
-  useEffect(() => {
-    if (currentPage === 'studio' && sceneManagerRef.current) {
-      setTimeout(() => {
-        sceneManagerRef.current.handleResize();
-      }, 50);
-    }
-  }, [currentPage]);
 
   const handleGarmentColorChange = (hex) => {
     setGarmentColor(hex);
@@ -183,8 +237,20 @@ export default function App() {
   };
 
   const handleCameraChange = (view) => {
+    setCurrentCamera(view);
+    if (view === 'front' || view === 'back') {
+      setActiveSide(view);
+    }
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setCameraPreset(view);
+    }
+  };
+
+  const handleSideChange = (side) => {
+    setActiveSide(side);
+    setCurrentCamera(side);
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setCameraPreset(side);
     }
   };
 
@@ -235,7 +301,7 @@ export default function App() {
           y: 800,
           scale: 1.0,
           rotation: 0,
-          printType: 'puff'
+          printType: 'screen'
         });
         setPositionGuideOpen(true);
       };
@@ -285,6 +351,8 @@ export default function App() {
           onSelectGarment={handleSelectGarmentFromLanding}
           onOpenPricing={() => setProductsCatalogOpen(true)}
           onOpenCatalog={() => setProductsCatalogOpen(true)}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -304,6 +372,11 @@ export default function App() {
           designManager={designManager}
           onSwitchTo3D={() => setViewMode('3d')}
           backdropMode={backdropMode}
+          activeSide={activeSide}
+          onSideChange={handleSideChange}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onOpenExport={handleOpenExport}
         />
       )}
 
@@ -319,27 +392,29 @@ export default function App() {
       {/* Studio UI Controls (Top Menu Bar, Sidebar, Position Guide) */}
       {currentPage === 'studio' && (
         <>
-          {/* Top Menu Bar: Rotate, Design Drag, Camera Presets, 360 Turntable, Garment Switcher & Export */}
-          <HeaderNav
-            currentGarmentType={garmentType}
-            onSelectGarment={handleGarmentTypeChange}
-            onOpenProductsCatalog={() => setProductsCatalogOpen(true)}
-            interactionMode={interactionMode}
-            onInteractionModeChange={handleInteractionModeChange}
-            currentCamera="front"
-            onCameraChange={handleCameraChange}
-            animationMode={animationMode}
-            onToggleTurntable={() => handleAnimationModeChange(animationMode === 'turntable' ? 'static' : 'turntable')}
-            positionGuideOpen={positionGuideOpen}
-            onTogglePositionGuide={() => setPositionGuideOpen(!positionGuideOpen)}
-            onOpenExport={(tab = 'video') => {
-              setExportModalTab(typeof tab === 'string' ? tab : 'video');
-              setExportModalOpen(true);
-            }}
-            onBackToLanding={handleBackToLanding}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-          />
+          {/* Top Menu Bar: Rotate, Design Drag, Camera Presets, Static / 360 Turntable - Strictly in 3D Mode */}
+          {viewMode === '3d' && (
+            <HeaderNav
+              currentGarmentType={garmentType}
+              onSelectGarment={handleGarmentTypeChange}
+              onOpenProductsCatalog={() => setProductsCatalogOpen(true)}
+              interactionMode={interactionMode}
+              onInteractionModeChange={handleInteractionModeChange}
+              currentCamera={currentCamera}
+              onCameraChange={handleCameraChange}
+              animationMode={animationMode}
+              onAnimationModeChange={handleAnimationModeChange}
+              onToggleTurntable={() => handleAnimationModeChange(animationMode === 'turntable' ? 'static' : 'turntable')}
+              positionGuideOpen={rightDrawerMode === 'design'}
+              onTogglePositionGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
+              onOpenExport={handleOpenExport}
+              onBackToLanding={handleBackToLanding}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
+          )}
 
           {/* Left Floating Menu */}
           <SidebarLeft
@@ -360,11 +435,8 @@ export default function App() {
         onPuffPrintChange={handlePuffPrintChange}
         onTriggerKnit={handleTriggerKnit}
         onCameraChange={handleCameraChange}
-        onOpenExport={(tab = 'video') => {
-          setExportModalTab(typeof tab === 'string' ? tab : 'video');
-          setExportModalOpen(true);
-        }}
-        onOpenPositionGuide={() => setPositionGuideOpen(!positionGuideOpen)}
+        onOpenExport={handleOpenExport}
+        onOpenPositionGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
         onTriggerUploadFront={handleTriggerUploadFront}
         onTriggerUploadBack={handleTriggerUploadBack}
         designManager={designManager}
@@ -375,28 +447,90 @@ export default function App() {
         onViewModeChange={setViewMode}
       />
 
-      {/* Right Floating Position Guide */}
+      {/* Right Floating Position Guide (Design & Graphics Studio) */}
       <PositionGuide
-        isOpen={positionGuideOpen}
-        onClose={() => setPositionGuideOpen(false)}
+        isOpen={rightDrawerMode === 'design'}
+        onClose={() => setRightDrawerMode(null)}
+        onOpenExport={handleOpenExport}
         designManager={designManager}
         currentGarmentType={garmentType}
+        selectedSide={activeSide}
+        onSideChange={handleSideChange}
         onTriggerUpload={handleTriggerUpload}
         onTriggerUploadFront={handleTriggerUploadFront}
         onTriggerUploadBack={handleTriggerUploadBack}
         onCameraChange={handleCameraChange}
       />
-      </>
-      )}
 
-      {/* Export Modal (4K Snapshots, 60 FPS Video & 3D GLTF) */}
-      <ExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
+      {/* Right Floating Export Panel (Replaces Design Studio upon clicking Export) */}
+      <ExportPanel
+        isOpen={rightDrawerMode === 'export'}
+        onClose={() => setRightDrawerMode(null)}
+        onSwitchToDesign={() => setRightDrawerMode('design')}
+        defaultTab={exportTab}
         sceneManager={sceneManagerRef.current}
         backdropMode={backdropMode}
-        defaultTab={exportModalTab}
       />
+
+      {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio) */}
+      {viewMode === '3d' && interactionMode === 'dragDesign' && designManager && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
+          <span className="font-bold text-gray-700 dark:text-gray-200">Graphic Size:</span>
+          
+          <button
+            onClick={() => {
+              const active = designManager.getActiveLayer() || designManager.layers[0];
+              if (active) {
+                const newScale = Math.max(0.2, (active.scale || 1.0) - 0.1);
+                designManager.updateLayer(active.id, { scale: parseFloat(newScale.toFixed(2)) });
+              }
+            }}
+            className="size-6 rounded-lg bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 flex items-center justify-center font-bold text-gray-800 dark:text-white transition-colors"
+            title="Decrease Size"
+          >
+            -
+          </button>
+
+          <input
+            type="range"
+            min="20"
+            max="300"
+            value={Math.round(((designManager.getActiveLayer() || designManager.layers[0])?.scale || 1.0) * 100)}
+            onChange={(e) => {
+              const active = designManager.getActiveLayer() || designManager.layers[0];
+              if (active) {
+                const newScale = parseInt(e.target.value) / 100;
+                designManager.updateLayer(active.id, { scale: newScale });
+              }
+            }}
+            className="w-24 sm:w-32 accent-brand-500 cursor-pointer"
+          />
+
+          <button
+            onClick={() => {
+              const active = designManager.getActiveLayer() || designManager.layers[0];
+              if (active) {
+                const newScale = Math.min(3.5, (active.scale || 1.0) + 0.1);
+                designManager.updateLayer(active.id, { scale: parseFloat(newScale.toFixed(2)) });
+              }
+            }}
+            className="size-6 rounded-lg bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 flex items-center justify-center font-bold text-gray-800 dark:text-white transition-colors"
+            title="Increase Size"
+          >
+            +
+          </button>
+
+          <span className="text-[11px] font-mono font-bold text-brand-600 dark:text-brand-400 min-w-[38px] text-right">
+            {Math.round(((designManager.getActiveLayer() || designManager.layers[0])?.scale || 1.0) * 100)}%
+          </span>
+
+          <span className="text-[10px] text-gray-400 border-l border-gray-200 dark:border-studio-700 pl-2 hidden md:inline">
+            Tip: Drag directly on shirt • Alt+Drag or Mouse Wheel to resize
+          </span>
+        </div>
+      )}
+      </>
+      )}
 
       {/* Products & Garment Blanks Catalog Modal (from virtualthreads.io/products) */}
       <ProductsCatalogModal

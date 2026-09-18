@@ -65,8 +65,8 @@ export class CanvasVideoRecorder {
         recCtx.imageSmoothingEnabled = true;
         recCtx.imageSmoothingQuality = 'high';
 
-        // Capture 60 FPS stream
-        const stream = recCanvas.captureStream ? recCanvas.captureStream(60) : null;
+        // Capture smooth 30 FPS stream for optimal performance and fast encoding
+        const stream = recCanvas.captureStream ? recCanvas.captureStream(30) : null;
         const videoTrack = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
 
         // Pick best supported mime type
@@ -97,7 +97,7 @@ export class CanvasVideoRecorder {
 
         const options = {
           mimeType: selectedMime,
-          videoBitsPerSecond: 16000000 // 16 Mbps for crisp streetwear detail
+          videoBitsPerSecond: 8000000 // 8 Mbps for crisp streetwear detail without encoding lag
         };
 
         this.recordedChunks = [];
@@ -105,6 +105,10 @@ export class CanvasVideoRecorder {
 
         const cleanup = () => {
           this.isRecording = false;
+          if (this.stopTimeout) {
+            clearTimeout(this.stopTimeout);
+            this.stopTimeout = null;
+          }
           if (this.sceneManager && this.sceneManager.stopVideoRecording) {
             this.sceneManager.stopVideoRecording();
           }
@@ -133,8 +137,8 @@ export class CanvasVideoRecorder {
         };
 
         this.isRecording = true;
-        const totalFrames = Math.max(1, Math.round(durationSeconds * 60));
-        let frameCount = 0;
+        const totalDurationMs = Math.max(1, durationSeconds * 1000);
+        const startTime = performance.now();
         const targetAspect = targetWidth / targetHeight;
 
         // Blit frame function: accurately scales and center-crops the WebGL canvas
@@ -189,12 +193,12 @@ export class CanvasVideoRecorder {
             videoTrack.requestFrame();
           }
 
-          frameCount++;
-          const pct = Math.min(100, Math.round((frameCount / totalFrames) * 100));
-          const elapsedSec = Math.min(durationSeconds, Math.floor(frameCount / 60));
+          const elapsedMs = performance.now() - startTime;
+          const pct = Math.min(100, Math.round((elapsedMs / totalDurationMs) * 100));
+          const elapsedSec = Math.min(durationSeconds, Math.floor(elapsedMs / 1000));
           onProgress(pct, elapsedSec);
 
-          if (frameCount >= totalFrames) {
+          if (elapsedMs >= totalDurationMs) {
             this.stopEarly();
           }
         };
@@ -203,10 +207,15 @@ export class CanvasVideoRecorder {
         blitFrame(this.canvas);
         this.mediaRecorder.start(250);
 
+        // Safety timeout to guarantee clean completion exactly on duration
+        this.stopTimeout = setTimeout(() => {
+          this.stopEarly();
+        }, totalDurationMs + 100);
+
         if (this.sceneManager && this.sceneManager.startVideoRecording) {
-          // Direct synchronous 60.0 FPS hook with SceneManager
+          // Direct synchronous 30 FPS hook with SceneManager
           this.sceneManager.startVideoRecording({
-            fps: 60,
+            fps: 30,
             onFrame: (canvasEl) => {
               blitFrame(canvasEl);
             }
@@ -216,8 +225,10 @@ export class CanvasVideoRecorder {
           const rafLoop = () => {
             if (!this.isRecording) return;
             blitFrame(this.canvas);
-            if (frameCount < totalFrames) {
+            if (performance.now() - startTime < totalDurationMs) {
               this.animFrameId = requestAnimationFrame(rafLoop);
+            } else {
+              this.stopEarly();
             }
           };
           this.animFrameId = requestAnimationFrame(rafLoop);

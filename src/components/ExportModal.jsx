@@ -30,7 +30,7 @@ export function ExportModal({
   
   // Video recording state
   const [videoFormat, setVideoFormat] = useState('mobile'); // 'mobile' (9:16) | 'desktop' (16:9) | 'square' (1:1)
-  const [videoDuration, setVideoDuration] = useState(20); // 5, 10, 20, 30
+  const [videoDuration, setVideoDuration] = useState(5); // 3, 5, 10, 15
   const [isRecording, setIsRecording] = useState(false);
   const [recordingProgress, setRecordingProgress] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -121,7 +121,7 @@ export function ExportModal({
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div data-export-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="w-full max-w-lg bg-studio-900 border border-studio-700/80 rounded-3xl p-6 shadow-2xl relative overflow-hidden text-studio-100">
         
         {/* Glow Header Accent */}
@@ -145,7 +145,7 @@ export function ExportModal({
             <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
               <span>Studio Export Suite</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-accent border border-brand-500/30 uppercase tracking-wider">
-                60 FPS ULTRA
+                FAST HD
               </span>
             </h3>
             <p className="text-xs text-studio-400">High-definition 3D video loops & ultra-res snapshots</p>
@@ -153,7 +153,7 @@ export function ExportModal({
         </div>
 
         {/* Tab Toggle */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-studio-950 rounded-2xl mb-5 border border-studio-800">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-studio-950 rounded-2xl mb-5 border border-studio-800">
           <button
             onClick={() => setActiveTab('video')}
             className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
@@ -176,18 +176,6 @@ export function ExportModal({
           >
             <Camera className="size-4 text-brand-400" />
             <span>Image</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('3d')}
-            className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              activeTab === '3d'
-                ? 'bg-studio-800 text-white shadow-md border border-studio-700/50'
-                : 'text-studio-400 hover:text-studio-200'
-            }`}
-          >
-            <Download className="size-4 text-amber-400" />
-            <span>3D Model</span>
           </button>
         </div>
 
@@ -288,7 +276,21 @@ export function ExportModal({
               </div>
 
               <div className="grid grid-cols-4 gap-2">
-                {/* 5 Seconds */}
+                {/* 3 Seconds */}
+                <button
+                  disabled={isRecording}
+                  onClick={() => setVideoDuration(3)}
+                  className={`py-2 px-1.5 rounded-xl border text-center transition-all ${
+                    videoDuration === 3
+                      ? 'border-brand-500 bg-brand-500/20 text-white font-black ring-1 ring-brand-500'
+                      : 'border-studio-800 bg-studio-850/60 hover:bg-studio-800 text-studio-400'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold">3s</div>
+                  <div className="text-[9px] text-studio-400">Quick Loop</div>
+                </button>
+
+                {/* 5 Seconds (Default) */}
                 <button
                   disabled={isRecording}
                   onClick={() => setVideoDuration(5)}
@@ -299,49 +301,35 @@ export function ExportModal({
                   }`}
                 >
                   <div className="text-xs font-extrabold">5s</div>
-                  <div className="text-[9px] text-studio-400">Teaser</div>
+                  <div className="text-[9px] text-studio-400">Social Reel</div>
                 </button>
 
                 {/* 10 Seconds */}
                 <button
                   disabled={isRecording}
                   onClick={() => setVideoDuration(10)}
-                  className={`py-2 px-1.5 rounded-xl border text-center transition-all ${
+                  className={`py-2 px-1.5 rounded-xl border text-center transition-all relative ${
                     videoDuration === 10
                       ? 'border-brand-500 bg-brand-500/20 text-white font-black ring-1 ring-brand-500'
                       : 'border-studio-800 bg-studio-850/60 hover:bg-studio-800 text-studio-400'
                   }`}
                 >
                   <div className="text-xs font-extrabold">10s</div>
-                  <div className="text-[9px] text-studio-400">Standard</div>
+                  <div className="text-[9px] text-studio-400">Showcase</div>
                 </button>
 
-                {/* 20 Seconds (Requested) */}
+                {/* 15 Seconds */}
                 <button
                   disabled={isRecording}
-                  onClick={() => setVideoDuration(20)}
+                  onClick={() => setVideoDuration(15)}
                   className={`py-2 px-1.5 rounded-xl border text-center transition-all relative ${
-                    videoDuration === 20
+                    videoDuration === 15
                       ? 'border-brand-500 bg-brand-500/20 text-white font-black ring-1 ring-brand-500'
                       : 'border-studio-800 bg-studio-850/60 hover:bg-studio-800 text-studio-400'
                   }`}
                 >
-                  <div className="text-xs font-extrabold">20s</div>
-                  <div className="text-[9px] text-studio-400">Runway</div>
-                </button>
-
-                {/* 30 Seconds (Requested) */}
-                <button
-                  disabled={isRecording}
-                  onClick={() => setVideoDuration(30)}
-                  className={`py-2 px-1.5 rounded-xl border text-center transition-all relative ${
-                    videoDuration === 30
-                      ? 'border-brand-500 bg-brand-500/20 text-white font-black ring-1 ring-brand-500'
-                      : 'border-studio-800 bg-studio-850/60 hover:bg-studio-800 text-studio-400'
-                  }`}
-                >
-                  <div className="text-xs font-extrabold">30s</div>
-                  <div className="text-[9px] text-studio-400">Full Feature</div>
+                  <div className="text-xs font-extrabold">15s</div>
+                  <div className="text-[9px] text-studio-400">Full Orbit</div>
                 </button>
               </div>
             </div>
@@ -530,38 +518,6 @@ export function ExportModal({
           </div>
         )}
 
-        {/* 3D MODEL EXPORT TAB */}
-        {activeTab === '3d' && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-studio-850 border border-studio-800 space-y-3">
-              <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
-                <Download className="size-4" />
-                <span>GLTF 3D Garment Export</span>
-              </div>
-              <p className="text-xs text-studio-400 leading-relaxed">
-                Export the 3D streetwear apparel model with your custom graphic placements baked into the UV materials. Compatible with Blender, Clo3D, Marvelous Designer, Unreal Engine, and WebGL viewers.
-              </p>
-              <div className="flex items-center gap-2 text-[10px] text-studio-400 bg-black/40 px-3 py-1.5 rounded-xl border border-studio-700/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span>Standard Format: glTF 2.0 with embedded textures</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                if (sceneManager?.export3DModel) {
-                  sceneManager.export3DModel();
-                } else {
-                  alert('3D model export is initializing...');
-                }
-              }}
-              className="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-98"
-            >
-              <Download className="size-4" />
-              <span>Export & Download 3D Model (.gltf)</span>
-            </button>
-          </div>
-        )}
 
       </div>
     </div>

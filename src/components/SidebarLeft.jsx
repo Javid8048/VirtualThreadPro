@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 
 const COLOR_SWATCHES = [
@@ -62,25 +62,25 @@ export function SidebarLeft({
   };
 
   return (
-    <aside className="absolute left-6 top-20 bottom-6 w-64 rounded-3xl bg-white text-gray-900 shadow-2xl p-4 flex flex-col justify-between select-none z-20 border border-gray-100 animate-fadeIn">
+    <aside className="absolute left-6 top-20 bottom-6 w-64 rounded-3xl bg-white dark:bg-studio-900 text-gray-900 dark:text-studio-100 shadow-2xl p-4 flex flex-col justify-between select-none z-20 border border-gray-200/80 dark:border-studio-750/80 animate-fadeIn backdrop-blur-xl transition-colors">
       
       {/* Top Header Row: Back to Products & VirtualThreads branding */}
-      <div className="flex items-center justify-between pb-2.5 mb-1.5 border-b border-gray-100">
+      <div className="flex items-center justify-between pb-2.5 mb-1.5 border-b border-gray-100 dark:border-studio-800">
         <button
           onClick={onBackToLanding}
-          className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black hover:bg-gray-100 py-1.5 px-2.5 rounded-xl transition-all group"
+          className="flex items-center gap-1 text-xs font-bold text-gray-600 dark:text-studio-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-studio-800 py-1.5 px-2.5 rounded-xl transition-all group"
           title="Return to products landing page"
         >
           <ArrowLeft className="size-3.5 text-gray-500 group-hover:-translate-x-0.5 transition-transform" />
           <span>Products</span>
         </button>
         <div className="flex items-center gap-1.5 pr-1">
-          <div className="size-5 bg-black rounded-md flex items-center justify-center text-white shadow-sm">
+          <div className="size-5 bg-black dark:bg-brand-500 rounded-md flex items-center justify-center text-white shadow-sm">
             <svg viewBox="0 0 24 24" className="size-3 fill-current" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 4h4.5l3.5 8.5L15.5 4H20l-6.5 15.5h-3L4 4z" />
             </svg>
           </div>
-          <span className="font-extrabold text-[11px] tracking-tight text-gray-900">VirtualThreads</span>
+          <span className="font-extrabold text-[11px] tracking-tight text-gray-900 dark:text-white">VirtualThreads</span>
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export function SidebarLeft({
       <div className="space-y-1.5">
         <button
           onClick={onOpenPositionGuide}
-          className="w-full bg-studio-900 hover:bg-black text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
+          className="w-full bg-studio-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
         >
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
@@ -103,13 +103,13 @@ export function SidebarLeft({
         
         {/* Studio View Mode Switcher: 3D Interactive vs 2D Flat Mockup */}
         <div className="py-1 mb-2">
-          <div className="flex items-center p-1 rounded-2xl bg-gray-100 border border-gray-200">
+          <div className="flex items-center p-1 rounded-2xl bg-gray-100 dark:bg-studio-950 border border-gray-200 dark:border-studio-800">
             <button
               onClick={() => onViewModeChange && onViewModeChange('3d')}
               className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
                 viewMode === '3d'
-                  ? 'bg-black text-white shadow-sm'
-                  : 'text-gray-500 hover:text-black'
+                  ? 'bg-black dark:bg-studio-800 text-white shadow-sm'
+                  : 'text-gray-500 dark:text-studio-400 hover:text-black dark:hover:text-white'
               }`}
             >
               <span className={`size-1.5 rounded-full ${viewMode === '3d' ? 'bg-emerald-400 animate-pulse' : 'bg-gray-400'}`} />
@@ -119,8 +119,8 @@ export function SidebarLeft({
               onClick={() => onViewModeChange && onViewModeChange('2d')}
               className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
                 viewMode === '2d'
-                  ? 'bg-black text-white shadow-sm'
-                  : 'text-gray-500 hover:text-black'
+                  ? 'bg-black dark:bg-studio-800 text-white shadow-sm'
+                  : 'text-gray-500 dark:text-studio-400 hover:text-black dark:hover:text-white'
               }`}
             >
               2D Flat
@@ -129,25 +129,25 @@ export function SidebarLeft({
         </div>
 
         {/* Garment Blank Selection (11 Streetwear Blanks) */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('garment')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <Shirt className="size-3.5 text-indigo-600" />
+              <Shirt className="size-3.5 text-indigo-500 dark:text-brand-accent" />
               <span>Garment Blank</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full uppercase whitespace-nowrap">
+              <span className="text-[10px] font-bold bg-indigo-50 dark:bg-brand-500/20 text-indigo-700 dark:text-brand-accent border border-indigo-100 dark:border-brand-500/30 px-2 py-0.5 rounded-full uppercase whitespace-nowrap">
                 {(GARMENT_PRODUCTS.find(p => p.id === currentGarmentType)?.title || 'T-Shirt')
                   .replace(' STUDIO', '')
                   .replace('OVERSIZED ', '')}
               </span>
               {openSection === 'garment' ? (
-                <ChevronDown className="size-4 text-gray-400" />
+                <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
               ) : (
-                <ChevronRight className="size-4 text-gray-400" />
+                <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
               )}
             </div>
           </button>
@@ -163,12 +163,12 @@ export function SidebarLeft({
                       onClick={() => onSelectGarment && onSelectGarment(p.id)}
                       className={`w-full px-2.5 py-1.5 rounded-xl text-left text-[11px] font-medium flex items-center justify-between transition-all ${
                         isSelected
-                          ? 'bg-gray-100 font-bold text-black border border-gray-200'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-black'
+                          ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white border border-gray-200 dark:border-studio-700 shadow-sm'
+                          : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800 hover:text-black dark:hover:text-white'
                       }`}
                     >
                       <span className="truncate">{p.title.replace(' STUDIO', '')}</span>
-                      {isSelected && <Check className="size-3 text-black shrink-0" />}
+                      {isSelected && <Check className="size-3 text-indigo-600 dark:text-brand-accent shrink-0" />}
                     </button>
                   );
                 })}
@@ -176,7 +176,7 @@ export function SidebarLeft({
               {onOpenProductsCatalog && (
                 <button
                   onClick={onOpenProductsCatalog}
-                  className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 border border-indigo-100 transition-colors"
+                  className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 dark:text-brand-accent hover:bg-indigo-50 dark:hover:bg-brand-500/15 border border-indigo-100 dark:border-brand-500/30 transition-colors"
                 >
                   View All 11 Blanks & Details →
                 </button>
@@ -186,23 +186,23 @@ export function SidebarLeft({
         </div>
         
         {/* 1. Multi-Design Layer Manager (Front & Back) */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('designs')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <Layers className="size-3.5 text-indigo-600" />
+              <Layers className="size-3.5 text-indigo-500 dark:text-brand-accent" />
               <span>Designs & Layers</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded-full">
+              <span className="text-[10px] font-bold bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300 border border-gray-200 dark:border-studio-700 px-1.5 py-0.2 rounded-full">
                 {layers.length}
               </span>
               {openSection === 'designs' ? (
-                <ChevronDown className="size-4 text-gray-400" />
+                <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
               ) : (
-                <ChevronRight className="size-4 text-gray-400" />
+                <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
               )}
             </div>
           </button>
@@ -211,9 +211,9 @@ export function SidebarLeft({
             <div className="pt-2 pb-1 space-y-3 animate-fadeIn">
               {/* Front Layers Group */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-brand-accent" />
                     Front Chest ({frontLayers.length})
                   </span>
                   <div className="flex items-center gap-1">
@@ -222,7 +222,7 @@ export function SidebarLeft({
                         if (onCameraChange) onCameraChange('front');
                         if (onTriggerUploadFront) onTriggerUploadFront();
                       }}
-                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold px-1 rounded hover:bg-indigo-50"
+                      className="text-[10px] text-indigo-600 dark:text-brand-accent hover:text-indigo-800 dark:hover:text-white font-bold px-1 rounded hover:bg-indigo-50 dark:hover:bg-brand-500/20"
                       title="Upload Image to Front"
                     >
                       + Image
@@ -241,7 +241,7 @@ export function SidebarLeft({
                           });
                         }
                       }}
-                      className="text-[10px] text-gray-600 hover:text-black font-bold px-1 rounded hover:bg-gray-100"
+                      className="text-[10px] text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white font-bold px-1 rounded hover:bg-gray-100 dark:hover:bg-studio-800"
                       title="Add Text to Front"
                     >
                       + Text
@@ -250,7 +250,7 @@ export function SidebarLeft({
                 </div>
 
                 {frontLayers.length === 0 ? (
-                  <div className="text-[10px] text-gray-400 italic bg-gray-50 rounded-lg p-1.5 text-center">
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 italic bg-gray-50 dark:bg-studio-800/60 rounded-lg p-1.5 text-center border border-gray-100 dark:border-studio-800">
                     No front designs applied
                   </div>
                 ) : (
@@ -267,19 +267,19 @@ export function SidebarLeft({
                           }}
                           className={`flex items-center justify-between p-1.5 rounded-xl border cursor-pointer transition-all ${
                             isActive
-                              ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-300'
-                              : 'bg-white border-gray-150 hover:bg-gray-50'
+                              ? 'bg-indigo-50 dark:bg-brand-500/20 border-indigo-300 dark:border-brand-500/50 ring-1 ring-indigo-300 dark:ring-brand-500/30'
+                              : 'bg-white dark:bg-studio-800 border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-750'
                           }`}
                         >
                           <div className="flex items-center gap-1.5 min-w-0">
                             {l.type === 'image' && l.image ? (
-                              <img src={l.image.src} alt="" className="size-5 rounded object-cover border border-gray-200" />
+                              <img src={l.image.src} alt="" className="size-5 rounded object-cover border border-gray-200 dark:border-studio-700" />
                             ) : (
-                              <div className="size-5 rounded bg-gray-200 flex items-center justify-center font-bold text-[10px]">
+                              <div className="size-5 rounded bg-gray-200 dark:bg-studio-700 flex items-center justify-center font-bold text-[10px] text-gray-800 dark:text-white">
                                 T
                               </div>
                             )}
-                            <span className="text-[11px] font-semibold text-gray-800 truncate">
+                            <span className="text-[11px] font-semibold text-gray-800 dark:text-white truncate">
                               {l.type === 'image' ? `Graphic #${idx + 1}` : l.text}
                             </span>
                           </div>
@@ -288,7 +288,7 @@ export function SidebarLeft({
                               e.stopPropagation();
                               if (designManager) designManager.removeLayer(l.id);
                             }}
-                            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
+                            className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
                             title="Delete Layer"
                           >
                             <Trash2 className="size-3" />
@@ -301,8 +301,8 @@ export function SidebarLeft({
               </div>
 
               {/* Back Layers Group */}
-              <div className="space-y-1.5 pt-1 border-t border-gray-100">
-                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-studio-800">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Back Torso ({backLayers.length})
@@ -313,7 +313,7 @@ export function SidebarLeft({
                         if (onCameraChange) onCameraChange('back');
                         if (onTriggerUploadBack) onTriggerUploadBack();
                       }}
-                      className="text-[10px] text-amber-600 hover:text-amber-800 font-bold px-1 rounded hover:bg-amber-50"
+                      className="text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 font-bold px-1 rounded hover:bg-amber-50 dark:hover:bg-amber-500/20"
                       title="Upload Image to Back"
                     >
                       + Image
@@ -332,7 +332,7 @@ export function SidebarLeft({
                           });
                         }
                       }}
-                      className="text-[10px] text-gray-600 hover:text-black font-bold px-1 rounded hover:bg-gray-100"
+                      className="text-[10px] text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white font-bold px-1 rounded hover:bg-gray-100 dark:hover:bg-studio-800"
                       title="Add Text to Back"
                     >
                       + Text
@@ -341,7 +341,7 @@ export function SidebarLeft({
                 </div>
 
                 {backLayers.length === 0 ? (
-                  <div className="text-[10px] text-gray-400 italic bg-gray-50 rounded-lg p-1.5 text-center">
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 italic bg-gray-50 dark:bg-studio-800/60 rounded-lg p-1.5 text-center border border-gray-100 dark:border-studio-800">
                     No back designs applied
                   </div>
                 ) : (
@@ -358,19 +358,19 @@ export function SidebarLeft({
                           }}
                           className={`flex items-center justify-between p-1.5 rounded-xl border cursor-pointer transition-all ${
                             isActive
-                              ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300'
-                              : 'bg-white border-gray-150 hover:bg-gray-50'
+                              ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/50 ring-1 ring-amber-300 dark:ring-amber-500/30'
+                              : 'bg-white dark:bg-studio-800 border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-750'
                           }`}
                         >
                           <div className="flex items-center gap-1.5 min-w-0">
                             {l.type === 'image' && l.image ? (
-                              <img src={l.image.src} alt="" className="size-5 rounded object-cover border border-gray-200" />
+                              <img src={l.image.src} alt="" className="size-5 rounded object-cover border border-gray-200 dark:border-studio-700" />
                             ) : (
-                              <div className="size-5 rounded bg-gray-200 flex items-center justify-center font-bold text-[10px]">
+                              <div className="size-5 rounded bg-gray-200 dark:bg-studio-700 flex items-center justify-center font-bold text-[10px] text-gray-800 dark:text-white">
                                 T
                               </div>
                             )}
-                            <span className="text-[11px] font-semibold text-gray-800 truncate">
+                            <span className="text-[11px] font-semibold text-gray-800 dark:text-white truncate">
                               {l.type === 'image' ? `Graphic #${idx + 1}` : l.text}
                             </span>
                           </div>
@@ -379,7 +379,7 @@ export function SidebarLeft({
                               e.stopPropagation();
                               if (designManager) designManager.removeLayer(l.id);
                             }}
-                            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
+                            className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
                             title="Delete Layer"
                           >
                             <Trash2 className="size-3" />
@@ -395,16 +395,16 @@ export function SidebarLeft({
         </div>
 
         {/* 2. Garment Color */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('color')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <span>Garment Color</span>
             {openSection === 'color' ? (
-              <ChevronDown className="size-4 text-gray-400" />
+              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
             )}
           </button>
 
@@ -420,7 +420,7 @@ export function SidebarLeft({
                       className={`relative aspect-square rounded-full border transition-all ${
                         isSelected
                           ? 'border-brand-500 ring-2 ring-brand-500/50 scale-110'
-                          : 'border-gray-200 hover:scale-105'
+                          : 'border-gray-200 dark:border-studio-700 hover:scale-105'
                       }`}
                       style={{ backgroundColor: swatch.hex }}
                       title={swatch.name}
@@ -433,25 +433,25 @@ export function SidebarLeft({
                   type="color"
                   value={garmentColor}
                   onChange={(e) => onGarmentColorChange(e.target.value)}
-                  className="size-6 rounded-full cursor-pointer border border-gray-200"
+                  className="size-6 rounded-full cursor-pointer border border-gray-200 dark:border-studio-700 bg-transparent"
                 />
-                <span className="text-[11px] font-mono text-gray-500 uppercase">{garmentColor}</span>
+                <span className="text-[11px] font-mono text-gray-500 dark:text-studio-400 uppercase">{garmentColor}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* 2. Background */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('bg')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <span>Background</span>
             {openSection === 'bg' ? (
-              <ChevronDown className="size-4 text-gray-400" />
+              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
             )}
           </button>
 
@@ -460,7 +460,7 @@ export function SidebarLeft({
               <button
                 onClick={() => onBackdropModeChange('dark')}
                 className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all ${
-                  backdropMode === 'dark' ? 'bg-black text-white' : 'border-gray-200 text-gray-600'
+                  backdropMode === 'dark' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
                 }`}
               >
                 Dark Studio
@@ -468,7 +468,7 @@ export function SidebarLeft({
               <button
                 onClick={() => onBackdropModeChange('light')}
                 className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all ${
-                  backdropMode === 'light' ? 'bg-black text-white' : 'border-gray-200 text-gray-600'
+                  backdropMode === 'light' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
                 }`}
               >
                 Clean Grey
@@ -476,7 +476,7 @@ export function SidebarLeft({
               <button
                 onClick={() => onBackdropModeChange('transparent')}
                 className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border col-span-2 transition-all ${
-                  backdropMode === 'transparent' ? 'bg-black text-white' : 'border-gray-200 text-gray-600'
+                  backdropMode === 'transparent' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
                 }`}
               >
                 Transparent (PNG)
@@ -486,18 +486,19 @@ export function SidebarLeft({
         </div>
 
         {/* 3. Animation */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('anim')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <div className="flex items-center gap-2">
+              <Play className="size-3.5 text-gray-400 dark:text-studio-400" />
               <span>Animation</span>
             </div>
             {openSection === 'anim' ? (
-              <ChevronDown className="size-4 text-gray-400" />
+              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
             )}
           </button>
 
@@ -506,37 +507,37 @@ export function SidebarLeft({
               <button
                 onClick={() => onAnimationModeChange('static')}
                 className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'static' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                  animationMode === 'static' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                 }`}
               >
                 <span>Static</span>
-                {animationMode === 'static' && <Check className="size-3 text-black" />}
+                {animationMode === 'static' && <Check className="size-3 text-black dark:text-white" />}
               </button>
 
               <button
                 onClick={() => onAnimationModeChange('walking')}
                 className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'walking' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                  animationMode === 'walking' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <Play className="size-3 text-emerald-500" />
                   <span>Walk</span>
                 </div>
-                {animationMode === 'walking' && <Check className="size-3 text-black" />}
+                {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
               </button>
 
               <button
                 onClick={() => onAnimationModeChange('waves')}
                 className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'waves' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                  animationMode === 'waves' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <Wind className="size-3 text-sky-500" />
                   <span>Waves</span>
                 </div>
-                {animationMode === 'waves' && <Check className="size-3 text-black" />}
+                {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
               </button>
 
               <button
@@ -545,21 +546,21 @@ export function SidebarLeft({
                   if (onTriggerKnit) onTriggerKnit();
                 }}
                 className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'knit' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                  animationMode === 'knit' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
                   <span>Knit</span>
                 </div>
-                {animationMode === 'knit' && <Check className="size-3 text-black" />}
+                {animationMode === 'knit' && <Check className="size-3 text-black dark:text-white" />}
               </button>
 
               {/* Animation Speed Slider */}
-              <div className="p-2 bg-gray-50 rounded-xl border border-gray-150 space-y-1.5 mt-1.5 animate-fadeIn">
-                <div className="flex justify-between items-center text-[10px] font-bold text-gray-600">
+              <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5 mt-1.5 animate-fadeIn">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-600 dark:text-studio-300">
                   <span>Animation Speed</span>
-                  <span className="font-mono text-black font-bold bg-white px-1.5 py-0.5 rounded border border-gray-200">
+                  <span className="font-mono text-black dark:text-white font-bold bg-white dark:bg-studio-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-studio-700">
                     {(walkSpeed || 1.0).toFixed(1)}x
                   </span>
                 </div>
@@ -570,39 +571,52 @@ export function SidebarLeft({
                   step="0.1"
                   value={walkSpeed || 1.0}
                   onChange={(e) => onWalkSpeedChange(parseFloat(e.target.value))}
-                  className="w-full accent-black cursor-pointer"
+                  className="w-full accent-brand-500 cursor-pointer"
                 />
               </div>
 
               <button
                 onClick={() => onAnimationModeChange('turntable')}
                 className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'turntable' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                  animationMode === 'turntable' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
                   <Compass className="size-3 text-brand-500" />
                   <span>360° Turntable</span>
                 </div>
-                {animationMode === 'turntable' && <Check className="size-3 text-black" />}
+                {animationMode === 'turntable' && <Check className="size-3 text-black dark:text-white" />}
+              </button>
+
+              <button
+                onClick={() => onAnimationModeChange('rotate_walk')}
+                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                  animationMode === 'rotate_walk' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <RotateCw className="size-3 text-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
+                  <span>Rotate & Walk</span>
+                </div>
+                {animationMode === 'rotate_walk' && <Check className="size-3 text-black dark:text-white" />}
               </button>
             </div>
           )}
         </div>
 
         {/* 4. Camera Animation */}
-        <div className="border-b border-gray-100 py-2.5">
+        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('cam')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <div className="flex items-center gap-2">
               <span>Camera Animation</span>
             </div>
             {openSection === 'cam' ? (
-              <ChevronDown className="size-4 text-gray-400" />
+              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
             )}
           </button>
 
@@ -612,41 +626,41 @@ export function SidebarLeft({
                 <button
                   onClick={() => onCameraAnimationModeChange('none')}
                   className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'none' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                    cameraAnimationMode === 'none' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                   }`}
                 >
                   <span>None (Manual Orbit)</span>
-                  {cameraAnimationMode === 'none' && <Check className="size-3 text-black" />}
+                  {cameraAnimationMode === 'none' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
                 <button
                   onClick={() => onCameraAnimationModeChange('rotate')}
                   className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'rotate' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                    cameraAnimationMode === 'rotate' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                   }`}
                 >
                   <span>Rotate 360°</span>
-                  {cameraAnimationMode === 'rotate' && <Check className="size-3 text-black" />}
+                  {cameraAnimationMode === 'rotate' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
                 <button
                   onClick={() => onCameraAnimationModeChange('rotatezoom')}
                   className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'rotatezoom' ? 'bg-gray-100 font-bold text-black' : 'text-gray-600 hover:bg-gray-50'
+                    cameraAnimationMode === 'rotatezoom' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
                   }`}
                 >
                   <span>Rotation & Zoom</span>
-                  {cameraAnimationMode === 'rotatezoom' && <Check className="size-3 text-black" />}
+                  {cameraAnimationMode === 'rotatezoom' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
               </div>
 
               <div className="pt-1">
-                <div className="text-[10px] font-bold text-gray-500 mb-1">Camera Presets</div>
+                <div className="text-[10px] font-bold text-gray-500 dark:text-studio-400 mb-1">Camera Presets</div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     onClick={() => {
                       onCameraAnimationModeChange('none');
                       onCameraChange('front');
                     }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700"
+                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
                   >
                     Front View
                   </button>
@@ -655,7 +669,7 @@ export function SidebarLeft({
                       onCameraAnimationModeChange('none');
                       onCameraChange('back');
                     }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700"
+                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
                   >
                     Back View
                   </button>
@@ -664,7 +678,7 @@ export function SidebarLeft({
                       onCameraAnimationModeChange('none');
                       onCameraChange('hero');
                     }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700"
+                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
                   >
                     Hero 45°
                   </button>
@@ -673,7 +687,7 @@ export function SidebarLeft({
                       onCameraAnimationModeChange('none');
                       onCameraChange('chest');
                     }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700"
+                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
                   >
                     Chest Zoom
                   </button>
@@ -687,26 +701,26 @@ export function SidebarLeft({
         <div className="py-2.5">
           <button
             onClick={() => toggleSection('effects')}
-            className="w-full flex items-center justify-between font-semibold text-gray-700 hover:text-black py-1"
+            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <Settings className="size-3.5 text-gray-500" />
+              <Settings className="size-3.5 text-gray-500 dark:text-studio-400" />
               <span>Advanced Effects</span>
             </div>
             {openSection === 'effects' ? (
-              <ChevronDown className="size-4 text-gray-400" />
+              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
             )}
           </button>
 
           {openSection === 'effects' && (
             <div className="pt-2 pb-1 space-y-3 animate-fadeIn">
               {/* Acid Wash Slider */}
-              <div className="p-2 bg-gray-50 rounded-xl border border-gray-150 space-y-1.5">
-                <div className="flex justify-between items-center text-[10px] font-bold text-gray-700">
+              <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-700 dark:text-studio-300">
                   <span>Acid Wash</span>
-                  <span className="font-mono text-black bg-white px-1.5 py-0.5 rounded border border-gray-200">
+                  <span className="font-mono text-black dark:text-white bg-white dark:bg-studio-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-studio-700">
                     {Math.round((acidWash || 0) * 100)}%
                   </span>
                 </div>
@@ -717,15 +731,15 @@ export function SidebarLeft({
                   step="0.01"
                   value={acidWash || 0}
                   onChange={(e) => onAcidWashChange(parseFloat(e.target.value))}
-                  className="w-full accent-black cursor-pointer"
+                  className="w-full accent-brand-500 cursor-pointer"
                 />
               </div>
 
               {/* Puff Print Slider */}
-              <div className="p-2 bg-gray-50 rounded-xl border border-gray-150 space-y-1.5">
-                <div className="flex justify-between items-center text-[10px] font-bold text-gray-700">
+              <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-700 dark:text-studio-300">
                   <span>Puff Print Relief</span>
-                  <span className="font-mono text-black bg-white px-1.5 py-0.5 rounded border border-gray-200">
+                  <span className="font-mono text-black dark:text-white bg-white dark:bg-studio-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-studio-700">
                     {Math.round((puffPrint || 0) * 100)}%
                   </span>
                 </div>
@@ -736,7 +750,7 @@ export function SidebarLeft({
                   step="0.01"
                   value={puffPrint || 0}
                   onChange={(e) => onPuffPrintChange(parseFloat(e.target.value))}
-                  className="w-full accent-black cursor-pointer"
+                  className="w-full accent-brand-500 cursor-pointer"
                 />
               </div>
             </div>

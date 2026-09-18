@@ -1,17 +1,20 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check } from 'lucide-react';
+import { Pencil, X, Check, Download } from 'lucide-react';
 
 export function PositionGuide({
   isOpen,
   onClose,
+  onOpenExport,
   designManager,
   currentGarmentType = 'oversized_tee',
+  selectedSide: propSide = 'front',
+  onSideChange,
   onTriggerUpload,
   onTriggerUploadFront,
   onTriggerUploadBack,
   onCameraChange
 }) {
-  const [selectedSide, setSelectedSide] = useState('front'); // 'front' | 'back'
+  const [selectedSide, setSelectedSide] = useState(propSide || 'front'); // 'front' | 'back'
   const [garmentColor, setGarmentColor] = useState('#ffffff');
   const [penStrokeWidth, setPenStrokeWidth] = useState(1);
   const [textColor, setTextColor] = useState('#000000');
@@ -20,11 +23,20 @@ export function PositionGuide({
   const [textInput, setTextInput] = useState('VIRTUAL THREADS');
   const [feedbackMessage, setFeedbackMessage] = useState('');
 
-  // Layers list and drag state
+  // Layers list and drag/resize state
   const [layers, setLayers] = useState([]);
   const [activeLayerId, setActiveLayerId] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState(null);
+
+  // Synchronize with external propSide changes
+  useEffect(() => {
+    if (propSide && propSide !== selectedSide) {
+      setSelectedSide(propSide);
+    }
+  }, [propSide]);
 
   const fileInputRef = useRef(null);
   const garmentColorInputRef = useRef(null);
@@ -94,7 +106,7 @@ export function PositionGuide({
       y: 920,
       scale: 1.0,
       rotation: 0,
-      printType: 'puff'
+      printType: 'screen'
     });
     if (newLayer) {
       setActiveLayerId(newLayer.id);
@@ -166,7 +178,7 @@ export function PositionGuide({
           y: 920,
           scale: 1.0,
           rotation: 0,
-          printType: 'puff'
+          printType: 'screen'
         });
         if (newLayer) {
           setActiveLayerId(newLayer.id);
@@ -305,7 +317,50 @@ export function PositionGuide({
     });
   };
 
+  // Resize interaction handlers for corner handles
+  const handlePointerDownResize = (e, layerId, corner) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!designManager) return;
+
+    const layer = designManager.layers.find((l) => l.id === layerId);
+    if (!layer) return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    setIsResizing(true);
+    setResizeStart({
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      startScale: layer.scale || 1.0,
+      layerId: layerId,
+      corner: corner
+    });
+  };
+
   const handlePointerMove = useCallback((e) => {
+    if (isResizing && resizeStart && designManager) {
+      e.preventDefault();
+      const deltaX = e.clientX - resizeStart.pointerX;
+      const deltaY = e.clientY - resizeStart.pointerY;
+
+      let factor = 0;
+      if (resizeStart.corner === 'br') factor = deltaX + deltaY;
+      else if (resizeStart.corner === 'tl') factor = -deltaX - deltaY;
+      else if (resizeStart.corner === 'tr') factor = deltaX - deltaY;
+      else if (resizeStart.corner === 'bl') factor = -deltaX + deltaY;
+
+      const scaleChange = factor * 0.008;
+      const newScale = Math.max(0.2, Math.min(3.5, resizeStart.startScale + scaleChange));
+
+      designManager.updateLayer(resizeStart.layerId, {
+        scale: parseFloat(newScale.toFixed(2))
+      });
+      return;
+    }
+
     if (!isDragging || !dragStart || !designManager || !containerRef.current) return;
     e.preventDefault();
 
@@ -331,9 +386,16 @@ export function PositionGuide({
       y: newY,
       side: targetSide
     });
-  }, [isDragging, dragStart, designManager]);
+  }, [isDragging, dragStart, isResizing, resizeStart, designManager]);
 
   const handlePointerUp = useCallback((e) => {
+    if (isResizing) {
+      try {
+        e.currentTarget?.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+      setIsResizing(false);
+      setResizeStart(null);
+    }
     if (isDragging) {
       try {
         e.currentTarget?.releasePointerCapture(e.pointerId);
@@ -341,7 +403,7 @@ export function PositionGuide({
       setIsDragging(false);
       setDragStart(null);
     }
-  }, [isDragging]);
+  }, [isDragging, isResizing]);
 
   // Click on canvas to move or place active layer
   const handleCanvasClick = (e) => {
@@ -437,15 +499,29 @@ export function PositionGuide({
           />
         </div>
 
-        {/* Close Button (x) */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-200/60"
-          title="Close Position Guide"
-        >
-          <X className="size-4 stroke-[2.5]" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onOpenExport && (
+            <button
+              type="button"
+              onClick={onOpenExport}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-indigo-600 dark:text-brand-400 hover:bg-indigo-50 dark:hover:bg-brand-500/20 border border-indigo-200 dark:border-brand-500/30 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
+              title="Switch to Export Studio (Video & 4K Snapshots)"
+            >
+              <Download className="size-3" />
+              <span>Export</span>
+            </button>
+          )}
+
+          {/* Close Button (x) */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-200/60"
+            title="Close Position Guide"
+          >
+            <X className="size-4 stroke-[2.5]" />
+          </button>
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -707,13 +783,38 @@ export function PositionGuide({
                     </div>
                   )}
 
-                  {/* Transform Bounding Box Handles when Selected */}
+                  {/* Transform Bounding Box & Interactive Corner Resize Handles */}
                   {isSelected && (
-                    <div className="absolute -inset-1 border border-dashed border-brand-500 pointer-events-none rounded">
-                      <div className="absolute -top-1 -left-1 size-2 bg-brand-500 rounded-full" />
-                      <div className="absolute -top-1 -right-1 size-2 bg-brand-500 rounded-full" />
-                      <div className="absolute -bottom-1 -left-1 size-2 bg-brand-500 rounded-full" />
-                      <div className="absolute -bottom-1 -right-1 size-2 bg-brand-500 rounded-full" />
+                    <div className="absolute -inset-2 border border-dashed border-brand-500 rounded pointer-events-none">
+                      {/* Top-Left Resize Handle */}
+                      <div
+                        onPointerDown={(e) => handlePointerDownResize(e, layer.id, 'tl')}
+                        className="absolute -top-1.5 -left-1.5 size-3 bg-white border-2 border-brand-500 rounded-full shadow-md cursor-nwse-resize pointer-events-auto hover:scale-125 transition-transform"
+                        title="Drag to resize graphic"
+                      />
+                      {/* Top-Right Resize Handle */}
+                      <div
+                        onPointerDown={(e) => handlePointerDownResize(e, layer.id, 'tr')}
+                        className="absolute -top-1.5 -right-1.5 size-3 bg-white border-2 border-brand-500 rounded-full shadow-md cursor-nesw-resize pointer-events-auto hover:scale-125 transition-transform"
+                        title="Drag to resize graphic"
+                      />
+                      {/* Bottom-Left Resize Handle */}
+                      <div
+                        onPointerDown={(e) => handlePointerDownResize(e, layer.id, 'bl')}
+                        className="absolute -bottom-1.5 -left-1.5 size-3 bg-white border-2 border-brand-500 rounded-full shadow-md cursor-nesw-resize pointer-events-auto hover:scale-125 transition-transform"
+                        title="Drag to resize graphic"
+                      />
+                      {/* Bottom-Right Resize Handle */}
+                      <div
+                        onPointerDown={(e) => handlePointerDownResize(e, layer.id, 'br')}
+                        className="absolute -bottom-1.5 -right-1.5 size-3 bg-white border-2 border-brand-500 rounded-full shadow-md cursor-nwse-resize pointer-events-auto hover:scale-125 transition-transform"
+                        title="Drag to resize graphic"
+                      />
+
+                      {/* Live Scale Badge */}
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900/90 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow whitespace-nowrap pointer-events-none">
+                        {Math.round((layer.scale || 1.0) * 100)}%
+                      </div>
                     </div>
                   )}
                 </div>
@@ -724,7 +825,7 @@ export function PositionGuide({
 
         {/* Responsive Help Footer */}
         <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400 px-1">
-          <span>Click anywhere to position • Drag decals to move</span>
+          <span>Click to position • Drag to move • Drag corners or scroll to resize</span>
           <span className="font-semibold text-gray-500 uppercase">{selectedSide} Panel</span>
         </div>
       </div>

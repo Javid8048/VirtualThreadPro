@@ -237,7 +237,7 @@ export function ProductsCatalogModal({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <p className="text-sm text-studio-300">
-                Select one of our blanks, add your designs, and export video loops, 4K snapshots, or 3D models.
+                Select one of our blanks, add your designs, and export video loops and 4K snapshots.
               </p>
               <p className="text-xs text-brand-accent mt-1 flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="size-3.5" />
