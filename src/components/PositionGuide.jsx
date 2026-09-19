@@ -43,6 +43,7 @@ export function PositionGuide({
   const textColorInputRef = useRef(null);
   const textInputRef = useRef(null);
   const containerRef = useRef(null);
+  const activeIdRef = useRef(null);
 
   // Sync state with designManager
   useEffect(() => {
@@ -57,14 +58,18 @@ export function PositionGuide({
       if (active) {
         setActiveLayerId(active.id);
         setSelectedSide(active.side || 'front');
-        if (active.type === 'text') {
-          setTextInput(active.text || 'VIRTUAL THREADS');
-          setTextColor(active.textColor || '#000000');
-          setFontSize(active.fontSize || 12);
-          setFontFamily(active.fontFamily || 'Roboto');
+        if (active.id !== activeIdRef.current) {
+          activeIdRef.current = active.id;
+          if (active.type === 'text') {
+            setTextInput(active.text || 'VIRTUAL THREADS');
+            setTextColor(active.textColor || '#000000');
+            setFontSize(active.fontSize || 12);
+            setFontFamily(active.fontFamily || 'Roboto');
+          }
         }
       } else {
         setActiveLayerId(null);
+        activeIdRef.current = null;
       }
     };
 
@@ -395,6 +400,9 @@ export function PositionGuide({
       } catch (err) {}
       setIsResizing(false);
       setResizeStart(null);
+      if (designManager && designManager.flush) {
+        designManager.flush();
+      }
     }
     if (isDragging) {
       try {
@@ -402,8 +410,11 @@ export function PositionGuide({
       } catch (err) {}
       setIsDragging(false);
       setDragStart(null);
+      if (designManager && designManager.flush) {
+        designManager.flush();
+      }
     }
-  }, [isDragging, isResizing]);
+  }, [isDragging, isResizing, designManager]);
 
   // Click on canvas to move or place active layer
   const handleCanvasClick = (e) => {

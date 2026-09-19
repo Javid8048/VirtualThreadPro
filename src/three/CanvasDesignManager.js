@@ -7,22 +7,24 @@ import * as THREE from 'three';
 export class CanvasDesignManager {
   constructor(garmentColor = '#ffffff') {
     this.logicalSize = 2048;
-    this.scaleFactor = 2; // 4096 / 2048 for razor-sharp supersampling
-    this.size = 4096;
+    this.scaleFactor = 1; // Native 1:1 mapping for instantaneous 60 FPS GPU uploads
+    this.size = 2048;
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.size;
     this.canvas.height = this.size;
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: false });
 
     this.garmentColor = garmentColor;
     this.fabricFinish = 'cotton'; // 'cotton' | 'acid_wash' | 'vintage_fade'
+    this.garmentType = 'oversized_tee';
 
     // Artwork and Text layers
     this.layers = [];
     this.activeLayerId = null;
     this.listeners = [];
+    this._rafId = null;
 
-    // Three.js Texture (Ultra-crisp 4K with direct LinearFilter to bypass mipmap downsampling blur)
+    // Three.js Texture (Razor-sharp with direct LinearFilter without mipmap blur)
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.flipY = false; // Required for GLTF UV coordinates
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -35,7 +37,7 @@ export class CanvasDesignManager {
     this.decalCanvas = document.createElement('canvas');
     this.decalCanvas.width = this.size;
     this.decalCanvas.height = this.size;
-    this.decalCtx = this.decalCanvas.getContext('2d');
+    this.decalCtx = this.decalCanvas.getContext('2d', { willReadFrequently: false });
 
     this.decalTexture = new THREE.CanvasTexture(this.decalCanvas);
     this.decalTexture.flipY = false;
@@ -132,13 +134,38 @@ export class CanvasDesignManager {
     return this.layers.filter((l) => (l.side || 'front') === side);
   }
 
-  updateLayer(id, updates) {
+  setGarmentType(type) {
+    this.garmentType = type;
+  }
+
+  updateLayer(id, updates, immediate = false) {
     const idx = this.layers.findIndex((l) => l.id === id);
     if (idx !== -1) {
       this.layers[idx] = { ...this.layers[idx], ...updates };
+      if (immediate) {
+        this.flush();
+      } else {
+        this.scheduleRender();
+      }
+    }
+  }
+
+  scheduleRender() {
+    if (this._rafId) return;
+    this._rafId = requestAnimationFrame(() => {
+      this._rafId = null;
       this.render();
       this.notify();
+    });
+  }
+
+  flush() {
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
     }
+    this.render();
+    this.notify();
   }
 
   removeLayer(id) {
@@ -146,8 +173,7 @@ export class CanvasDesignManager {
     if (this.activeLayerId === id) {
       this.activeLayerId = this.layers[0]?.id || null;
     }
-    this.render();
-    this.notify();
+    this.flush();
   }
 
   clearLayersBySide(side) {
@@ -155,15 +181,13 @@ export class CanvasDesignManager {
     if (!this.layers.find((l) => l.id === this.activeLayerId)) {
       this.activeLayerId = this.layers[0]?.id || null;
     }
-    this.render();
-    this.notify();
+    this.flush();
   }
 
   clearLayers() {
     this.layers = [];
     this.activeLayerId = null;
-    this.render();
-    this.notify();
+    this.flush();
   }
 
   render() {
@@ -183,19 +207,25 @@ export class CanvasDesignManager {
     ctx.fillStyle = this.garmentColor;
     ctx.fillRect(0, 0, S, S);
 
-    // 2. Decal canvas is 100% transparent (clear) so non-tshirt 3D meshes show pure cloth
-    if (dCtx) {
+    // 2. Only render to decalCanvas if the active garment actually uses 3D floating decals (hoodie, pants, cap)
+    const isDecalGarment = this.garmentType && (
+      this.garmentType === 'hoodie' ||
+      this.garmentType === 'zip_hoodie' ||
+      this.garmentType === 'hanging_hoodie' ||
+      this.garmentType === 'sweatpants' ||
+      this.garmentType === 'cap'
+    );
+
+    if (isDecalGarment && dCtx) {
       dCtx.clearRect(0, 0, S, S);
     }
 
-    // 3. Render all design layers to both the main UV canvas and the transparent decal canvas
-    const targets = dCtx ? [ctx, dCtx] : [ctx];
+    // 3. Render all design layers to target canvases
+    const targets = (isDecalGarment && dCtx) ? [ctx, dCtx] : [ctx];
 
     this.layers.forEach((layer) => {
       targets.forEach((targetCtx) => {
         targetCtx.save();
-        // Scale 2x from 2048 logical coordinate space to 4096 high-resolution canvas pixels
-        targetCtx.scale(this.scaleFactor, this.scaleFactor);
         targetCtx.globalAlpha = layer.opacity || 1.0;
 
         // Position center
@@ -250,12 +280,21 @@ export class CanvasDesignManager {
       });
     });
 
-    // Notify Three.js that the textures have been updated
+    // Notify Three.js that the primary garment texture has been updated
     if (this.texture) {
       this.texture.needsUpdate = true;
     }
-    if (this.decalTexture) {
+    // Only upload decalTexture when active garment requires it
+    if (isDecalGarment && this.decalTexture) {
       this.decalTexture.needsUpdate = true;
     }
+  }
+
+  dispose() {
+    if (this._rafId) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
+    this.listeners = [];
   }
 }

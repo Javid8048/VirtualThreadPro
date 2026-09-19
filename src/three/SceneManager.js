@@ -117,8 +117,9 @@ export class SceneManager {
     this.controls.maxDistance = 38;
     this.controls.target.set(0, 0, 0);
 
-    // 5. Canvas Design Manager (2048x2048 UV texture)
+    // 5. Canvas Design Manager (Optimized 2048x2048 texture with 60 FPS RAF scheduling)
     this.designManager = new CanvasDesignManager('#ffffff');
+    this.designManager.setGarmentType(this.getGarmentFamily(initialGarmentType));
     this.designManager.subscribe(() => this.updateDecalVisibility());
 
     // 6. 3D Model references & animations
@@ -592,6 +593,9 @@ export class SceneManager {
       if (this.is3DDragging) {
         this.is3DDragging = false;
         this.dragStart = null;
+        if (this.designManager && this.designManager.flush) {
+          this.designManager.flush();
+        }
         try { dom.releasePointerCapture(e.pointerId); } catch (err) {}
         this.controls.enabled = (this.interactionMode !== 'dragDesign');
       }
@@ -785,6 +789,9 @@ export class SceneManager {
   // --- Dynamic Garment Type Switching (All 11 Garments in 3D) ---
   setGarmentType(type) {
     this.garmentType = type || 'oversized_tee';
+    if (this.designManager && this.designManager.setGarmentType) {
+      this.designManager.setGarmentType(this.getGarmentFamily(this.garmentType));
+    }
     this.ensureGarmentModelLoaded(this.garmentType, () => {
       this.applyGarmentTypeVisibility();
       this.setAnimationMode(this.animationMode);
