@@ -186,10 +186,13 @@ export class SceneManager {
     this.cameraAngle = 0;
     this.cameraZoomTime = 0;
 
-    // Deterministic 60 FPS video recording state
+    // Video recording state & deterministic showcase engine
     this.isRecordingVideo = false;
-    this.recordingFixedDelta = 1 / 60;
+    this.recordingMotion = 'showcase360';
+    this.recordingDuration = 5;
+    this.recordingAngularSpeed = 0;
     this.onRecordingFrame = null;
+    this.preRecordState = null;
 
     // 7. Lighting
     this.lights = {};
@@ -1636,8 +1639,8 @@ export class SceneManager {
       }
     }
 
-    // 360 Turntable rotation of garment
-    if (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk') {
+    // 360 Turntable rotation of garment (Normal mode when not recording video)
+    if (!this.isRecordingVideo && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
       if (this.tshirtPivot) {
         this.tshirtPivot.rotation.y += delta * this.turntableSpeed;
       }
@@ -1652,6 +1655,24 @@ export class SceneManager {
       }
       if (this.attachmentsGroup) {
         this.attachmentsGroup.rotation.y += delta * this.turntableSpeed;
+      }
+    }
+
+    // Video recording showcase motion: exact 360° spin loop
+    if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
+      const rotStep = this.recordingAngularSpeed * delta;
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y += rotStep;
+      if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
+        this.realHoodieRoot.rotation.y += rotStep;
+      }
+      if (this.realPantsRoot && this.garmentType === 'sweatpants') {
+        this.realPantsRoot.rotation.y += rotStep;
+      }
+      if (this.realCapRoot && this.garmentType === 'cap') {
+        this.realCapRoot.rotation.y += rotStep;
+      }
+      if (this.attachmentsGroup) {
+        this.attachmentsGroup.rotation.y += rotStep;
       }
     }
 
@@ -1680,6 +1701,87 @@ export class SceneManager {
     // Synchronously blit frame directly after render for exact frame pacing
     if (this.isRecordingVideo && this.onRecordingFrame) {
       this.onRecordingFrame(this.renderer.domElement);
+    }
+  }
+
+  startVideoRecording({
+    fps = 30,
+    durationSeconds = 5,
+    format = 'desktop',
+    motion = 'showcase360',
+    onFrame = null
+  } = {}) {
+    this.isRecordingVideo = true;
+    this.recordingDuration = durationSeconds;
+    this.recordingMotion = motion;
+    this.onRecordingFrame = onFrame;
+
+    // Snapshot current state to restore cleanly upon completion
+    this.preRecordState = {
+      cameraPosition: this.camera.position.clone(),
+      cameraFov: this.camera.fov,
+      controlsTarget: this.controls.target.clone(),
+      controlsEnabled: this.controls.enabled,
+      tshirtRotationY: this.tshirtPivot ? this.tshirtPivot.rotation.y : 0,
+      hoodieRotationY: this.realHoodieRoot ? this.realHoodieRoot.rotation.y : 0,
+      pantsRotationY: this.realPantsRoot ? this.realPantsRoot.rotation.y : 0,
+      capRotationY: this.realCapRoot ? this.realCapRoot.rotation.y : 0,
+      attachmentsRotationY: this.attachmentsGroup ? this.attachmentsGroup.rotation.y : 0
+    };
+
+    // Temporarily freeze user orbit controls during video recording
+    this.controls.enabled = false;
+    this.controls.target.set(0, 0, 0);
+
+    // Camera Framing per video format
+    if (format === 'mobile') {
+      // Mobile 9:16 vertical: pull camera back to z=34 so collar, both sleeves, and waist fit cleanly
+      this.camera.position.set(0, 0, 34);
+    } else if (format === 'square') {
+      // Square 1:1: comfortable framing
+      this.camera.position.set(0, 0, 27);
+    } else {
+      // Desktop 16:9: standard distance
+      this.camera.position.set(0, 0, 24.5);
+    }
+    this.camera.lookAt(0, 0, 0);
+
+    // If 360 showcase motion requested:
+    // Reset garment to front (rotation.y = 0) and calculate angular speed for an exact 360 loop
+    if (motion === 'showcase360') {
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
+      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
+      if (this.realPantsRoot) this.realPantsRoot.rotation.y = 0;
+      if (this.realCapRoot) this.realCapRoot.rotation.y = 0;
+      if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
+
+      const loops = durationSeconds >= 15 ? 2 : 1;
+      this.recordingAngularSpeed = (2 * Math.PI * loops) / durationSeconds;
+    } else {
+      this.recordingAngularSpeed = 0;
+    }
+  }
+
+  stopVideoRecording() {
+    if (!this.isRecordingVideo) return;
+    this.isRecordingVideo = false;
+    this.onRecordingFrame = null;
+
+    // Restore interactive state
+    if (this.preRecordState) {
+      const s = this.preRecordState;
+      this.camera.position.copy(s.cameraPosition);
+      this.camera.fov = s.cameraFov;
+      this.camera.updateProjectionMatrix();
+      this.controls.target.copy(s.controlsTarget);
+      this.controls.enabled = s.controlsEnabled;
+
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y = s.tshirtRotationY;
+      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = s.hoodieRotationY;
+      if (this.realPantsRoot) this.realPantsRoot.rotation.y = s.pantsRotationY;
+      if (this.realCapRoot) this.realCapRoot.rotation.y = s.capRotationY;
+      if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = s.attachmentsRotationY;
+      this.preRecordState = null;
     }
   }
 

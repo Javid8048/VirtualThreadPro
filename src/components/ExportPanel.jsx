@@ -15,7 +15,8 @@ import {
   StopCircle,
   Palette,
   Minus,
-  Plus
+  Plus,
+  RotateCw
 } from 'lucide-react';
 import { CanvasVideoRecorder } from '../utils/videoRecorder';
 
@@ -33,6 +34,8 @@ export function ExportPanel({
 
   // Video recording state
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
+  const [videoMotion, setVideoMotion] = useState('showcase360'); // 'showcase360' | 'current'
+  const [preferredFormat, setPreferredFormat] = useState('webm'); // 'webm' | 'mp4'
   const [videoDuration, setVideoDuration] = useState(5); // in seconds: 1 to 30
   const [isRecording, setIsRecording] = useState(false);
   const [recordingProgress, setRecordingProgress] = useState(0);
@@ -94,6 +97,8 @@ export function ExportPanel({
         {
           durationSeconds: Number(videoDuration),
           format: videoFormat,
+          motion: videoMotion,
+          preferredFormat: preferredFormat,
           backgroundColor: bg
         },
         (pct, sec) => {
@@ -277,6 +282,100 @@ export function ExportPanel({
                   <div>
                     <div className="text-xs font-extrabold text-gray-900 dark:text-white">Square</div>
                     <div className="text-[10px] text-gray-500 dark:text-studio-400">1080×1080</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Showcase Motion Mode */}
+            <div>
+              <label className="text-xs font-bold text-gray-700 dark:text-studio-200 mb-2 flex items-center gap-1.5">
+                <RotateCw className="size-3.5 text-brand-500" />
+                <span>Showcase Motion</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setVideoMotion('showcase360')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    videoMotion === 'showcase360'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <RotateCw className="size-3.5 text-brand-500" />
+                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">360° Showcase</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
+                    Smooth full loop revealing front, sleeves & back
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setVideoMotion('current')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    videoMotion === 'current'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <Film className="size-3.5 text-indigo-500" />
+                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">Current Pose</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
+                    Captures active garment pose or animation
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Video File Container Format */}
+            <div>
+              <label className="text-xs font-bold text-gray-700 dark:text-studio-200 mb-2 flex items-center gap-1.5">
+                <Video className="size-3.5 text-brand-500" />
+                <span>Video File Format</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setPreferredFormat('webm')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    preferredFormat === 'webm'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center justify-between">
+                    <span>WebM Video</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">Recommended</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 mt-0.5">
+                    Ultra-smooth 60 FPS, fast browser encoding
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setPreferredFormat('mp4')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    preferredFormat === 'mp4'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center justify-between">
+                    <span>MP4 Video</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400 font-bold">Standard</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 mt-0.5">
+                    Universal format for mobile sharing & socials
                   </div>
                 </button>
               </div>
