@@ -335,6 +335,42 @@ export class SceneManager {
     }
   }
 
+  preloadAllGarmentModels() {
+    // Asynchronously pre-cache remaining garment models (hoodie, pants, cap)
+    // so garment switching in 3D studio is completely instantaneous (0ms)
+    const loadNext = () => {
+      if (this.isDisposed) return;
+      if (!this.modelsLoaded.hoodie && !this.modelsLoading.hoodie) {
+        this.loadHoodieModel(() => {
+          if (this.isDisposed) return;
+          if (!this.modelsLoaded.pants && !this.modelsLoading.pants) {
+            this.loadPantsModel(() => {
+              if (this.isDisposed) return;
+              if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
+                this.loadCapModel();
+              }
+            });
+          }
+        });
+      } else if (!this.modelsLoaded.pants && !this.modelsLoading.pants) {
+        this.loadPantsModel(() => {
+          if (this.isDisposed) return;
+          if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
+            this.loadCapModel();
+          }
+        });
+      } else if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
+        this.loadCapModel();
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      window.requestIdleCallback(() => loadNext(), { timeout: 1500 });
+    } else {
+      setTimeout(loadNext, 1000);
+    }
+  }
+
   loadModel(onDone) {
     return this.loadTshirtModel(onDone);
   }
@@ -470,6 +506,9 @@ export class SceneManager {
         const cbs = [...this.tshirtCallbacks];
         this.tshirtCallbacks = [];
         cbs.forEach(cb => cb());
+
+        // Kick off background preloading for remaining garments
+        this.preloadAllGarmentModels();
       },
       undefined,
       (err) => {
@@ -1351,21 +1390,6 @@ export class SceneManager {
     if (this.capDecalMeshFront) this.capDecalMeshFront.visible = hasFront;
   }
 
-  // --- High-Performance Video Recording Pipeline ---
-  startVideoRecording({ fps = 30, onFrame } = {}) {
-    this.isRecordingVideo = true;
-    this.recordingFixedDelta = 1 / fps;
-    this.onRecordingFrame = onFrame;
-    this.clock.getDelta(); // Clear previous delta
-  }
-
-  stopVideoRecording() {
-    this.isRecordingVideo = false;
-    this.onRecordingFrame = null;
-    this.recordingFixedDelta = 1 / 30;
-    this.clock.getDelta(); // Clear time delta backlog to prevent sudden jump
-  }
-
   setAnimationMode(mode) {
     if (mode === 'walk') mode = 'walking';
     if (mode === 'wind') mode = 'waves';
@@ -1604,8 +1628,8 @@ export class SceneManager {
     if (this.isDisposed) return;
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Use true elapsed delta capped at 50ms so video recordings and animations play back at 100% natural real-time speed
-    const delta = Math.min(this.clock.getDelta(), 0.05);
+    // Use constant fixed delta (1/60s) during video recording for deterministic, silky-smooth 60 FPS video
+    const delta = this.isRecordingVideo ? (1 / (this.recordingFps || 60)) : Math.min(this.clock.getDelta(), 0.05);
 
     if (this.mixer) {
       this.mixer.update(delta);
@@ -1705,13 +1729,14 @@ export class SceneManager {
   }
 
   startVideoRecording({
-    fps = 30,
+    fps = 60,
     durationSeconds = 5,
     format = 'desktop',
     motion = 'showcase360',
     onFrame = null
   } = {}) {
     this.isRecordingVideo = true;
+    this.recordingFps = fps;
     this.recordingDuration = durationSeconds;
     this.recordingMotion = motion;
     this.onRecordingFrame = onFrame;
@@ -1781,7 +1806,10 @@ export class SceneManager {
       if (this.realPantsRoot) this.realPantsRoot.rotation.y = s.pantsRotationY;
       if (this.realCapRoot) this.realCapRoot.rotation.y = s.capRotationY;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = s.attachmentsRotationY;
+      this.clock.getDelta(); // Clear delta backlog to prevent sudden jump
       this.preRecordState = null;
+    } else {
+      this.clock.getDelta();
     }
   }
 

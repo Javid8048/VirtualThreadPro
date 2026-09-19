@@ -6,21 +6,35 @@
   color-scheme: dark;
 }
 
-/* Custom Scrollbar for landing page and studio panels */
+/* User-Friendly Sleek Scrollbar for landing page and studio panels */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0d111c;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(80, 105, 235, 0.5);
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
-  border: 1.5px solid #0d111c;
+  transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(80, 105, 235, 0.85);
+  background: rgba(99, 102, 241, 0.8);
+}
+
+.dark ::-webkit-scrollbar-thumb,
+:root[class~="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+}
+.dark ::-webkit-scrollbar-thumb:hover,
+:root[class~="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.85);
 }
 
 /* Range input styling */

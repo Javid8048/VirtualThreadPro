@@ -77,8 +77,8 @@ export class CanvasVideoRecorder {
         recCtx.imageSmoothingEnabled = true;
         recCtx.imageSmoothingQuality = 'high';
 
-        // Capture smooth 30 FPS stream for optimal performance and fast encoding
-        const stream = recCanvas.captureStream ? recCanvas.captureStream(30) : null;
+        // Capture silky-smooth 60 FPS stream
+        const stream = recCanvas.captureStream ? recCanvas.captureStream(60) : null;
         if (!stream) {
           if (recCanvas.parentNode) recCanvas.parentNode.removeChild(recCanvas);
           reject(new Error('Browser does not support canvas video capture (captureStream).'));
@@ -129,11 +129,45 @@ export class CanvasVideoRecorder {
 
         const options = {
           mimeType: selectedMime,
-          videoBitsPerSecond: 9000000 // 9 Mbps for clean streetwear detail
+          videoBitsPerSecond: 12000000 // 12 Mbps for razor-sharp 60 FPS studio detail
         };
 
         this.recordedChunks = [];
         this.mediaRecorder = new MediaRecorder(stream, options);
+
+        // Pre-render studio lighting backdrop gradient ONCE into offscreen canvas
+        // Eliminates heavy 2D radial gradient and fillRect on every frame
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = targetWidth;
+        bgCanvas.height = targetHeight;
+        const bgCtx = bgCanvas.getContext('2d');
+        const grad = bgCtx.createRadialGradient(
+          targetWidth * 0.5,
+          targetHeight * 0.45,
+          Math.min(targetWidth, targetHeight) * 0.08,
+          targetWidth * 0.5,
+          targetHeight * 0.45,
+          Math.max(targetWidth, targetHeight) * 0.85
+        );
+
+        if (
+          backgroundColor === '#f4f4f6' ||
+          backgroundColor === '#ffffff' ||
+          backgroundColor.includes('light')
+        ) {
+          // Light editorial photoshoot backdrop
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.35, '#f1f4f9');
+          grad.addColorStop(1, '#cbd5e1');
+        } else {
+          // Dark luxury streetwear backdrop
+          grad.addColorStop(0, '#1e2433');
+          grad.addColorStop(0.4, '#12151e');
+          grad.addColorStop(1, '#090b10');
+        }
+
+        bgCtx.fillStyle = grad;
+        bgCtx.fillRect(0, 0, targetWidth, targetHeight);
 
         const cleanup = () => {
           this.isRecording = false;
@@ -154,6 +188,10 @@ export class CanvasVideoRecorder {
           }
           if (recCanvas && recCanvas.parentNode) {
             recCanvas.parentNode.removeChild(recCanvas);
+          }
+          if (bgCanvas) {
+            bgCanvas.width = 0;
+            bgCanvas.height = 0;
           }
         };
 
@@ -195,42 +233,12 @@ export class CanvasVideoRecorder {
         const totalDurationMs = Math.max(1, durationSeconds * 1000);
         const startTime = performance.now();
 
-        // High-end studio lighting backdrop gradient
-        const drawStudioBackdrop = () => {
-          const grad = recCtx.createRadialGradient(
-            targetWidth * 0.5,
-            targetHeight * 0.45,
-            Math.min(targetWidth, targetHeight) * 0.08,
-            targetWidth * 0.5,
-            targetHeight * 0.45,
-            Math.max(targetWidth, targetHeight) * 0.85
-          );
-
-          if (
-            backgroundColor === '#f4f4f6' ||
-            backgroundColor === '#ffffff' ||
-            backgroundColor.includes('light')
-          ) {
-            // Light editorial photoshoot backdrop
-            grad.addColorStop(0, '#ffffff');
-            grad.addColorStop(0.35, '#f1f4f9');
-            grad.addColorStop(1, '#cbd5e1');
-          } else {
-            // Dark luxury streetwear backdrop
-            grad.addColorStop(0, '#1e2433');
-            grad.addColorStop(0.4, '#12151e');
-            grad.addColorStop(1, '#090b10');
-          }
-
-          recCtx.fillStyle = grad;
-          recCtx.fillRect(0, 0, targetWidth, targetHeight);
-        };
-
         // Aspect-correct blit function: scales and frames 3D canvas with zero clipping
         const blitFrame = (srcCanvas) => {
           if (!this.isRecording || !srcCanvas) return;
 
-          drawStudioBackdrop();
+          // Blit pre-cached background (sub-millisecond instant GPU transfer)
+          recCtx.drawImage(bgCanvas, 0, 0);
 
           const sw = srcCanvas.width;
           const sh = srcCanvas.height;
@@ -256,7 +264,7 @@ export class CanvasVideoRecorder {
 
         // Initial prime render
         blitFrame(this.canvas);
-        this.mediaRecorder.start(200);
+        this.mediaRecorder.start(100);
 
         // Safety timeout to trigger finish exactly when duration completes
         this.stopTimeout = setTimeout(() => {
@@ -264,9 +272,9 @@ export class CanvasVideoRecorder {
         }, totalDurationMs + 150);
 
         if (this.sceneManager && this.sceneManager.startVideoRecording) {
-          // Synchronous 30 FPS render hook with SceneManager
+          // Synchronous 60 FPS render hook with SceneManager
           this.sceneManager.startVideoRecording({
-            fps: 30,
+            fps: 60,
             durationSeconds,
             format,
             motion,

@@ -138,26 +138,16 @@ export function ExportPanel({
       className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[440px] sm:w-[480px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >
-      {/* Top Header: Workspace Tab Switcher (Design Studio ↔ Export Studio) */}
+      {/* Top Header: Export Studio Branding */}
       <div className="flex items-center justify-between px-5 pt-4 pb-3 bg-gray-50/90 dark:bg-studio-850/90 border-b border-gray-200/80 dark:border-studio-700/60 shrink-0">
-        <div className="flex items-center p-0.5 bg-gray-200/70 dark:bg-studio-800 rounded-xl border border-gray-300/60 dark:border-studio-700/50">
-          <button
-            type="button"
-            onClick={onSwitchToDesign}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white hover:bg-white/60 dark:hover:bg-studio-700/60 transition-all flex items-center gap-1.5"
-            title="Switch back to Design & Graphics Studio"
-          >
-            <Palette className="size-3.5 text-indigo-500" />
-            <span>Design Studio</span>
-          </button>
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-brand-500 text-white shadow-sm flex items-center gap-1.5 transition-all"
-            title="Currently in Export Studio"
-          >
-            <Sparkles className="size-3.5" />
-            <span>Export Studio</span>
-          </button>
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-brand-500/15 text-brand-500 border border-brand-500/25">
+            <Sparkles className="size-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-extrabold text-gray-900 dark:text-white leading-tight">Export Studio</h3>
+            <p className="text-[10px] text-gray-500 dark:text-studio-400">Ultra-smooth 60 FPS video & 4K snapshots</p>
+          </div>
         </div>
 
         {/* Close Button */}
@@ -622,15 +612,13 @@ export function ExportPanel({
         )}
       </div>
 
-      {/* Footer Return Hint */}
+      {/* Footer Status Indicator */}
       <div className="px-5 py-2.5 bg-gray-50 dark:bg-studio-850 border-t border-gray-100 dark:border-studio-800 flex items-center justify-between text-[11px] text-gray-500 dark:text-studio-400 shrink-0">
-        <button
-          onClick={onSwitchToDesign}
-          className="font-bold text-indigo-600 dark:text-brand-400 hover:underline flex items-center gap-1"
-        >
-          ← Back to Design Studio
-        </button>
-        <span className="font-mono text-[10px]">VirtualThreads Studio</span>
+        <span className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
+          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Ready for Studio Export</span>
+        </span>
+        <span className="font-mono text-[10px] text-gray-400 dark:text-studio-500">VirtualThreads Studio</span>
       </div>
     </aside>
   );
