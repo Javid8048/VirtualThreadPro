@@ -157,172 +157,90 @@ export function LandingPage({
       {/* Main Content Area */}
       <main className="max-w-[88rem] mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
         
-        {/* 2. Hero Spotlight ("Blank of the Day" / Featured Showcase) */}
-        <section className="pt-10 sm:pt-14 pb-14 border-b border-[#e3e4df] dark:border-white/10">
-          <div className="flex flex-col items-center text-center max-w-4xl mx-auto mb-8">
-            
-            {/* Top Monospace Meta / Rating Pill (BWG SOTD style) */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-white/5 text-xs font-mono text-[#5e656d] dark:text-[#94a3b8] mb-4 shadow-sm">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-semibold text-[#1a1c1e] dark:text-[#f3f4f6]">Blank of the Day</span>
-              <span>·</span>
-              <span className="font-bold text-[#1a1c1e] dark:text-[#fff09f]">Score: 9.92</span>
-              <span>·</span>
-              <span>420 GSM French Terry</span>
-            </div>
-
-            {/* Grand Editorial Serif Title */}
-            <h1 className="font-editorial text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[#1a1c1e] dark:text-white mb-4 leading-[1.08]">
-              The Heavyweight Boxy Hoodie
-            </h1>
-
-            {/* Curated Subtitle */}
-            <p className="text-sm sm:text-base md:text-lg text-[#5e656d] dark:text-[#94a3b8] max-w-2xl leading-relaxed mb-6 font-normal">
-              Double-layer draped hood, 420 GSM combed organic fleece, and real-time walking physics calibrated for precision 1:1 decal placement.
-            </p>
-
-            {/* Quick Action CTAs */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => onSelectGarment('hoodie')}
-                className="h-10 px-5 rounded-xl bg-[#1a1c1e] dark:bg-white text-white dark:text-[#1a1c1e] font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
-              >
-                <span>Customize in 3D Studio</span>
-                <ArrowRight className="size-4" />
-              </button>
-              <button
-                onClick={() => {
-                  const el = document.getElementById('studio-blanks-grid');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="h-10 px-4 rounded-xl border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-white/5 hover:bg-[#edece8] dark:hover:bg-white/10 text-[#1a1c1e] dark:text-white font-medium text-xs sm:text-sm transition-all"
-              >
-                View All 11 Blanks
-              </button>
-            </div>
-          </div>
-
-          {/* Realistic Desktop Browser Frame Mockup (BWG Hero Feature) */}
-          <div className="relative w-full max-w-5xl mx-auto rounded-2xl border border-[#e3e4df] dark:border-white/15 bg-white dark:bg-[#181b20] shadow-xl overflow-hidden group">
-            
-            {/* Browser Top Window Chrome Bar */}
-            <div className="h-10 px-4 bg-[#f0f0ed] dark:bg-[#141619] border-b border-[#e3e4df] dark:border-white/10 flex items-center justify-between select-none">
-              
-              {/* Traffic Light Window Control Dots */}
-              <div className="flex items-center gap-2">
-                <span className="size-3 rounded-full bg-[#ff5f56] border border-[#e0443e]/40 inline-block" />
-                <span className="size-3 rounded-full bg-[#ffbd2e] border border-[#dea123]/40 inline-block" />
-                <span className="size-3 rounded-full bg-[#27c93f] border border-[#1aab29]/40 inline-block" />
-              </div>
-
-              {/* Centered URL Address Bar */}
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-white dark:bg-[#1d2127] border border-[#e3e4df] dark:border-white/10 text-xs text-[#5e656d] dark:text-[#94a3b8] font-mono w-72 justify-center">
-                <Lock className="size-3 text-emerald-500 shrink-0" />
-                <span className="truncate">virtualthreads.studio/blanks/hoodie-420gsm</span>
-              </div>
-
-              {/* Right Indicator */}
-              <div className="text-[11px] font-mono uppercase font-semibold text-[#5e656d] dark:text-[#94a3b8]">
-                4K WebGL
-              </div>
-            </div>
-
-            {/* Embedded Garment Preview Canvas */}
-            <div 
-              onClick={() => onSelectGarment('hoodie')}
-              className="relative aspect-[16/9] sm:aspect-[16/10] w-full bg-gradient-to-b from-[#f8f8f6] to-[#ecece8] dark:from-[#181b20] dark:to-[#121417] flex items-center justify-center p-8 sm:p-12 cursor-pointer overflow-hidden"
-            >
-              {/* Subtle Studio Glow */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(66,88,216,0.1),transparent_70%)] pointer-events-none" />
-
-              {/* Garment High-Res Visual */}
-              <img
-                src={getAssetUrl('/garments/hoodie.png')}
-                alt="420 GSM Heavyweight Hoodie"
-                className="max-h-full object-contain filter drop-shadow-2xl group-hover:scale-105 transition-transform duration-500 ease-out z-10"
-              />
-
-              {/* Hover Floating Action Card Overlay */}
-              <div className="absolute inset-0 bg-[#1a1c1e]/40 dark:bg-black/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
-                <div className="px-5 py-3 rounded-xl bg-white dark:bg-[#1a1c1e] text-[#1a1c1e] dark:text-white font-semibold text-xs sm:text-sm shadow-2xl flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform">
-                  <span>Open in 3D Customizer</span>
-                  <ArrowRight className="size-4" />
-                </div>
-              </div>
-
-              {/* Bottom Spec Footer Pill */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs font-mono text-[#5e656d] dark:text-[#94a3b8] z-10 pointer-events-none">
-                <span className="hidden sm:inline-block px-2.5 py-1 rounded-md bg-white/80 dark:bg-black/60 border border-[#e3e4df] dark:border-white/10 backdrop-blur-sm">
-                  Walk &amp; 360° Turntable Rig
-                </span>
-                <span className="px-2.5 py-1 rounded-md bg-white/80 dark:bg-black/60 border border-[#e3e4df] dark:border-white/10 backdrop-blur-sm">
-                  100% Cotton Fleece · 420 GSM
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 3. Curated Gallery Grid ("Latest Studio Blanks" - Modeled on BWG "Latest picks") */}
-        <section id="studio-blanks-grid" className="pt-12 sm:pt-16 pb-16 sm:pb-24">
+        {/* Curated Studio Blanks Gallery */}
+        <section id="studio-blanks-grid" className="pt-8 sm:pt-12 pb-16 sm:pb-24">
           
-          {/* Section Header & Interactive Filter Bar */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-            <div>
-              <div className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-[#5e656d] dark:text-[#94a3b8] mb-1">
-                <span>Curated Directory</span>
+          {/* Unique Refined Editorial Introduction Header */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-[#e3e4df] dark:border-white/10 mb-8">
+            <div className="max-w-3xl">
+              {/* Monospace Spec Pill */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-white/5 text-[11px] font-mono text-[#5e656d] dark:text-[#94a3b8] mb-3 shadow-xs">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-semibold text-[#1a1c1e] dark:text-[#f3f4f6]">11 Calibrated Blanks</span>
                 <span>·</span>
-                <span className="text-[#1a1c1e] dark:text-white font-bold">{filteredGarments.length} Available</span>
+                <span>Real-Time 3D Physics</span>
+                <span>·</span>
+                <span>4K WebGL</span>
               </div>
-              <h2 className="font-editorial text-2xl sm:text-4xl font-bold tracking-tight text-[#1a1c1e] dark:text-white">
-                Latest Studio Blanks
-              </h2>
+
+              {/* Unique Editorial Serif Headline */}
+              <h1 className="font-editorial text-3xl sm:text-5xl font-bold tracking-tight text-[#1a1c1e] dark:text-white leading-[1.1] mb-3">
+                Curated Streetwear Blanks
+              </h1>
+
+              {/* Subtitle */}
+              <p className="text-xs sm:text-sm md:text-base text-[#5e656d] dark:text-[#94a3b8] leading-relaxed font-normal">
+                Select from 11 photorealistic streetwear blanks to apply custom graphics, preview tactile puff print textures, and render smooth 3D walking animations.
+              </p>
             </div>
 
-            {/* Search Input & Category Pills */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {/* Search Box */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#5e656d] dark:text-[#94a3b8] pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter blanks (e.g. 420 GSM, Tee)..."
-                  className="w-full sm:w-64 bg-white dark:bg-[#181b20] border border-[#e3e4df] dark:border-white/10 rounded-lg pl-9 pr-8 py-2 text-xs text-[#1a1c1e] dark:text-white placeholder:text-[#5e656d] dark:placeholder:text-[#94a3b8] focus:outline-none focus:border-[#1a1c1e] dark:focus:border-white transition-colors"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
+            {/* Quick Spec Pills */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <span className="px-3 py-1.5 rounded-lg border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] text-xs font-mono text-[#1a1c1e] dark:text-[#f3f4f6] shadow-xs">
+                <span className="text-[#5e656d] dark:text-[#94a3b8]">Weights:</span> 220–420 GSM
+              </span>
+              <span className="px-3 py-1.5 rounded-lg border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] text-xs font-mono text-[#1a1c1e] dark:text-[#f3f4f6] shadow-xs">
+                <span className="text-[#5e656d] dark:text-[#94a3b8]">Decals:</span> 1:1 UV Mapping
+              </span>
+              <span className="px-3 py-1.5 rounded-lg border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] text-xs font-mono text-[#1a1c1e] dark:text-[#f3f4f6] shadow-xs">
+                <span className="text-[#5e656d] dark:text-[#94a3b8]">Export:</span> 60 FPS Video
+              </span>
+            </div>
+          </div>
 
-              {/* Category Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                {CATEGORIES.map((cat) => {
-                  const isActive = selectedCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                        isActive
-                          ? 'bg-[#1a1c1e] dark:bg-white text-white dark:text-[#1a1c1e] font-semibold'
-                          : 'bg-white dark:bg-[#181b20] text-[#5e656d] dark:text-[#94a3b8] hover:text-[#1a1c1e] dark:hover:text-white border border-[#e3e4df] dark:border-white/10'
-                      }`}
-                    >
-                      <span>{cat.label}</span>
-                      <span className={`text-[10px] font-mono px-1 rounded ${isActive ? 'bg-white/20 dark:bg-black/20' : 'bg-[#edece8] dark:bg-white/10'}`}>
-                        {cat.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Interactive Filter Toolbar & Search Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-8">
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              {CATEGORIES.map((cat) => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                      isActive
+                        ? 'bg-[#1a1c1e] dark:bg-white text-white dark:text-[#1a1c1e] font-semibold shadow-xs'
+                        : 'bg-white dark:bg-[#181b20] text-[#5e656d] dark:text-[#94a3b8] hover:text-[#1a1c1e] dark:hover:text-white border border-[#e3e4df] dark:border-white/10'
+                    }`}
+                  >
+                    <span>{cat.label}</span>
+                    <span className={`text-[10px] font-mono px-1 rounded ${isActive ? 'bg-white/20 dark:bg-black/20' : 'bg-[#edece8] dark:bg-white/10'}`}>
+                      {cat.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Instant Search Bar */}
+            <div className="relative shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#5e656d] dark:text-[#94a3b8] pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search blanks (e.g. 420 GSM, Tee)..."
+                className="w-full sm:w-64 bg-white dark:bg-[#181b20] border border-[#e3e4df] dark:border-white/10 rounded-lg pl-9 pr-8 py-2 text-xs text-[#1a1c1e] dark:text-white placeholder:text-[#5e656d] dark:placeholder:text-[#94a3b8] focus:outline-none focus:border-[#1a1c1e] dark:focus:border-white transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
