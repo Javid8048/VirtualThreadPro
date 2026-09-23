@@ -46,3 +46,12 @@ input[type="range"] {
 canvas:focus {
   outline: none;
 }
+
+/* BestWebsite.Gallery Editorial Typography Utilities */
+.font-editorial {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+}
