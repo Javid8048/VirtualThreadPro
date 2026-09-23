@@ -32,36 +32,6 @@ const BLANK_SPECS = {
 };
 
 // Curated Studio Guides (Matching BWG "Latest links")
-const STUDIO_GUIDES = [
-  {
-    title: '2D Decal Position Guide — 1:1 UV Texture Mapping on Curved 3D Surfaces',
-    category: 'Interface',
-    tag: 'Position Guide',
-    date: 'Studio Spec 2.4',
-    readTime: '3 min guide'
-  },
-  {
-    title: 'Tactile 3D Normal Mapping — Elevated Puff Print, Screen Print & Embroidery Height Maps',
-    category: 'Materials',
-    tag: 'Puff Print',
-    date: 'Studio Spec 2.3',
-    readTime: '4 min guide'
-  },
-  {
-    title: 'Deterministic 60 FPS Export — Continuous Turntable Loop Recording with Zero Frame Lag',
-    category: 'Export Studio',
-    tag: '60 FPS Video',
-    date: 'Studio Spec 2.2',
-    readTime: '2 min guide'
-  },
-  {
-    title: 'Real-Time Walking & Cloth Dynamics — Dual Skeletal Deformers on Draped Streetwear',
-    category: 'Physics',
-    tag: 'Cloth Dynamics',
-    date: 'Studio Spec 2.1',
-    readTime: '5 min guide'
-  }
-];
 
 export function LandingPage({
   onSelectGarment,
@@ -136,7 +106,7 @@ export function LandingPage({
 
           {/* Center Category Switcher Pills */}
           <nav className="hidden md:flex items-center gap-1 bg-[#edece8] dark:bg-white/5 p-1 rounded-full border border-[#e3e4df] dark:border-white/10">
-            {CATEGORIES.slice(0, 4).map((cat) => {
+            {CATEGORIES.slice(0, 5).map((cat) => {
               const isActive = selectedCategory === cat.id;
               return (
                 <button
@@ -156,15 +126,6 @@ export function LandingPage({
                 </button>
               );
             })}
-            <button
-              onClick={() => {
-                const el = document.getElementById('studio-guides');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="px-3 py-1 rounded-full text-xs font-medium text-[#5e656d] dark:text-[#94a3b8] hover:text-[#1a1c1e] dark:hover:text-white transition-all"
-            >
-              Guides
-            </button>
           </nav>
 
           {/* Right Action Utilities */}
@@ -303,7 +264,7 @@ export function LandingPage({
         </section>
 
         {/* 3. Curated Gallery Grid ("Latest Studio Blanks" - Modeled on BWG "Latest picks") */}
-        <section id="studio-blanks-grid" className="py-12 sm:py-16 border-b border-[#e3e4df] dark:border-white/10">
+        <section id="studio-blanks-grid" className="pt-12 sm:pt-16 pb-16 sm:pb-24">
           
           {/* Section Header & Interactive Filter Bar */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
@@ -475,103 +436,6 @@ export function LandingPage({
             })}
           </div>
         </section>
-
-        {/* 4. Curated Resource Feed ("Studio Guides & Documentation" - Matching BWG "Latest links") */}
-        <section id="studio-guides" className="py-12 sm:py-16 border-b border-[#e3e4df] dark:border-white/10">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <span className="font-mono text-xs uppercase tracking-wider text-[#5e656d] dark:text-[#94a3b8]">
-                Documentation &amp; Tech Notes
-              </span>
-              <h2 className="font-editorial text-2xl sm:text-3xl font-bold tracking-tight text-[#1a1c1e] dark:text-white mt-1">
-                Studio Guides &amp; Specifications
-              </h2>
-            </div>
-            
-            <button
-              onClick={() => onSelectGarment('oversized_tee')}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-[#1a1c1e] dark:text-white hover:underline"
-            >
-              <span>Explore in Studio</span>
-              <ArrowRight className="size-3.5" />
-            </button>
-          </div>
-
-          {/* Clean Row-Based Resource List */}
-          <div className="divide-y divide-[#e3e4df] dark:divide-white/10 border-t border-b border-[#e3e4df] dark:border-white/10">
-            {STUDIO_GUIDES.map((guide, idx) => (
-              <div 
-                key={idx}
-                onClick={() => onSelectGarment('oversized_tee')}
-                className="py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-2 rounded-lg transition-colors cursor-pointer"
-              >
-                <div className="flex items-start sm:items-center gap-3">
-                  <span className="font-mono text-xs text-[#5e656d] dark:text-[#94a3b8] shrink-0 w-8">
-                    0{idx + 1}
-                  </span>
-                  <div>
-                    <h4 className="font-editorial text-base sm:text-lg font-bold text-[#1a1c1e] dark:text-white group-hover:underline">
-                      {guide.title}
-                    </h4>
-                    <p className="text-xs text-[#5e656d] dark:text-[#94a3b8] mt-0.5">
-                      {guide.category} · {guide.readTime}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                  <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[#edece8] dark:bg-white/10 text-[#1a1c1e] dark:text-white border border-[#e3e4df] dark:border-white/10">
-                    {guide.tag}
-                  </span>
-                  <span className="text-xs font-mono text-[#5e656d] dark:text-[#94a3b8] hidden md:inline">
-                    {guide.date}
-                  </span>
-                  <ArrowRight className="size-4 text-[#5e656d] dark:text-[#94a3b8] group-hover:translate-x-1 group-hover:text-[#1a1c1e] dark:group-hover:text-white transition-all" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 5. Feature Architecture Grid */}
-        <section className="py-12 sm:py-16">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            <div className="p-6 rounded-2xl border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] flex flex-col gap-3">
-              <span className="font-mono text-[10px] uppercase font-bold text-[#5e656d] dark:text-[#94a3b8]">Engine 01</span>
-              <h3 className="font-editorial font-bold text-lg text-[#1a1c1e] dark:text-white">Real-Time Walking Physics</h3>
-              <p className="text-xs text-[#5e656d] dark:text-[#94a3b8] leading-relaxed">
-                Dual skeletal deformers simulate realistic walking strides, running motions, and natural fabric gravitational sway.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] flex flex-col gap-3">
-              <span className="font-mono text-[10px] uppercase font-bold text-[#5e656d] dark:text-[#94a3b8]">Engine 02</span>
-              <h3 className="font-editorial font-bold text-lg text-[#1a1c1e] dark:text-white">2D Position Guide</h3>
-              <p className="text-xs text-[#5e656d] dark:text-[#94a3b8] leading-relaxed">
-                Precision flat garment schematic with collar rib, front chest, back torso, and sleeve zones mapped 1:1 to 3D.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] flex flex-col gap-3">
-              <span className="font-mono text-[10px] uppercase font-bold text-[#5e656d] dark:text-[#94a3b8]">Engine 03</span>
-              <h3 className="font-editorial font-bold text-lg text-[#1a1c1e] dark:text-white">Tactile Puff Print Shaders</h3>
-              <p className="text-xs text-[#5e656d] dark:text-[#94a3b8] leading-relaxed">
-                Real-time normal-map extrusion for 3D raised puff prints, vintage acid wash, and dimensional embroidery textures.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-[#181b20] flex flex-col gap-3">
-              <span className="font-mono text-[10px] uppercase font-bold text-[#5e656d] dark:text-[#94a3b8]">Engine 04</span>
-              <h3 className="font-editorial font-bold text-lg text-[#1a1c1e] dark:text-white">Deterministic 60 FPS Export</h3>
-              <p className="text-xs text-[#5e656d] dark:text-[#94a3b8] leading-relaxed">
-                High-definition WebM and MP4 video capture at 12 Mbps with hardware-accelerated frame blitting and zero frame jitter.
-              </p>
-            </div>
-
-          </div>
-        </section>
-
       </main>
 
       {/* 6. Editorial Colophon Footer (BWG Style) */}
