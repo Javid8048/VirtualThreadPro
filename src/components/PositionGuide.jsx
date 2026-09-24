@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check, Download } from 'lucide-react';
+import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
 
 export function PositionGuide({
   isOpen,
@@ -30,6 +30,7 @@ export function PositionGuide({
   const [dragStart, setDragStart] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStart, setResizeStart] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Synchronize with external propSide changes
   useEffect(() => {
@@ -443,7 +444,9 @@ export function PositionGuide({
 
   return (
     <aside 
-      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[440px] sm:w-[480px] max-w-[calc(100vw-24px)] bg-white rounded-3xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
+      className={`absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 ${
+        isExpanded ? 'w-[740px] sm:w-[840px] lg:w-[940px]' : 'w-[540px] sm:w-[600px] lg:w-[660px]'
+      } max-w-[calc(100vw-24px)] bg-white rounded-3xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden select-none z-30 transition-all duration-300 animate-fadeIn`}
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >
       
@@ -522,6 +525,16 @@ export function PositionGuide({
               <span>Export</span>
             </button>
           )}
+
+          {/* Expand / Minimize Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-200/60"
+            title={isExpanded ? "Collapse to Standard Width" : "Expand to Wide Canvas"}
+          >
+            {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
 
           {/* Close Button (x) */}
           <button

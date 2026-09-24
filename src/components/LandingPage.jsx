@@ -8,9 +8,9 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 11 },
-  { id: 'tshirts', label: 'T-Shirts', count: 4, ids: ['oversized_tee', 'cropped_tee', 'regular_tee', 'hanging_tee'] },
-  { id: 'outerwear', label: 'Hoodies & Outerwear', count: 3, ids: ['hoodie', 'zip_hoodie', 'hanging_hoodie'] },
+  { id: 'all', label: 'All Blanks', count: 9 },
+  { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['oversized_tee', 'cropped_tee', 'regular_tee'] },
+  { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] },
   { id: 'sweatshirts', label: 'Sweatshirts', count: 1, ids: ['sweatshirt'] },
   { id: 'polo', label: 'Polo Shirts', count: 1, ids: ['polo'] },
   { id: 'bottoms', label: 'Bottoms & Caps', count: 2, ids: ['sweatpants', 'cap'] },
@@ -25,8 +25,6 @@ const BLANK_SPECS = {
   regular_tee: { gsm: '220 GSM', score: '9.50', fit: 'Classic Tailored Fit', material: 'Ringspun Cotton', anim: 'Dual-Zone Placement' },
   zip_hoodie: { gsm: '400 GSM', score: '9.88', fit: 'Full-Zip Metal Runner', material: 'Brushed Heavyweight Fleece', anim: 'Split Pocket & Back Graphic' },
   polo: { gsm: '260 GSM', score: '9.45', fit: 'Ribbed Collar & 2-Button Placket', material: 'Pique Knit Cotton', anim: 'Chest Embroidery Zone' },
-  hanging_tee: { gsm: '240 GSM', score: '9.60', fit: 'Studio Wooden Hanger Rig', material: 'Natural Gravity Drape', anim: 'Gentle Breeze & Sway' },
-  hanging_hoodie: { gsm: '420 GSM', score: '9.80', fit: 'Suspended Hanger Display', material: 'Heavyweight Fleece Drape', anim: 'Relaxed Silhouette' },
   sweatpants: { gsm: '360 GSM', score: '9.70', fit: 'Elastic Ankle Cuffs', material: 'Cotton Fleece Blend', anim: 'Side Thigh & Hip Zones' },
   cap: { gsm: '320 GSM', score: '9.55', fit: '6-Panel Curved Visor', material: '100% Cotton Twill', anim: 'Front Crown Embroidery' }
 };
@@ -166,7 +164,7 @@ export function LandingPage({
               {/* Monospace Spec Pill */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#e3e4df] dark:border-white/10 bg-white dark:bg-white/5 text-[11px] font-mono text-[#5e656d] dark:text-[#94a3b8] mb-3 shadow-xs">
                 <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-[#1a1c1e] dark:text-[#f3f4f6]">11 Calibrated Blanks</span>
+                <span className="font-semibold text-[#1a1c1e] dark:text-[#f3f4f6]">9 Calibrated Blanks</span>
                 <span>·</span>
                 <span>Real-Time 3D Physics</span>
                 <span>·</span>

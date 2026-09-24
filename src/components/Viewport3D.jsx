@@ -5,6 +5,8 @@ export function Viewport3D({
   sceneManagerRef,
   currentCamera,
   onCameraChange,
+  onZoomIn,
+  onZoomOut,
   backdropMode
 }) {
   const containerRef = useRef(null);
@@ -30,6 +32,8 @@ export function Viewport3D({
       <CameraControlsBar
         currentCamera={currentCamera}
         onCameraChange={onCameraChange}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
       />
 
       {/* Canvas Hint */}

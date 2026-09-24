@@ -24,10 +24,10 @@ export default function App() {
   // App Page Route State ('landing' | 'studio')
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Garment Blank Type State (11 Blanks from virtualthreads.io/products)
+  // Garment Blank Type State (9 Streetwear Blanks)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
-  const [currentCamera, setCurrentCamera] = useState('front');
+  const [currentCamera, setCurrentCamera] = useState('chest');
   const [activeSide, setActiveSide] = useState('front');
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -94,11 +94,10 @@ export default function App() {
   window.__IS_LOADED__ = isLoaded;
   const [designManager, setDesignManager] = useState(null);
 
-  // Initialize Three.js Scene only when entering Studio
+  // Initialize Three.js Scene early for instantaneous studio launch (0ms delay)
   useEffect(() => {
-    if (currentPage !== 'studio' || !containerRef.current) return;
+    if (!containerRef.current || sceneManagerRef.current) return;
 
-    setIsLoaded(false);
     const sm = new SceneManager(
       containerRef.current,
       () => {
@@ -129,14 +128,25 @@ export default function App() {
       setDesignManager(null);
       setIsLoaded(false);
     };
+  }, []);
+
+  // Ensure 3D viewport canvas matches container dimensions when entering studio
+  useEffect(() => {
+    if (sceneManagerRef.current && currentPage === 'studio') {
+      setTimeout(() => {
+        sceneManagerRef.current?.handleResize();
+      }, 30);
+    }
   }, [currentPage]);
 
   // Handlers
   const handleGarmentTypeChange = (type) => {
     setGarmentType(type);
     setViewMode('3d');
+    setCurrentCamera('chest');
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setGarmentType(type);
+      sceneManagerRef.current.setCameraPreset('zoom');
       sceneManagerRef.current.handleResize();
     }
   };
@@ -145,6 +155,7 @@ export default function App() {
   const handleSelectGarmentFromLanding = (type) => {
     handleGarmentTypeChange(type);
     setPositionGuideOpen(true);
+    setCurrentCamera('chest');
     setCurrentPage('studio');
   };
   window.__SELECT_GARMENT_FROM_LANDING__ = handleSelectGarmentFromLanding;
@@ -160,7 +171,7 @@ export default function App() {
         }
         if (sceneManagerRef.current) {
           sceneManagerRef.current.setAnimationMode('static');
-          sceneManagerRef.current.setCameraPreset('front');
+          sceneManagerRef.current.setCameraPreset('zoom');
         }
         setAnimationMode('static');
         setInteractionMode('orbit');
@@ -169,6 +180,7 @@ export default function App() {
     } else {
       if (sceneManagerRef.current) {
         sceneManagerRef.current.setAnimationMode('static');
+        sceneManagerRef.current.setCameraPreset('zoom');
       }
       setAnimationMode('static');
       setInteractionMode('orbit');
@@ -176,6 +188,18 @@ export default function App() {
     }
   };
   window.__HANDLE_BACK_TO_LANDING__ = handleBackToLanding;
+
+  const handleZoomIn = () => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.zoomIn(2.0);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.zoomOut(2.0);
+    }
+  };
 
   const handleGarmentColorChange = (hex) => {
     setGarmentColor(hex);
@@ -402,6 +426,8 @@ export default function App() {
               onInteractionModeChange={handleInteractionModeChange}
               currentCamera={currentCamera}
               onCameraChange={handleCameraChange}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
               animationMode={animationMode}
               onAnimationModeChange={handleAnimationModeChange}
               onToggleTurntable={() => handleAnimationModeChange(animationMode === 'turntable' ? 'static' : 'turntable')}

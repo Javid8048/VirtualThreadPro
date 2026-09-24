@@ -81,28 +81,6 @@ export const GARMENT_PRODUCTS = [
     popular: false
   },
   {
-    id: 'hanging_tee',
-    title: 'OVERSIZED HANGING T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Hangers',
-    description: 'Streetwear t-shirt suspended on a studio wooden hanger with natural gravity folds and wind sway.',
-    features: ['Garment Hanger Rig', 'Natural Gravity Folds', 'Studio Lighting'],
-    imageBg: 'from-cyan-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
-    id: 'hanging_hoodie',
-    title: 'HANGING HOODIE STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Hangers',
-    description: 'Studio hanging hoodie on wooden garment hanger with relaxed hood drape and sleeve folds.',
-    features: ['Hanger Presentation', 'Relaxed Hood Drape', 'Multi-zone Print'],
-    imageBg: 'from-violet-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
     id: 'sweatpants',
     title: 'SWEATPANTS STUDIO',
     badge: 'STUDIO READY',
@@ -129,7 +107,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 11 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 9 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
@@ -170,7 +148,7 @@ export function ProductsCatalogModal({
 
   if (!isOpen) return null;
 
-  const categories = ['All', 'Tops', 'Outerwear', 'Sweatshirts', 'Hangers', 'Bottoms', 'Headwear'];
+  const categories = ['All', 'Tops', 'Outerwear', 'Sweatshirts', 'Bottoms', 'Headwear'];
   const filteredProducts = selectedCategory === 'All'
     ? GARMENT_PRODUCTS
     : GARMENT_PRODUCTS.filter(p => p.category === selectedCategory);
@@ -241,7 +219,7 @@ export function ProductsCatalogModal({
               </p>
               <p className="text-xs text-brand-accent mt-1 flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="size-3.5" />
-                All 11 garment types unlocked with exterior-only graphic reflection.
+                All 9 garment types unlocked with exterior-only graphic reflection.
               </p>
             </div>
 

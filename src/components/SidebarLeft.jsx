@@ -128,7 +128,7 @@ export function SidebarLeft({
           </div>
         </div>
 
-        {/* Garment Blank Selection (11 Streetwear Blanks) */}
+        {/* Garment Blank Selection (9 Streetwear Blanks) */}
         <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('garment')}
@@ -178,7 +178,7 @@ export function SidebarLeft({
                   onClick={onOpenProductsCatalog}
                   className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 dark:text-brand-accent hover:bg-indigo-50 dark:hover:bg-brand-500/15 border border-indigo-100 dark:border-brand-500/30 transition-colors"
                 >
-                  View All 11 Blanks & Details →
+                  View All 9 Blanks & Details →
                 </button>
               )}
             </div>

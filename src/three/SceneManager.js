@@ -105,17 +105,17 @@ export class SceneManager {
     // 2. Scene
     this.scene = new THREE.Scene();
 
-    // 3. Camera
+    // 3. Camera (Default to Zoom view for instant close-up inspection)
     this.camera = new THREE.PerspectiveCamera(42, this.width / this.height, 0.1, 100);
-    this.camera.position.set(0, 0, 24.5);
+    this.camera.position.set(0, 0.8, 15.0);
 
     // 4. Orbit Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.minDistance = 8;
+    this.controls.minDistance = 5;
     this.controls.maxDistance = 38;
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0, 0.2, 0);
 
     // 5. Canvas Design Manager (Optimized 2048x2048 texture with 60 FPS RAF scheduling)
     this.designManager = new CanvasDesignManager('#ffffff');
@@ -290,7 +290,7 @@ export class SceneManager {
 
   getGarmentFamily(type) {
     const t = type || this.garmentType || 'oversized_tee';
-    if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') return 'hoodie';
+    if (t === 'hoodie' || t === 'zip_hoodie') return 'hoodie';
     if (t === 'sweatpants') return 'pants';
     if (t === 'cap') return 'cap';
     return 'tshirt';
@@ -748,7 +748,7 @@ export class SceneManager {
 
   getActiveGarmentRoot() {
     const t = this.garmentType || 'oversized_tee';
-    if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
+    if (t === 'hoodie' || t === 'zip_hoodie') {
       return this.realHoodieRoot;
     }
     if (t === 'sweatpants') {
@@ -828,7 +828,7 @@ export class SceneManager {
     updateMeshColors(this.realCapRoot);
   }
 
-  // --- Dynamic Garment Type Switching (All 11 Garments in 3D) ---
+  // --- Dynamic Garment Type Switching (All 9 Garments in 3D) ---
   setGarmentType(type) {
     this.garmentType = type || 'oversized_tee';
     if (this.designManager && this.designManager.setGarmentType) {
@@ -843,19 +843,21 @@ export class SceneManager {
     this.setAnimationMode(this.animationMode);
     this.triggerLoadedIfReady();
 
-    // Auto adjust camera focus & framing per garment silhouette
+    // Auto adjust camera focus & framing per garment silhouette in ZOOM view by default
     if (this.controls && this.camera) {
-      this.controls.target.set(0, 0, 0);
       if (this.garmentType === 'cap') {
-        // Streetwear catalog 3/4 beauty perspective
-        this.camera.position.set(2.8, 1.6, 13.5);
+        this.camera.position.set(0, 0.4, 11.0);
+        this.controls.target.set(0, 0.2, 0);
       } else if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') {
-        // Optimal framing for official streetwear hoodie (centered between sidebar and position guide)
-        this.camera.position.set(-0.55, 0.15, 23.5);
+        this.camera.position.set(-0.55, 0.8, 14.5);
         this.controls.target.set(-0.55, 0.15, 0);
+      } else if (this.garmentType === 'sweatpants') {
+        this.camera.position.set(-0.8, 0.4, 15.0);
+        this.controls.target.set(0, 0, 0);
       } else {
-        // Standard studio framing for sweatpants, t-shirt
-        this.camera.position.set(0, 0, 24.5);
+        // Standard studio framing in Zoom view for t-shirts, sweatshirt, polo
+        this.camera.position.set(0, 0.8, 15.0);
+        this.controls.target.set(0, 0.2, 0);
       }
       this.controls.update();
     }
@@ -873,82 +875,100 @@ export class SceneManager {
     const fabMat = this.fabricMaterial || this.shirtMaterial;
 
     // 1. Metallic Front Center Zipper (for Zip Hoodie)
+    // Slender metallic zipper track matching front torso height (2.85 units, not 6.8 units!)
     const zipperMat = new THREE.MeshStandardMaterial({
-      color: 0xdcdcdc,
+      color: 0xdfdfdf,
       metalness: 0.92,
-      roughness: 0.20
+      roughness: 0.18
     });
-    const zipperGeom = new THREE.BoxGeometry(0.08, 6.8, 0.05);
+    const zipperGeom = new THREE.BoxGeometry(0.045, 2.85, 0.03);
     this.zipperMesh = new THREE.Mesh(zipperGeom, zipperMat);
-    this.zipperMesh.position.set(0, -0.50, 1.45);
+    this.zipperMesh.position.set(0, 0.20, 1.44);
 
-    const pullerGeom = new THREE.BoxGeometry(0.16, 0.35, 0.08);
+    const pullerGeom = new THREE.BoxGeometry(0.12, 0.28, 0.06);
     const pullerMesh = new THREE.Mesh(pullerGeom, zipperMat);
-    pullerMesh.position.set(0, 1.10, 1.48);
+    pullerMesh.position.set(0, 0.95, 1.47);
     this.zipperMesh.add(pullerMesh);
     this.attachmentsGroup.add(this.zipperMesh);
 
-    // 2. Ribbed Crewneck Collar Rim for Sweatshirt
-    this.crewCollarGroup = new THREE.Group();
-    const crewGeom = new THREE.TorusGeometry(1.28, 0.16, 16, 32);
-    crewGeom.rotateX(Math.PI * 0.38);
+    // 2. Ribbed Crewneck Collar, Wrist Cuffs & Waistband Hem for Sweatshirt
+    this.sweatshirtGroup = new THREE.Group();
+    this.crewCollarGroup = this.sweatshirtGroup; // compatibility alias
+
+    // Seamless ribbed crewneck collar rim sitting flush on torso neckline (2.48, 0.14)
+    const crewGeom = new THREE.TorusGeometry(1.24, 0.11, 24, 48);
+    crewGeom.rotateX(Math.PI * 0.42);
     const crewMesh = new THREE.Mesh(crewGeom, fabMat);
-    crewMesh.position.set(0, 2.82, 0.08);
-    this.crewCollarGroup.add(crewMesh);
-    this.attachmentsGroup.add(this.crewCollarGroup);
+    crewMesh.position.set(0, 2.48, 0.14);
+    this.sweatshirtGroup.add(crewMesh);
 
-    // 3. Polo Turned-down Folded Collar & Placket (Polo Shirt)
+    // Ribbed long sleeve cuffs
+    const cuffGeom = new THREE.CylinderGeometry(0.50, 0.46, 0.90, 24);
+    const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
+    leftCuff.position.set(-3.72, 0.22, 0.05);
+    leftCuff.rotation.set(0.10, 0, 0.58);
+    const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
+    rightCuff.position.set(3.72, 0.22, 0.05);
+    rightCuff.rotation.set(0.10, 0, -0.58);
+    this.sweatshirtGroup.add(leftCuff, rightCuff);
+
+    // Ribbed bottom hem waistband
+    const waistGeom = new THREE.CylinderGeometry(2.32, 2.30, 0.70, 32);
+    const waistHem = new THREE.Mesh(waistGeom, fabMat);
+    waistHem.position.set(0, -2.18, 0.02);
+    waistHem.scale.set(1.0, 1.0, 0.44); // oval cross-section matching torso
+    this.sweatshirtGroup.add(waistHem);
+
+    this.attachmentsGroup.add(this.sweatshirtGroup);
+
+    // 3. Polo Turned-down Folded Collar & 2-Button Placket
     this.poloGroup = new THREE.Group();
-    const poloNeckGeom = new THREE.TorusGeometry(1.30, 0.16, 16, 32, Math.PI * 1.55);
-    poloNeckGeom.rotateX(Math.PI * 0.38);
-    const poloCollarNeck = new THREE.Mesh(poloNeckGeom, fabMat);
-    poloCollarNeck.position.set(0, 2.76, 0.08);
 
-    const leftLapelGeom = new THREE.BoxGeometry(0.85, 1.15, 0.04);
-    const leftLapel = new THREE.Mesh(leftLapelGeom, fabMat);
-    leftLapel.position.set(-0.55, 2.25, 0.98);
-    leftLapel.rotation.set(0.12, 0.18, -0.34);
-    leftLapel.castShadow = true;
+    // Turned-down collar band contouring the neck without gaps or holes
+    const poloCollarCurve = new THREE.CylinderGeometry(1.26, 1.34, 0.55, 32, 1, true, Math.PI * 0.22, Math.PI * 1.56);
+    poloCollarCurve.rotateX(-0.18);
+    const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
+    poloCollarMesh.position.set(0, 2.52, 0.10);
 
-    const rightLapelGeom = new THREE.BoxGeometry(0.85, 1.15, 0.04);
-    const rightLapel = new THREE.Mesh(rightLapelGeom, fabMat);
-    rightLapel.position.set(0.55, 2.25, 0.98);
-    rightLapel.rotation.set(0.12, -0.18, 0.34);
-    rightLapel.castShadow = true;
+    // Left and right folded lapel wings laying flat against upper chest
+    const lapelShape = new THREE.Shape();
+    lapelShape.moveTo(0, 0);
+    lapelShape.lineTo(0.65, -0.85);
+    lapelShape.lineTo(0.15, -0.90);
+    lapelShape.lineTo(0, 0);
+    const extrudeSettings = { depth: 0.025, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
+    const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
-    const placketGeom = new THREE.BoxGeometry(0.52, 1.60, 0.05);
+    const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
+    leftLapel.position.set(-0.12, 2.45, 0.90);
+    leftLapel.rotation.set(0.18, 0.08, -0.15);
+
+    const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
+    rightLapel.position.set(0.12, 2.45, 0.90);
+    rightLapel.rotation.set(0.18, -0.08, 0.15);
+    rightLapel.scale.set(-1, 1, 1);
+
+    // Front center placket with stitch welt
+    const placketGeom = new THREE.BoxGeometry(0.44, 1.40, 0.03);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
-    placketMesh.position.set(0, 1.55, 0.98);
+    placketMesh.position.set(0, 1.65, 0.89);
+    placketMesh.rotation.set(0.14, 0, 0);
 
+    // Pearlescent buttons
     const buttonMat = new THREE.MeshStandardMaterial({
-      color: 0xf5f5f5,
-      roughness: 0.20,
-      metalness: 0.05
+      color: 0xfafafa,
+      roughness: 0.18,
+      metalness: 0.08
     });
-    const buttonGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.03, 16);
-    buttonGeom.rotateX(Math.PI / 2);
+    const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
+    buttonGeom.rotateX(Math.PI / 2 + 0.14);
     const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.position.set(0, 1.95, 1.02);
+    b1.position.set(0, 2.05, 0.93);
     const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.position.set(0, 1.35, 1.02);
+    b2.position.set(0, 1.55, 0.87);
 
-    this.poloGroup.add(poloCollarNeck, leftLapel, rightLapel, placketMesh, b1, b2);
+    this.poloGroup.add(poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
     this.attachmentsGroup.add(this.poloGroup);
-
-    // 4. Studio Wooden Garment Hanger Rig
-    this.hangerGroup = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a5628, roughness: 0.55 });
-    const hookMat = new THREE.MeshStandardMaterial({ color: 0x282828, metalness: 0.92, roughness: 0.25 });
-    const hangerBarGeom = new THREE.CylinderGeometry(0.14, 0.18, 7.5, 16);
-    hangerBarGeom.rotateZ(Math.PI / 2);
-    const hangerBar = new THREE.Mesh(hangerBarGeom, woodMat);
-    hangerBar.position.set(0, 3.15, 0);
-
-    const hookGeom = new THREE.TorusGeometry(0.65, 0.08, 12, 24, Math.PI * 1.35);
-    const hookMesh = new THREE.Mesh(hookGeom, hookMat);
-    hookMesh.position.set(0, 3.88, 0);
-    this.hangerGroup.add(hangerBar, hookMesh);
-    this.attachmentsGroup.add(this.hangerGroup);
 
     this.scene.add(this.attachmentsGroup);
     this.applyGarmentTypeVisibility();
@@ -1104,6 +1124,24 @@ export class SceneManager {
         this.hoodieDecalMeshBack.visible = false;
         this.hoodieDecalsGroup.add(this.hoodieDecalMeshBack);
 
+        // Front Center Metallic Zipper (for Zip Hoodie - strictly follows chest bone during walk & pose)
+        const zipMat = new THREE.MeshStandardMaterial({
+          color: 0xe0e0e0,
+          metalness: 0.92,
+          roughness: 0.18
+        });
+        const zipTrackGeom = new THREE.BoxGeometry(0.045, 2.70, 0.03);
+        this.hoodieZipperMesh = new THREE.Mesh(zipTrackGeom, zipMat);
+        this.hoodieZipperMesh.position.set(0, 0.22, 1.44);
+        this.hoodieZipperMesh.rotation.set(-0.25, 0, 0);
+
+        const pullerGeom = new THREE.BoxGeometry(0.12, 0.26, 0.05);
+        const pullerMesh = new THREE.Mesh(pullerGeom, zipMat);
+        pullerMesh.position.set(0, 0.85, 0.03);
+        this.hoodieZipperMesh.add(pullerMesh);
+        this.hoodieZipperMesh.visible = (this.garmentType === 'zip_hoodie');
+        this.hoodieDecalsGroup.add(this.hoodieZipperMesh);
+
         this.realHoodieRoot.add(this.hoodieDecalsGroup);
 
         this.scene.add(this.realHoodieRoot);
@@ -1164,21 +1202,42 @@ export class SceneManager {
         const stringMat = new THREE.MeshStandardMaterial({ color: 0xededed, roughness: 0.90 });
         const agletMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, metalness: 0.95, roughness: 0.15 });
         const strGeom = new THREE.CylinderGeometry(0.035, 0.035, 1.4, 12);
-        const pLeftStr = new THREE.Mesh(strGeom, stringMat);
-        pLeftStr.position.set(-0.25, 3.2, 1.35);
-        pLeftStr.rotation.z = -0.06;
-        const pRightStr = new THREE.Mesh(strGeom, stringMat);
-        pRightStr.position.set(0.25, 3.2, 1.35);
-        pRightStr.rotation.z = 0.06;
+        this.pLeftStr = new THREE.Mesh(strGeom, stringMat);
+        this.pLeftStr.position.set(-0.25, 3.2, 1.35);
+        this.pLeftStr.rotation.z = -0.06;
+        this.pRightStr = new THREE.Mesh(strGeom, stringMat);
+        this.pRightStr.position.set(0.25, 3.2, 1.35);
+        this.pRightStr.rotation.z = 0.06;
 
         const agletGeom = new THREE.CylinderGeometry(0.042, 0.042, 0.22, 12);
         const a1 = new THREE.Mesh(agletGeom, agletMat);
         a1.position.set(0, -0.7, 0);
-        pLeftStr.add(a1);
+        this.pLeftStr.add(a1);
         const a2 = new THREE.Mesh(agletGeom, agletMat);
         a2.position.set(0, -0.7, 0);
-        pRightStr.add(a2);
-        this.realPantsRoot.add(pLeftStr, pRightStr);
+        this.pRightStr.add(a2);
+        this.realPantsRoot.add(this.pLeftStr, this.pRightStr);
+
+        // Ribbed Elastic Waistband Band
+        const waistBandGeom = new THREE.CylinderGeometry(1.68, 1.65, 0.45, 32);
+        const waistBandMesh = new THREE.Mesh(waistBandGeom, this.fabricMaterial);
+        waistBandMesh.position.set(0, 3.32, 0);
+        waistBandMesh.scale.set(1.0, 1.0, 0.82);
+        this.realPantsRoot.add(waistBandMesh);
+
+        // Angled Side Pocket Welts
+        const weltMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(this.garmentColor),
+          roughness: 0.85
+        });
+        const weltGeom = new THREE.BoxGeometry(0.08, 1.10, 0.05);
+        const leftWelt = new THREE.Mesh(weltGeom, weltMat);
+        leftWelt.position.set(-1.42, 2.30, 0.45);
+        leftWelt.rotation.set(0, 0.25, 0.35);
+        const rightWelt = new THREE.Mesh(weltGeom, weltMat);
+        rightWelt.position.set(1.42, 2.30, 0.45);
+        rightWelt.rotation.set(0, -0.25, -0.35);
+        this.realPantsRoot.add(leftWelt, rightWelt);
 
         // Left Thigh Decal Mesh
         const thighDecalGeom = new THREE.PlaneGeometry(1.4, 1.6, 16, 16);
@@ -1271,24 +1330,34 @@ export class SceneManager {
         capObj.position.set(0, 0.128 * scaleC, -0.085 * scaleC);
         this.realCapRoot.add(capObj);
 
+        // Top crown squatchee button
+        const buttonMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(this.garmentColor),
+          roughness: 0.72
+        });
+        const buttonGeom = new THREE.CylinderGeometry(0.14, 0.14, 0.08, 16);
+        const squatchee = new THREE.Mesh(buttonGeom, buttonMat);
+        squatchee.position.set(0, 2.05, -0.15);
+        this.realCapRoot.add(squatchee);
+
         // Front Crown Decal Mesh (curved flush to front panels)
-        const capDecalGeom = new THREE.PlaneGeometry(1.2, 0.8, 16, 16);
+        const capDecalGeom = new THREE.PlaneGeometry(1.6, 1.2, 16, 16);
         const cPos = capDecalGeom.attributes.position;
         for (let i = 0; i < cPos.count; i++) {
           const x = cPos.getX(i);
           const y = cPos.getY(i);
-          cPos.setZ(i, - (x * x) * 0.12 - (y * y) * 0.08);
+          cPos.setZ(i, - (x * x) * 0.12 - (y * y) * 0.06);
         }
         capDecalGeom.computeVertexNormals();
         const cUvs = capDecalGeom.attributes.uv;
         for (let i = 0; i < cUvs.count; i++) {
           const u = cUvs.getX(i);
           const v = cUvs.getY(i);
-          cUvs.setXY(i, 0.10 + u * 0.32, 0.55 - v * 0.28);
+          cUvs.setXY(i, 0.0888 + u * 0.34, 0.5606 - v * 0.34);
         }
         cUvs.needsUpdate = true;
         this.capDecalMeshFront = new THREE.Mesh(capDecalGeom, this.decalMaterial);
-        this.capDecalMeshFront.position.set(0, 0.38, 1.82);
+        this.capDecalMeshFront.position.set(0, 0.42, 1.84);
         this.capDecalMeshFront.rotation.x = -0.26;
         this.realCapRoot.add(this.capDecalMeshFront);
 
@@ -1321,7 +1390,7 @@ export class SceneManager {
     const t = this.garmentType || 'oversized_tee';
     const isPants = (t === 'sweatpants');
     const isCap = (t === 'cap');
-    const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie');
+    const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
     const isTshirtFamily = !isPants && !isCap && !isHoodieFamily;
 
     // Show/hide upper body shirt meshes
@@ -1341,12 +1410,14 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0105, 0.0100, 0.0076);
         this.tshirtStatic.position.set(0, -0.427445 + 0.88, 0);
       } else if (t === 'regular_tee') {
-        this.tshirtStatic.scale.set(0.0094, 0.0096, 0.0098);
+        // Classic tailored fitted cut (clean standard chest and narrower shoulder seams, clearly distinct from oversized)
+        this.tshirtStatic.scale.set(0.0084, 0.0092, 0.0080);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else if (t === 'sweatshirt') {
-        this.tshirtStatic.scale.set(0.0102, 0.0102, 0.0102);
+        this.tshirtStatic.scale.set(0.0102, 0.0102, 0.0104);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else {
+        // Streetwear oversized drop-shoulder cut
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       }
@@ -1364,17 +1435,17 @@ export class SceneManager {
     }
 
     // Attachments visibility
-    if (this.zipperMesh) {
-      this.zipperMesh.visible = (t === 'zip_hoodie');
+    if (this.hoodieZipperMesh) {
+      this.hoodieZipperMesh.visible = (t === 'zip_hoodie');
     }
-    if (this.crewCollarGroup) {
-      this.crewCollarGroup.visible = (t === 'sweatshirt');
+    if (this.zipperMesh) {
+      this.zipperMesh.visible = (t === 'zip_hoodie' && !this.realHoodieRoot);
+    }
+    if (this.sweatshirtGroup) {
+      this.sweatshirtGroup.visible = (t === 'sweatshirt');
     }
     if (this.poloGroup) {
       this.poloGroup.visible = (t === 'polo');
-    }
-    if (this.hangerGroup) {
-      this.hangerGroup.visible = (t === 'hanging_tee' || t === 'hanging_hoodie');
     }
     this.updateDecalVisibility();
   }
@@ -1500,6 +1571,26 @@ export class SceneManager {
     this.applyGarmentTypeVisibility();
   }
 
+  zoomIn(amount = 2.0) {
+    if (!this.camera || !this.controls) return;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const dist = offset.length();
+    const newDist = Math.max(this.controls.minDistance || 5, dist - amount);
+    offset.setLength(newDist);
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
+  }
+
+  zoomOut(amount = 2.0) {
+    if (!this.camera || !this.controls) return;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const dist = offset.length();
+    const newDist = Math.min(this.controls.maxDistance || 38, dist + amount);
+    offset.setLength(newDist);
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
+  }
+
   setCameraPreset(view) {
     const duration = 0.8;
     const startTime = performance.now();
@@ -1508,7 +1599,7 @@ export class SceneManager {
 
     const isPants = (this.garmentType === 'sweatpants');
     const isCap = (this.garmentType === 'cap');
-    const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie' || this.garmentType === 'hanging_hoodie');
+    const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
     let controlsTarget = new THREE.Vector3(0, 0, 0);
 
     if (isHoodie) {
@@ -1518,9 +1609,10 @@ export class SceneManager {
         case 'back': targetPos.set(-0.55, 0.15, -23.5); break;
         case 'side': targetPos.set(23.5, 0.15, 0); break;
         case 'hero': targetPos.set(11.5, 1.8, 19.0); break;
+        case 'zoom':
         case 'chest':
         default:
-          targetPos.set(-0.55, 1.0, 14.0);
+          targetPos.set(-0.55, 0.8, 14.5);
           break;
       }
     } else if (isPants) {
@@ -1530,9 +1622,10 @@ export class SceneManager {
         case 'back': targetPos.set(0, 0, -24.5); break;
         case 'side': targetPos.set(24.5, 0, 0); break;
         case 'hero': targetPos.set(12, 1.5, 20.0); break;
+        case 'zoom':
         case 'chest':
         default:
-          targetPos.set(-1.0, 0.4, 15.0);
+          targetPos.set(-0.8, 0.4, 15.0);
           break;
       }
     } else if (isCap) {
@@ -1542,13 +1635,14 @@ export class SceneManager {
         case 'back': targetPos.set(0, 0, -14.5); break;
         case 'side': targetPos.set(14.5, 0, 0); break;
         case 'hero': targetPos.set(2.8, 1.6, 13.5); break;
+        case 'zoom':
         case 'chest':
         default:
           targetPos.set(0, 0.4, 11.0);
           break;
       }
     } else {
-      controlsTarget.set(0, 0, 0);
+      controlsTarget.set(0, 0.2, 0);
       switch (view) {
         case 'front':
           targetPos.set(0, 0, 24.5);
@@ -1562,11 +1656,11 @@ export class SceneManager {
         case 'hero':
           targetPos.set(13, 1.8, 20.0);
           break;
+        case 'zoom':
         case 'chest':
+        default:
           targetPos.set(0, 0.8, 15.0);
           break;
-        default:
-          targetPos.set(0, 0, 24.5);
       }
     }
 
@@ -1652,14 +1746,60 @@ export class SceneManager {
 
     // Knit animation mode: continuous textile yarn weave & fabric elasticity breathing
     if (this.animationMode === 'knit') {
-      this.knitTime = (this.knitTime || 0) + delta * (this.walkSpeed || 1.0) * 3.2;
-      const waveX = Math.sin(this.knitTime) * 0.016;
-      const waveY = Math.cos(this.knitTime * 0.85) * 0.012;
-      const waveZ = Math.sin(this.knitTime * 1.1) * 0.016;
+      this.knitTime = (this.knitTime || 0) + delta * (this.walkSpeed || 1.0) * 3.6;
+      const waveX = Math.sin(this.knitTime) * 0.038;
+      const waveY = Math.cos(this.knitTime * 0.85) * 0.026;
+      const waveZ = Math.sin(this.knitTime * 1.1) * 0.038;
 
       const activeRoot = this.getActiveGarmentRoot();
       if (activeRoot) {
         activeRoot.scale.set(1 + waveX, 1 + waveY, 1 + waveZ);
+      }
+
+      // Micro fabric normal map weave tension oscillation
+      const knitPulse = Math.sin(this.knitTime * 1.5) * 0.5 + 0.5;
+      if (this.shirtMaterial && this.shirtMaterial.normalScale) {
+        const nS = 0.16 + knitPulse * 0.14;
+        this.shirtMaterial.normalScale.set(nS, nS);
+      }
+      if (this.hoodieFabricMaterial && this.hoodieFabricMaterial.normalScale) {
+        const nH = 0.35 + knitPulse * 0.22;
+        this.hoodieFabricMaterial.normalScale.set(nH, nH);
+      }
+    }
+
+    // Sweatpants walking motion & drawstring physics
+    if (this.realPantsRoot && this.garmentType === 'sweatpants') {
+      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
+        this.pantsWalkTime = (this.pantsWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.6;
+        const strideBounce = Math.abs(Math.sin(this.pantsWalkTime)) * 0.12;
+        this.realPantsRoot.rotation.z = Math.sin(this.pantsWalkTime * 0.5) * 0.028;
+        this.realPantsRoot.rotation.x = Math.sin(this.pantsWalkTime) * 0.045;
+        this.realPantsRoot.position.y = strideBounce - 0.06;
+
+        if (this.pLeftStr && this.pRightStr) {
+          this.pLeftStr.rotation.x = Math.sin(this.pantsWalkTime - 0.4) * 0.28;
+          this.pLeftStr.rotation.z = -0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
+          this.pRightStr.rotation.x = Math.sin(this.pantsWalkTime - 0.6) * 0.28;
+          this.pRightStr.rotation.z = 0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
+        }
+      } else if (this.animationMode === 'waves') {
+        this.pantsWaveTime = (this.pantsWaveTime || 0) + delta * 2.8;
+        this.realPantsRoot.rotation.z = Math.sin(this.pantsWaveTime) * 0.022;
+        this.realPantsRoot.position.y = 0;
+        this.realPantsRoot.rotation.x = 0;
+        if (this.pLeftStr && this.pRightStr) {
+          this.pLeftStr.rotation.z = -0.06 + Math.sin(this.pantsWaveTime * 1.5) * 0.22;
+          this.pRightStr.rotation.z = 0.06 + Math.sin(this.pantsWaveTime * 1.5 + 0.3) * 0.22;
+        }
+      } else if (this.animationMode !== 'knit') {
+        this.realPantsRoot.position.y = 0;
+        this.realPantsRoot.rotation.x = 0;
+        this.realPantsRoot.rotation.z = 0;
+        if (this.pLeftStr && this.pRightStr) {
+          this.pLeftStr.rotation.set(0, 0, -0.06);
+          this.pRightStr.rotation.set(0, 0, 0.06);
+        }
       }
     }
 

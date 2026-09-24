@@ -7,14 +7,18 @@ import {
   RefreshCw,
   Pause,
   Sun,
-  Moon
+  Moon,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 export function HeaderNav({
   interactionMode = 'orbit',
   onInteractionModeChange,
-  currentCamera = 'front',
+  currentCamera = 'chest',
   onCameraChange,
+  onZoomIn,
+  onZoomOut,
   animationMode = 'static',
   onAnimationModeChange,
   onToggleTurntable,
@@ -28,11 +32,11 @@ export function HeaderNav({
   const isTurntable = animationMode === 'turntable';
 
   const cameraViews = [
+    { id: 'chest', label: 'Zoom' },
     { id: 'front', label: 'Front' },
     { id: 'back', label: 'Back' },
     { id: 'side', label: 'Side' },
-    { id: 'hero', label: 'Hero 45°' },
-    { id: 'chest', label: 'Zoom' }
+    { id: 'hero', label: 'Hero 45°' }
   ];
 
   return (
@@ -100,7 +104,7 @@ export function HeaderNav({
 
         <div className="w-px h-5 bg-gray-200 dark:bg-studio-700 shrink-0" />
 
-        {/* Quick Camera Rotate Angles */}
+        {/* Quick Camera Rotate Angles & Zoom Controls */}
         <div className="flex items-center gap-1 shrink-0">
           {cameraViews.map((v) => {
             const isActive = currentCamera === v.id;
@@ -119,6 +123,30 @@ export function HeaderNav({
               </button>
             );
           })}
+
+          {/* Quick Zoom In & Zoom Out Buttons */}
+          {(onZoomIn || onZoomOut) && (
+            <div className="flex items-center gap-0.5 ml-1 pl-1 border-l border-gray-200 dark:border-studio-700">
+              {onZoomIn && (
+                <button
+                  onClick={onZoomIn}
+                  className="p-1 rounded-lg text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-studio-800 transition-colors"
+                  title="Zoom In (+)"
+                >
+                  <ZoomIn className="size-3.5" />
+                </button>
+              )}
+              {onZoomOut && (
+                <button
+                  onClick={onZoomOut}
+                  className="p-1 rounded-lg text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-studio-800 transition-colors"
+                  title="Zoom Out (-)"
+                >
+                  <ZoomOut className="size-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="w-px h-5 bg-gray-200 dark:bg-studio-700 shrink-0" />
