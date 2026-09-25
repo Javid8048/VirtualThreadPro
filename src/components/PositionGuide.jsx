@@ -445,7 +445,7 @@ export function PositionGuide({
   return (
     <aside 
       className={`absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 ${
-        isExpanded ? 'w-[520px] sm:w-[580px]' : 'w-[350px] sm:w-[380px]'
+        isExpanded ? 'w-[480px] sm:w-[520px]' : 'w-[330px] sm:w-[350px]'
       } max-w-[calc(100vw-24px)] bg-white rounded-3xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden select-none z-30 transition-all duration-300 animate-fadeIn`}
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >

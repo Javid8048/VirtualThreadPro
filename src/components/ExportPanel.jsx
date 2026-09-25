@@ -23,7 +23,6 @@ import { CanvasVideoRecorder } from '../utils/videoRecorder';
 export function ExportPanel({
   isOpen = true,
   onClose,
-  onSwitchToDesign,
   defaultTab = 'video',
   sceneManager,
   backdropMode = 'dark'
@@ -135,7 +134,7 @@ export function ExportPanel({
   return (
     <aside
       data-export-panel="true"
-      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[350px] sm:w-[380px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
+      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[330px] sm:w-[350px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >
       {/* Top Header: Export Studio Branding */}

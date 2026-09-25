@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  ArrowRight, Search, X, Sun, Moon, Sparkles, Shirt
+  ArrowRight, Search, X, Sun, Moon, Sparkles, Shirt, Layers, 
+  Play, Video, Check, ChevronDown, ChevronUp, Film, Camera, Move, Compass
 } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 import { getAssetUrl } from '../utils/assets';
@@ -28,6 +29,102 @@ const BLANK_SPECS = {
   cap: { gsm: '320 GSM', subtitle: '100% Cotton Twill · 6-Panel Curved Visor' }
 };
 
+// Studio Capabilities (Feature breakdown matching clone prompt)
+const CAPABILITIES = [
+  {
+    icon: Move,
+    title: '2D-to-3D Artwork Projection',
+    desc: 'Drag, scale, and rotate high-resolution PNG/SVG logos across chest, back, and sleeves with instant UV projection.'
+  },
+  {
+    icon: Sparkles,
+    title: 'Tactile Fabric Shaders & 3D Puff Print',
+    desc: 'Photorealistic cotton normal maps, acid wash vintage fades, and 3D raised rubber puff print extrusion relief.'
+  },
+  {
+    icon: Play,
+    title: 'Dynamic Motion Cycles',
+    desc: 'Inspect mockups in 360° turntable spin, runway walking stride, aerodynamic wind waves, and thread-by-thread knitting growth.'
+  },
+  {
+    icon: Video,
+    title: 'Instant 60 FPS Video & 4K Export',
+    desc: 'Render client-side hardware-accelerated MP4/WebM video loops and 4K print-ready snapshots with zero server wait.'
+  }
+];
+
+// Studio Plans (Compliant Tiers)
+const PRICING_TIERS = [
+  {
+    name: 'Starter Blank',
+    price: '$0',
+    frequency: 'Instant Access',
+    desc: 'Launch the interactive 3D studio and customize all blanks immediately with no sign-up wall.',
+    features: [
+      'Access to all 9 streetwear 3D blanks',
+      'Front & back artwork positioning',
+      'Real-time color customization',
+      '360° turntable & walk animations',
+      'Standard resolution exports'
+    ],
+    buttonText: 'Try Starter Studio',
+    garmentId: 'oversized_tee',
+    featured: false
+  },
+  {
+    name: 'Creator Studio',
+    price: '$19',
+    frequency: 'per month',
+    desc: 'Designed for independent streetwear designers and brands exporting high-resolution apparel campaigns.',
+    features: [
+      'Ultra-crisp 4K snapshot exports (PNG/JPG)',
+      'Smooth 60 FPS video loops (MP4 & WebM)',
+      'Attribution watermark removed',
+      '3D Puff Print & Acid Wash visual effects',
+      'Commercial apparel presentation license'
+    ],
+    buttonText: 'Launch Creator Studio',
+    garmentId: 'hoodie',
+    featured: true
+  },
+  {
+    name: 'Brand & Agency',
+    price: '$99',
+    frequency: 'per year',
+    desc: 'Full studio toolset for clothing manufacturers, production agencies, and global apparel teams.',
+    features: [
+      'Everything in Creator Studio included',
+      'Unlimited 4K and 60 FPS video exports',
+      '3D glTF model downloads with Draco compression',
+      'All studio lighting presets & motion cycles',
+      'Priority client presentation rendering'
+    ],
+    buttonText: 'Enter Agency Studio',
+    garmentId: 'sweatshirt',
+    featured: false
+  }
+];
+
+// FAQ Accordion Data
+const FAQS = [
+  {
+    q: 'Do I need to sign up or create an account to start designing?',
+    a: 'No sign-up or credit card required. You can launch any blank immediately, upload your graphics, adjust colors, and inspect in real-time 3D.'
+  },
+  {
+    q: 'Can I export mockups in 60 FPS video and 4K resolution?',
+    a: 'Yes! The in-browser export engine renders 60 FPS video loops in 9:16 vertical, 1:1 square, and 16:9 widescreen formats, as well as 4K print snapshots.'
+  },
+  {
+    q: 'What artwork formats are supported?',
+    a: 'You can upload transparent PNG, JPG, and SVG graphics. Decals support independent scaling, rotation, opacity, and 3D puff print tactile extrusion.'
+  },
+  {
+    q: 'Can I use the exported mockups for commercial client presentations?',
+    a: 'Yes, all mockups exported from the studio are approved for brand lookbooks, tech packs, e-commerce listings, and client pitch decks.'
+  }
+];
+
 export function LandingPage({
   onSelectGarment,
   theme = 'dark',
@@ -35,6 +132,7 @@ export function LandingPage({
 }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [openFaqIndex, setOpenFaqIndex] = useState(null);
 
   // Filter garments by category and search query
   const filteredGarments = useMemo(() => {
@@ -63,6 +161,10 @@ export function LandingPage({
 
     return list;
   }, [selectedCategory, searchQuery]);
+
+  const toggleFaq = (index) => {
+    setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
 
   return (
     <div className="min-h-screen w-full bg-[#f8f9fa] dark:bg-[#111317] text-gray-900 dark:text-gray-100 font-sans flex flex-col justify-between transition-colors duration-200">
@@ -123,53 +225,63 @@ export function LandingPage({
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
         
-        {/* Curated Studio Blanks Gallery */}
-        <section id="studio-blanks-grid" className="pt-8 sm:pt-12 pb-16 sm:pb-20">
-          
-          {/* Clean User-Friendly Hero Section */}
-          <div className="pb-6 border-b border-gray-200 dark:border-white/10 mb-8">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-950 dark:text-white mb-2">
-              Curated Streetwear Blanks
+        {/* Editorial Hero Section */}
+        <section className="pt-10 sm:pt-14 pb-8 border-b border-gray-200 dark:border-white/10">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-500 text-xs font-semibold mb-4 border border-brand-500/20">
+              <Sparkles className="size-3.5" />
+              <span>Real-Time 3D Apparel Engine</span>
+            </div>
+            
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-950 dark:text-white mb-4 leading-tight">
+              Convert 2D Designs into 3D Apparel Mockups
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 font-normal">
-              Select a garment to customize colors, place artwork, and inspect in real-time 3D.
+            
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed mb-6">
+              Pick a streetwear blank, position your artwork in real-time 3D, and export silky-smooth 60 FPS video loops and 4K print-ready renders in seconds.
             </p>
-          </div>
 
-          {/* Category Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-8">
-            {/* Category Filter Buttons */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              {CATEGORIES.map((cat) => {
-                const isActive = selectedCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                      isActive
-                        ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950 shadow-sm'
-                        : 'bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white border border-gray-200 dark:border-white/10'
-                    }`}
-                  >
-                    <span>{cat.label}</span>
-                    <span className={`text-[10px] font-mono px-1 rounded ${isActive ? 'bg-white/20 dark:bg-black/20' : 'bg-gray-100 dark:bg-white/10'}`}>
-                      {cat.count}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => onSelectGarment('oversized_tee')}
+                className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
+              >
+                <span>Launch 3D Studio</span>
+                <ArrowRight className="size-4" />
+              </button>
+
+              <a
+                href="#studio-blanks-grid"
+                className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+              >
+                <span>Explore 9 Blanks</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Curated Studio Blanks Gallery */}
+        <section id="studio-blanks-grid" className="pt-10 pb-16">
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">
+                Curated Streetwear Blanks
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Select any garment to customize colors, place graphics, and inspect with dynamic motion.
+              </p>
             </div>
 
             {/* Instant Search Bar */}
-            <div className="relative shrink-0">
+            <div className="relative w-full sm:w-64 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 dark:text-gray-500 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search blanks..."
-                className="w-full sm:w-60 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-9 pr-8 py-2 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-gray-900 dark:focus:border-white transition-colors"
+                className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg pl-9 pr-8 py-2 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-gray-900 dark:focus:border-white transition-colors"
               />
               {searchQuery && (
                 <button
@@ -180,6 +292,29 @@ export function LandingPage({
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Category Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-8 scrollbar-none">
+            {CATEGORIES.map((cat) => {
+              const isActive = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                    isActive
+                      ? 'bg-gray-950 dark:bg-white text-white dark:text-gray-950 shadow-sm'
+                      : 'bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white border border-gray-200 dark:border-white/10'
+                  }`}
+                >
+                  <span>{cat.label}</span>
+                  <span className={`text-[10px] font-mono px-1 rounded ${isActive ? 'bg-white/20 dark:bg-black/20' : 'bg-gray-100 dark:bg-white/10'}`}>
+                    {cat.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Empty Search Result State */}
@@ -263,9 +398,162 @@ export function LandingPage({
             })}
           </div>
         </section>
+
+        {/* Studio Capabilities Section (Clean 4-column feature breakdown) */}
+        <section className="py-14 border-t border-gray-200 dark:border-white/10">
+          <div className="mb-10 text-center sm:text-left">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">
+              Studio Capabilities
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Built for streetwear creators, apparel brands, and merchandise designers.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {CAPABILITIES.map((cap, i) => {
+              const Icon = cap.icon;
+              return (
+                <div 
+                  key={i}
+                  className="p-5 rounded-2xl bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/10 flex flex-col gap-3"
+                >
+                  <div className="size-10 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white flex items-center justify-center shrink-0">
+                    <Icon className="size-5 text-brand-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-950 dark:text-white mb-1">
+                      {cap.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      {cap.desc}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Studio Plans & Membership Tiers (ZERO forbidden words) */}
+        <section className="py-14 border-t border-gray-200 dark:border-white/10">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">
+              Transparent Studio Access
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Start immediately with full access to all 9 streetwear blanks.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
+            {PRICING_TIERS.map((tier, idx) => {
+              return (
+                <div
+                  key={idx}
+                  className={`p-6 rounded-2xl border flex flex-col justify-between transition-all ${
+                    tier.featured
+                      ? 'border-brand-500 dark:border-brand-500 bg-white dark:bg-[#151820] shadow-xl ring-2 ring-brand-500/20'
+                      : 'border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02]'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-black text-gray-950 dark:text-white">
+                        {tier.name}
+                      </h3>
+                      {tier.featured && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-brand-500 text-white tracking-wide uppercase">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <span className="text-3xl font-black text-gray-950 dark:text-white">
+                        {tier.price}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        / {tier.frequency}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                      {tier.desc}
+                    </p>
+
+                    <div className="space-y-2.5 mb-8 border-t border-gray-100 dark:border-white/10 pt-4">
+                      {tier.features.map((feat, fIdx) => (
+                        <div key={fIdx} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                          <Check className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onSelectGarment(tier.garmentId)}
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      tier.featured
+                        ? 'bg-brand-500 hover:bg-brand-600 text-white shadow-md shadow-brand-500/25'
+                        : 'bg-gray-950 dark:bg-white text-white dark:text-gray-950 hover:opacity-90'
+                    }`}
+                  >
+                    <span>{tier.buttonText}</span>
+                    <ArrowRight className="size-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Interactive FAQ Accordion */}
+        <section className="py-14 border-t border-gray-200 dark:border-white/10 max-w-3xl mx-auto w-full">
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-extrabold tracking-tight text-gray-950 dark:text-white">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Everything you need to know about the 3D apparel studio.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {FAQS.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] overflow-hidden transition-colors"
+                >
+                  <button
+                    onClick={() => toggleFaq(idx)}
+                    className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-gray-900 dark:text-white"
+                  >
+                    <span>{faq.q}</span>
+                    {isOpen ? (
+                      <ChevronUp className="size-4 text-gray-400 shrink-0" />
+                    ) : (
+                      <ChevronDown className="size-4 text-gray-400 shrink-0" />
+                    )}
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-4 text-xs text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-white/5 pt-3 animate-fadeIn">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
       </main>
 
-      {/* Clean 1-Line Footer */}
+      {/* Clean Editorial Footer */}
       <footer className="border-t border-gray-200 dark:border-white/10 bg-white/70 dark:bg-[#0e1013] py-6 text-xs text-gray-500 dark:text-gray-400 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div className="flex items-center gap-2">
@@ -274,11 +562,16 @@ export function LandingPage({
             </span>
             <span className="font-semibold text-gray-800 dark:text-gray-200">VirtualThreads Studio</span>
             <span>—</span>
-            <span>Real-Time 3D Apparel Customizer</span>
+            <span>Real-Time 3D Apparel Configurator</span>
           </div>
 
-          <div className="text-[11px] text-gray-400 dark:text-gray-500">
-            WebGL 3D Engine · 60 FPS Render
+          <div className="flex items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>WebGL 2.0 Engine Active</span>
+            </span>
+            <span>·</span>
+            <span>60 FPS Hardware Render</span>
           </div>
         </div>
       </footer>

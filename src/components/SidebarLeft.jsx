@@ -41,6 +41,7 @@ export function SidebarLeft({
   onOpenProductsCatalog,
   viewMode = '3d',
   onViewModeChange,
+  isExportStudioOpen = false,
   onBackToLanding
 }) {
   const [openSection, setOpenSection] = useState('designs'); // default to 'designs'
@@ -84,19 +85,21 @@ export function SidebarLeft({
         </div>
       </div>
 
-      {/* Top Action Pill: Advanced Controls (Toggles Position Guide) */}
-      <div className="space-y-1.5">
-        <button
-          onClick={onOpenPositionGuide}
-          className="w-full bg-studio-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
-            <span>Design & Graphics Studio</span>
-          </div>
-          <Settings className="size-3.5 text-studio-400 group-hover:rotate-45 transition-transform" />
-        </button>
-      </div>
+      {/* Top Action Pill: Advanced Controls (Hidden when in Export Studio) */}
+      {!isExportStudioOpen && (
+        <div className="space-y-1.5">
+          <button
+            onClick={onOpenPositionGuide}
+            className="w-full bg-studio-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
+              <span>Design & Graphics Studio</span>
+            </div>
+            <Settings className="size-3.5 text-studio-400 group-hover:rotate-45 transition-transform" />
+          </button>
+        </div>
+      )}
 
       {/* Accordion Menu Options */}
       <div className="flex-1 my-3 overflow-y-auto space-y-1 text-xs pr-0.5 custom-scrollbar">

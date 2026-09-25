@@ -491,6 +491,7 @@ export default function App() {
         onOpenProductsCatalog={() => setProductsCatalogOpen(true)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        isExportStudioOpen={rightDrawerMode === 'export'}
       />
 
       {/* Right Floating Position Guide (Design & Graphics Studio) */}
@@ -508,11 +509,10 @@ export default function App() {
         onCameraChange={handleCameraChange}
       />
 
-      {/* Right Floating Export Panel (Replaces Design Studio upon clicking Export) */}
+      {/* Right Floating Export Panel (Zero option of Design Studio while exporting) */}
       <ExportPanel
         isOpen={rightDrawerMode === 'export'}
         onClose={() => setRightDrawerMode(null)}
-        onSwitchToDesign={() => setRightDrawerMode('design')}
         defaultTab={exportTab}
         sceneManager={sceneManagerRef.current}
         backdropMode={backdropMode}

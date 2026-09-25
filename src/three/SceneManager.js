@@ -17,19 +17,35 @@ if (typeof window !== 'undefined') {
  * Eliminates see-through bleed and mirrored reflections inside the collar/hem.
  */
 function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity) {
-  material.customProgramCacheKey = () => 'inside-fabric-shader-v7';
+  material.customProgramCacheKey = () => 'inside-fabric-shader-v8';
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uInsideColor = { value: new THREE.Color(getInsideColor()) };
     shader.uniforms.uAcidWash = { value: 0.0 };
+    shader.uniforms.uKnitProgress = { value: 1.0 };
+    shader.uniforms.uKnitTime = { value: 0.0 };
 
     shader.fragmentShader = `
       uniform vec3 uInsideColor;
       uniform float uAcidWash;
+      uniform float uKnitProgress;
+      uniform float uKnitTime;
     ` + shader.fragmentShader;
 
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <map_fragment>',
       `
+      #ifdef USE_MAP
+        float knitCoordY = vMapUv.y;
+      #else
+        float knitCoordY = vUv.y;
+      #endif
+
+      if (uKnitProgress < 0.999) {
+        if (knitCoordY > uKnitProgress) {
+          discard;
+        }
+      }
+
       #ifdef USE_MAP
         if (!gl_FrontFacing) {
           // Exterior fabric: render texture map and graphics
@@ -47,6 +63,16 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
             sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, washedColor, uAcidWash);
           }
 
+          // Active weaving yarn thread line at knitting growth frontier
+          if (uKnitProgress < 0.999) {
+            float distEdge = uKnitProgress - knitCoordY;
+            if (distEdge < 0.035) {
+              float threadWeave = sin(vMapUv.x * 380.0 + uKnitTime * 14.0) * 0.5 + 0.5;
+              vec3 yarnPulse = mix(vec3(0.92, 0.96, 1.0), vec3(0.40, 0.65, 1.0), threadWeave);
+              sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, yarnPulse, 0.85);
+            }
+          }
+
           diffuseColor *= sampledDiffuseColor;
         } else {
           // Pure, pristine interior lining: strictly solid fabric color, zero bleed-through
@@ -55,6 +81,12 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
       #else
         if (gl_FrontFacing) {
           diffuseColor.rgb = uInsideColor;
+        } else if (uKnitProgress < 0.999) {
+          float distEdge = uKnitProgress - knitCoordY;
+          if (distEdge < 0.035) {
+            float threadWeave = sin(vUv.x * 380.0 + uKnitTime * 14.0) * 0.5 + 0.5;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.6, 0.8, 1.0), threadWeave * 0.85);
+          }
         }
       #endif
       `
@@ -258,6 +290,7 @@ export class SceneManager {
       normalScale: new THREE.Vector2(0.25, 0.25),
       side: THREE.DoubleSide
     });
+    applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor);
 
     // Vibrant, rich satin ink finish on decals (no dullness, max crispness, sharp anisotropic filtering)
     this.decalMaterial = new THREE.MeshStandardMaterial({
@@ -286,6 +319,7 @@ export class SceneManager {
       if (this.onLoaded) {
         this.onLoaded();
       }
+      this.scheduleBackgroundPreloading();
     }
   }
 
@@ -336,9 +370,31 @@ export class SceneManager {
     }
   }
 
+  scheduleBackgroundPreloading() {
+    if (this.hasScheduledPreload) return;
+    this.hasScheduledPreload = true;
+
+    // Use delayed sequential preloading during browser idle time
+    // Guarantees zero freezing on initial load, while ensuring all 3D garments load instantly (0ms)
+    setTimeout(() => {
+      const queue = ['hoodie', 'pants', 'cap'];
+      const processNext = (idx) => {
+        if (idx >= queue.length || this.isDisposed) return;
+        const fam = queue[idx];
+        if (!this.modelsLoaded[fam] && !this.modelsLoading[fam]) {
+          this.ensureGarmentModelLoaded(fam, () => {
+            setTimeout(() => processNext(idx + 1), 600);
+          });
+        } else {
+          processNext(idx + 1);
+        }
+      };
+      processNext(0);
+    }, 1800);
+  }
+
   preloadAllGarmentModels() {
-    // Disabled aggressive background preloading storm that parsed multiple 3D models simultaneously.
-    // Models are smoothly loaded strictly on demand via ensureGarmentModelLoaded().
+    this.scheduleBackgroundPreloading();
   }
 
   loadModel(onDone) {
@@ -728,27 +784,47 @@ export class SceneManager {
   }
 
   triggerKnitAnimation() {
-    // Weaving / knitting simulation effect: brief elastic scale pulse transitioning into continuous yarn weave
+    // Procedural line-by-line thread weaving growth simulation
     this.knitTime = 0;
+    this.knitProgress = 0.0;
+    const updateShaderKnit = (p) => {
+      [this.shirtMaterial, this.hoodieFabricMaterial, this.fabricMaterial].forEach((mat) => {
+        if (mat?.userData?.shader?.uniforms?.uKnitProgress) {
+          mat.userData.shader.uniforms.uKnitProgress.value = p;
+        }
+      });
+    };
+    updateShaderKnit(0.0);
+
     const activeRoot = this.getActiveGarmentRoot();
-    if (activeRoot) {
-      const startScale = 0.94;
-      activeRoot.scale.set(startScale, startScale, startScale);
-      const startT = performance.now();
-      const knitInterval = () => {
-        if (this.animationMode !== 'knit') return;
-        const elapsed = (performance.now() - startT) / 1000;
-        const p = Math.min(elapsed / 0.8, 1);
-        const s = startScale + (1.0 - startScale) * (1 - Math.pow(1 - p, 3));
-        if (activeRoot && this.animationMode === 'knit') {
-          activeRoot.scale.set(s, s, s);
-        }
-        if (p < 1) {
-          requestAnimationFrame(knitInterval);
-        }
-      };
-      requestAnimationFrame(knitInterval);
-    }
+    const startT = performance.now();
+    const duration = 2.4; // 2.4 seconds authentic line-by-line thread weaving
+
+    const knitInterval = (now) => {
+      if (this.animationMode !== 'knit') {
+        updateShaderKnit(1.0);
+        return;
+      }
+      const elapsed = (now - startT) / 1000;
+      const p = Math.min(elapsed / duration, 1.0);
+      this.knitProgress = p;
+      updateShaderKnit(p);
+
+      if (activeRoot) {
+        // Elastic fabric tension breathing
+        const pulse = 1.0 - Math.pow(1.0 - p, 2) * 0.04;
+        activeRoot.scale.set(pulse, pulse, pulse);
+      }
+
+      if (p < 1.0) {
+        requestAnimationFrame(knitInterval);
+      } else {
+        // Reached top: keep fully woven
+        updateShaderKnit(1.0);
+        if (activeRoot) activeRoot.scale.set(1, 1, 1);
+      }
+    };
+    requestAnimationFrame(knitInterval);
   }
 
 
@@ -839,74 +915,57 @@ export class SceneManager {
     this.attachmentsGroup.name = 'garment_attachments';
     this.attachmentsGroup.scale.set(1, 1, 1);
 
-    const fabMat = this.fabricMaterial || this.shirtMaterial;
+    const fabMat = this.shirtMaterial || this.fabricMaterial;
 
-    // 1. Metallic Front Center Zipper (for Zip Hoodie)
-    // Slender metallic zipper track matching front torso height (2.85 units, not 6.8 units!)
-    const zipperMat = new THREE.MeshStandardMaterial({
-      color: 0xdfdfdf,
-      metalness: 0.92,
-      roughness: 0.18
-    });
-    const zipperGeom = new THREE.BoxGeometry(0.045, 2.85, 0.03);
-    this.zipperMesh = new THREE.Mesh(zipperGeom, zipperMat);
-    this.zipperMesh.position.set(0, 0.20, 1.44);
-
-    const pullerGeom = new THREE.BoxGeometry(0.12, 0.28, 0.06);
-    const pullerMesh = new THREE.Mesh(pullerGeom, zipperMat);
-    pullerMesh.position.set(0, 0.95, 1.47);
-    this.zipperMesh.add(pullerMesh);
-    this.attachmentsGroup.add(this.zipperMesh);
-
-    // 2. Sweatshirt: Long sleeves, ribbed cuffs, waistband, and crew collar
+    // 1. Sweatshirt: Authentic streetwear long sleeves, ribbed cuffs, waistband, and crewneck collar
     this.sweatshirtGroup = new THREE.Group();
-    this.crewCollarGroup = this.sweatshirtGroup; // compatibility alias
+    this.crewCollarGroup = this.sweatshirtGroup;
 
-    // Seamless left & right long sleeve extensions connecting directly inside t-shirt sleeve openings
-    const armGeom = new THREE.CylinderGeometry(0.38, 0.46, 1.85, 24);
+    // Seamless left & right long sleeve extensions connecting directly inside drop-shoulder sleeve openings
+    const armGeom = new THREE.CylinderGeometry(0.40, 0.52, 2.20, 24);
     
     // Left sleeve extension & ribbed cuff
     const leftArm = new THREE.Mesh(armGeom, fabMat);
-    leftArm.position.set(-2.95, -0.05, 0.04);
-    leftArm.rotation.set(0.12, 0, 0.62);
+    leftArm.position.set(-4.08, 0.42, 0.04);
+    leftArm.rotation.set(0.10, 0, 0.65);
     
-    const cuffGeom = new THREE.CylinderGeometry(0.37, 0.35, 0.42, 24);
+    const cuffGeom = new THREE.CylinderGeometry(0.35, 0.38, 0.45, 24);
     const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
-    leftCuff.position.set(-3.72, -0.56, 0.08);
-    leftCuff.rotation.set(0.12, 0, 0.62);
+    leftCuff.position.set(-4.95, -0.38, 0.04);
+    leftCuff.rotation.set(0.10, 0, 0.65);
 
     // Right sleeve extension & ribbed cuff
     const rightArm = new THREE.Mesh(armGeom, fabMat);
-    rightArm.position.set(2.95, -0.05, 0.04);
-    rightArm.rotation.set(0.12, 0, -0.62);
+    rightArm.position.set(4.08, 0.42, 0.04);
+    rightArm.rotation.set(0.10, 0, -0.65);
 
     const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
-    rightCuff.position.set(3.72, -0.56, 0.08);
-    rightCuff.rotation.set(0.12, 0, -0.62);
+    rightCuff.position.set(4.95, -0.38, 0.04);
+    rightCuff.rotation.set(0.10, 0, -0.65);
 
-    // Ribbed crewneck collar rim sitting flush on neckline
-    const crewGeom = new THREE.TorusGeometry(1.22, 0.09, 20, 48);
-    crewGeom.rotateX(Math.PI * 0.42);
+    // Ribbed crewneck collar rim sitting flush on neckline (Y = 3.20)
+    const crewGeom = new THREE.TorusGeometry(1.22, 0.10, 20, 48);
+    crewGeom.rotateX(Math.PI * 0.45);
     const crewMesh = new THREE.Mesh(crewGeom, fabMat);
-    crewMesh.position.set(0, 2.18, 0.12);
+    crewMesh.position.set(0, 3.20, 0.08);
 
-    // Ribbed bottom hem waistband
-    const waistGeom = new THREE.CylinderGeometry(2.28, 2.25, 0.50, 32);
+    // Ribbed bottom hem waistband sitting flush at bottom hem (Y = -4.18)
+    const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 32);
     const waistHem = new THREE.Mesh(waistGeom, fabMat);
-    waistHem.position.set(0, -2.12, 0.02);
-    waistHem.scale.set(1.0, 1.0, 0.45); // oval cross-section matching torso
+    waistHem.position.set(0, -4.18, 0.0);
+    waistHem.scale.set(1.0, 1.0, 0.52);
 
     this.sweatshirtGroup.add(leftArm, leftCuff, rightArm, rightCuff, crewMesh, waistHem);
     this.attachmentsGroup.add(this.sweatshirtGroup);
 
-    // 3. Polo Turned-down Folded Collar & 2-Button Placket
+    // 2. Polo Turned-down Folded Collar & 2-Button Placket
     this.poloGroup = new THREE.Group();
 
-    // Turned-down collar band contouring the neck without gaps or holes
-    const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.28, 0.42, 32, 1, true, Math.PI * 0.25, Math.PI * 1.50);
+    // Turned-down collar band contouring the neck opening cleanly
+    const poloCollarCurve = new THREE.CylinderGeometry(1.24, 1.32, 0.45, 32, 1, true, Math.PI * 0.25, Math.PI * 1.50);
     poloCollarCurve.rotateX(-0.16);
     const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
-    poloCollarMesh.position.set(0, 2.22, 0.12);
+    poloCollarMesh.position.set(0, 3.22, 0.08);
 
     // Left and right folded lapel wings laying flat against upper chest
     const lapelShape = new THREE.Shape();
@@ -918,18 +977,18 @@ export class SceneManager {
     const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
     const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
-    leftLapel.position.set(-0.12, 2.16, 0.88);
+    leftLapel.position.set(-0.10, 3.12, 0.96);
     leftLapel.rotation.set(0.18, 0.08, -0.15);
 
     const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
-    rightLapel.position.set(0.12, 2.16, 0.88);
+    rightLapel.position.set(0.10, 3.12, 0.96);
     rightLapel.rotation.set(0.18, -0.08, 0.15);
     rightLapel.scale.set(-1, 1, 1);
 
     // Front center placket with stitch welt
-    const placketGeom = new THREE.BoxGeometry(0.40, 1.25, 0.03);
+    const placketGeom = new THREE.BoxGeometry(0.38, 1.35, 0.04);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
-    placketMesh.position.set(0, 1.48, 0.87);
+    placketMesh.position.set(0, 2.25, 0.95);
     placketMesh.rotation.set(0.14, 0, 0);
 
     // Pearlescent buttons
@@ -941,9 +1000,9 @@ export class SceneManager {
     const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
     const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.position.set(0, 1.84, 0.90);
+    b1.position.set(0, 2.65, 0.98);
     const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.position.set(0, 1.38, 0.85);
+    b2.position.set(0, 2.05, 0.90);
 
     this.poloGroup.add(poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
     this.attachmentsGroup.add(this.poloGroup);
@@ -986,6 +1045,7 @@ export class SceneManager {
       metalness: 0.02,
       side: THREE.DoubleSide
     });
+    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor);
 
     gltfLoader.load(
       getAssetUrl('/models/virtualthreads_hoodie.glb'),
@@ -1318,24 +1378,24 @@ export class SceneManager {
         this.realCapRoot.add(squatchee);
 
         // Front Crown Decal Mesh (curved flush to front panels)
-        const capDecalGeom = new THREE.PlaneGeometry(1.6, 1.2, 16, 16);
+        const capDecalGeom = new THREE.PlaneGeometry(1.65, 1.25, 24, 24);
         const cPos = capDecalGeom.attributes.position;
         for (let i = 0; i < cPos.count; i++) {
           const x = cPos.getX(i);
           const y = cPos.getY(i);
-          cPos.setZ(i, - (x * x) * 0.12 - (y * y) * 0.06);
+          cPos.setZ(i, - (x * x) * 0.11 - (y * y) * 0.05);
         }
         capDecalGeom.computeVertexNormals();
         const cUvs = capDecalGeom.attributes.uv;
         for (let i = 0; i < cUvs.count; i++) {
           const u = cUvs.getX(i);
           const v = cUvs.getY(i);
-          cUvs.setXY(i, 0.0888 + u * 0.34, 0.5606 - v * 0.34);
+          cUvs.setXY(i, 0.0688 + u * 0.38, 0.5806 - v * 0.38);
         }
         cUvs.needsUpdate = true;
         this.capDecalMeshFront = new THREE.Mesh(capDecalGeom, this.decalMaterial);
-        this.capDecalMeshFront.position.set(0, 0.48, 1.48);
-        this.capDecalMeshFront.rotation.x = -0.22;
+        this.capDecalMeshFront.position.set(0, 0.52, 1.52);
+        this.capDecalMeshFront.rotation.x = -0.24;
         this.realCapRoot.add(this.capDecalMeshFront);
 
         this.scene.add(this.realCapRoot);
@@ -1389,7 +1449,7 @@ export class SceneManager {
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
       } else if (t === 'regular_tee') {
         // Classic tailored fitted cut (standard shoulder seams, tailored torso, distinct from oversized)
-        this.tshirtStatic.scale.set(0.0086, 0.0096, 0.0084);
+        this.tshirtStatic.scale.set(0.0084, 0.0094, 0.0080);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else if (t === 'sweatshirt') {
         // Heavyweight fleece boxy drape matching long-sleeve sweatshirt attachments
@@ -1416,9 +1476,6 @@ export class SceneManager {
     // Attachments visibility
     if (this.hoodieZipperMesh) {
       this.hoodieZipperMesh.visible = (t === 'zip_hoodie');
-    }
-    if (this.zipperMesh) {
-      this.zipperMesh.visible = (t === 'zip_hoodie' && !this.realHoodieRoot);
     }
     if (this.sweatshirtGroup) {
       this.sweatshirtGroup.visible = (t === 'sweatshirt');
@@ -1746,12 +1803,21 @@ export class SceneManager {
       }
     }
 
-    // Knit animation mode: continuous textile yarn weave & fabric elasticity breathing
+    // Knit animation mode: continuous textile yarn weave & thread growth
     if (this.animationMode === 'knit') {
       this.knitTime = (this.knitTime || 0) + delta * (this.walkSpeed || 1.0) * 3.6;
-      const waveX = Math.sin(this.knitTime) * 0.038;
-      const waveY = Math.cos(this.knitTime * 0.85) * 0.026;
-      const waveZ = Math.sin(this.knitTime * 1.1) * 0.038;
+      const updateKnitTime = (mat) => {
+        if (mat?.userData?.shader?.uniforms?.uKnitTime) {
+          mat.userData.shader.uniforms.uKnitTime.value = this.knitTime;
+        }
+      };
+      updateKnitTime(this.shirtMaterial);
+      updateKnitTime(this.hoodieFabricMaterial);
+      updateKnitTime(this.fabricMaterial);
+
+      const waveX = Math.sin(this.knitTime) * 0.024;
+      const waveY = Math.cos(this.knitTime * 0.85) * 0.016;
+      const waveZ = Math.sin(this.knitTime * 1.1) * 0.024;
 
       const activeRoot = this.getActiveGarmentRoot();
       if (activeRoot) {
@@ -1765,34 +1831,47 @@ export class SceneManager {
         this.shirtMaterial.normalScale.set(nS, nS);
       }
       if (this.hoodieFabricMaterial && this.hoodieFabricMaterial.normalScale) {
-        const nH = 0.35 + knitPulse * 0.22;
+        const nH = 0.28 + knitPulse * 0.18;
         this.hoodieFabricMaterial.normalScale.set(nH, nH);
       }
+    } else {
+      const resetKnit = (mat) => {
+        if (mat?.userData?.shader?.uniforms?.uKnitProgress) {
+          mat.userData.shader.uniforms.uKnitProgress.value = 1.0;
+        }
+      };
+      resetKnit(this.shirtMaterial);
+      resetKnit(this.hoodieFabricMaterial);
+      resetKnit(this.fabricMaterial);
     }
 
     // Sweatpants walking motion & drawstring physics
     if (this.realPantsRoot && this.garmentType === 'sweatpants') {
       if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
         this.pantsWalkTime = (this.pantsWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.6;
-        const strideBounce = Math.abs(Math.sin(this.pantsWalkTime)) * 0.12;
-        this.realPantsRoot.rotation.z = Math.sin(this.pantsWalkTime * 0.5) * 0.028;
-        this.realPantsRoot.rotation.x = Math.sin(this.pantsWalkTime) * 0.045;
-        this.realPantsRoot.position.y = strideBounce - 0.06;
+        const strideBounce = Math.abs(Math.sin(this.pantsWalkTime)) * 0.14;
+        const pelvicSway = Math.sin(this.pantsWalkTime * 0.5) * 0.045;
+        const legPitch = Math.sin(this.pantsWalkTime) * 0.055;
+        this.realPantsRoot.rotation.z = pelvicSway;
+        this.realPantsRoot.rotation.x = legPitch;
+        this.realPantsRoot.position.y = strideBounce - 0.07;
 
         if (this.pLeftStr && this.pRightStr) {
-          this.pLeftStr.rotation.x = Math.sin(this.pantsWalkTime - 0.4) * 0.28;
-          this.pLeftStr.rotation.z = -0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
-          this.pRightStr.rotation.x = Math.sin(this.pantsWalkTime - 0.6) * 0.28;
-          this.pRightStr.rotation.z = 0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
+          this.pLeftStr.rotation.x = Math.sin(this.pantsWalkTime - 0.4) * 0.35;
+          this.pLeftStr.rotation.z = -0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.20;
+          this.pRightStr.rotation.x = Math.sin(this.pantsWalkTime - 0.6) * 0.35;
+          this.pRightStr.rotation.z = 0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.20;
         }
       } else if (this.animationMode === 'waves') {
         this.pantsWaveTime = (this.pantsWaveTime || 0) + delta * 2.8;
-        this.realPantsRoot.rotation.z = Math.sin(this.pantsWaveTime) * 0.022;
-        this.realPantsRoot.position.y = 0;
-        this.realPantsRoot.rotation.x = 0;
+        this.realPantsRoot.rotation.z = Math.sin(this.pantsWaveTime) * 0.028;
+        this.realPantsRoot.position.y = Math.sin(this.pantsWaveTime * 1.5) * 0.03;
+        this.realPantsRoot.rotation.x = Math.cos(this.pantsWaveTime * 0.8) * 0.02;
         if (this.pLeftStr && this.pRightStr) {
-          this.pLeftStr.rotation.z = -0.06 + Math.sin(this.pantsWaveTime * 1.5) * 0.22;
-          this.pRightStr.rotation.z = 0.06 + Math.sin(this.pantsWaveTime * 1.5 + 0.3) * 0.22;
+          this.pLeftStr.rotation.z = -0.06 + Math.sin(this.pantsWaveTime * 1.5) * 0.25;
+          this.pRightStr.rotation.z = 0.06 + Math.sin(this.pantsWaveTime * 1.5 + 0.3) * 0.25;
+          this.pLeftStr.rotation.x = Math.sin(this.pantsWaveTime * 2.0) * 0.15;
+          this.pRightStr.rotation.x = Math.sin(this.pantsWaveTime * 2.0 + 0.3) * 0.15;
         }
       } else if (this.animationMode !== 'knit') {
         this.realPantsRoot.position.y = 0;
