@@ -445,7 +445,7 @@ export function PositionGuide({
   return (
     <aside 
       className={`absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 ${
-        isExpanded ? 'w-[740px] sm:w-[840px] lg:w-[940px]' : 'w-[540px] sm:w-[600px] lg:w-[660px]'
+        isExpanded ? 'w-[520px] sm:w-[580px]' : 'w-[350px] sm:w-[380px]'
       } max-w-[calc(100vw-24px)] bg-white rounded-3xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden select-none z-30 transition-all duration-300 animate-fadeIn`}
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >
@@ -478,10 +478,10 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* ROW 1: Orange Pill | Pen Icon | Color Swatch | Number Input | Close (x)  */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-2 bg-[#f8f9fa] border-b border-gray-100">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3.5 pt-3 pb-2 bg-[#f8f9fa] border-b border-gray-100">
+        <div className="flex items-center gap-2">
           {/* Orange Vertical Accent Pill */}
-          <div className="w-1.5 h-6 rounded-full bg-[#f97316] shrink-0" />
+          <div className="w-1.5 h-5 rounded-full bg-[#f97316] shrink-0" />
 
           {/* Pen / Stylus Tool Icon */}
           <button 
@@ -489,14 +489,14 @@ export function PositionGuide({
             className="text-gray-800 hover:text-black transition-colors p-0.5"
             title="Garment & Drawing Tools"
           >
-            <Pencil className="size-4 stroke-[2.2]" />
+            <Pencil className="size-3.5 stroke-[2.2]" />
           </button>
 
           {/* Garment / Draw Color Swatch Circle */}
           <button
             type="button"
             onClick={() => garmentColorInputRef.current?.click()}
-            className="size-6 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
+            className="size-5.5 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
             style={{ backgroundColor: garmentColor }}
             title="Change Garment Color"
           />
@@ -508,20 +508,20 @@ export function PositionGuide({
             onChange={(e) => setPenStrokeWidth(parseInt(e.target.value) || 1)}
             min="1"
             max="10"
-            className="w-11 h-7 px-1 text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
+            className="w-9 h-6.5 px-1 text-[11px] font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
             title="Stroke Width / Layer Index"
           />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {onOpenExport && (
             <button
               type="button"
               onClick={onOpenExport}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold text-indigo-600 dark:text-brand-400 hover:bg-indigo-50 dark:hover:bg-brand-500/20 border border-indigo-200 dark:border-brand-500/30 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
+              className="px-2 py-0.5 rounded-md text-[11px] font-bold text-indigo-600 dark:text-brand-400 hover:bg-indigo-50 dark:hover:bg-brand-500/20 border border-indigo-200 dark:border-brand-500/30 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
               title="Switch to Export Studio (Video & 4K Snapshots)"
             >
-              <Download className="size-3" />
+              <Download className="size-2.5" />
               <span>Export</span>
             </button>
           )}
@@ -530,20 +530,20 @@ export function PositionGuide({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-200/60"
+            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200/60"
             title={isExpanded ? "Collapse to Standard Width" : "Expand to Wide Canvas"}
           >
-            {isExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            {isExpanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
           </button>
 
           {/* Close Button (x) */}
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-200/60"
+            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200/60"
             title="Close Position Guide"
           >
-            <X className="size-4 stroke-[2.5]" />
+            <X className="size-3.5 stroke-[2.5]" />
           </button>
         </div>
       </div>
@@ -551,12 +551,12 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* ROW 2: Add Text Button | Text Input Box | Text Color Swatch | Font Size | Font Family Dropdown */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-2 px-5 py-2.5 bg-[#f8f9fa] border-b border-gray-100">
+      <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f8f9fa] border-b border-gray-100 flex-nowrap">
         {/* Add Text Pill Button */}
         <button
           type="button"
           onClick={handleAddText}
-          className="px-3 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-300 rounded-md shadow-2xs hover:bg-gray-50 active:scale-95 transition-all shrink-0"
+          className="px-2.5 py-1 text-[11px] font-bold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs hover:bg-gray-50 active:scale-95 transition-all shrink-0"
         >
           Add Text
         </button>
@@ -571,7 +571,7 @@ export function PositionGuide({
             if (e.key === 'Enter') handleAddText();
           }}
           placeholder="Enter text..."
-          className="flex-1 min-w-[90px] h-7 px-2.5 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded shadow-2xs placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
+          className="flex-1 min-w-[65px] h-6.5 px-2 text-[11px] font-medium text-gray-900 bg-white border border-gray-300 rounded shadow-2xs placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
           title="Type text to add or edit"
         />
 
@@ -579,7 +579,7 @@ export function PositionGuide({
         <button
           type="button"
           onClick={() => textColorInputRef.current?.click()}
-          className="size-6 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
+          className="size-5.5 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
           style={{ backgroundColor: textColor }}
           title="Change Text Color"
         />
@@ -591,7 +591,7 @@ export function PositionGuide({
           onChange={handleFontSizeChange}
           min="1"
           max="120"
-          className="w-11 h-7 px-1 text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
+          className="w-9 h-6.5 px-0.5 text-[11px] font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
           title="Font Size"
         />
 
@@ -599,22 +599,22 @@ export function PositionGuide({
         <select
           value={fontFamily}
           onChange={handleFontFamilyChange}
-          className="h-7 px-2 text-xs font-medium text-gray-800 bg-white border border-gray-300 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-24 shrink-0"
+          className="h-6.5 px-1 text-[11px] font-medium text-gray-800 bg-white border border-gray-300 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-20 shrink-0"
           title="Font Family"
         >
           <option value="Roboto">Roboto</option>
           <option value="Inter">Inter</option>
-          <option value="Bebas Neue">Bebas Neue</option>
+          <option value="Bebas Neue">Bebas</option>
           <option value="Impact">Impact</option>
           <option value="Montserrat">Montserrat</option>
-          <option value="Courier New">Courier New</option>
+          <option value="Courier New">Courier</option>
         </select>
       </div>
 
       {/* ========================================================================= */}
       {/* ROW 3: Upload Design Button | Save Layout | Load Layout | Reset            */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-[#f8f9fa] border-b border-gray-200">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] border-b border-gray-200">
         {/* Solid Dark Navy Pill Upload Button */}
         <button
           type="button"
@@ -625,33 +625,33 @@ export function PositionGuide({
               fileInputRef.current?.click();
             }
           }}
-          className="px-4 py-1.5 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] text-white text-xs font-bold shadow transition-all active:scale-95 shrink-0"
+          className="px-3 py-1 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] text-white text-[11px] font-bold shadow transition-all active:scale-95 shrink-0"
         >
           Upload Design
         </button>
 
         {/* Action Text Links */}
-        <div className="flex items-center gap-3 text-xs font-medium text-gray-600">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600">
           <button
             type="button"
             onClick={handleSaveLayout}
-            className="hover:text-black transition-colors px-1 py-1"
+            className="hover:text-black transition-colors px-0.5 py-0.5"
             title="Save layout layers"
           >
-            Save Layout
+            Save
           </button>
           <button
             type="button"
             onClick={handleLoadLayout}
-            className="hover:text-black transition-colors px-1 py-1"
+            className="hover:text-black transition-colors px-0.5 py-0.5"
             title="Restore saved layout"
           >
-            Load Layout
+            Load
           </button>
           <button
             type="button"
             onClick={handleResetLayout}
-            className="hover:text-red-600 transition-colors px-1 py-1"
+            className="hover:text-red-600 transition-colors px-0.5 py-0.5"
             title="Clear all graphics"
           >
             Reset

@@ -83,9 +83,10 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
 export class SceneManager {
   constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'oversized_tee') {
     this.container = canvasContainer;
-    this.width = canvasContainer.clientWidth || window.innerWidth;
-    this.height = canvasContainer.clientHeight || window.innerHeight;
+    this.width = Math.max(canvasContainer.clientWidth || 0, (typeof window !== 'undefined' ? window.innerWidth : 800) || 800);
+    this.height = Math.max(canvasContainer.clientHeight || 0, (typeof window !== 'undefined' ? window.innerHeight : 600) || 600);
     this.onLoaded = onLoaded;
+    this.isPaused = false;
 
     // 1. Renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -336,39 +337,8 @@ export class SceneManager {
   }
 
   preloadAllGarmentModels() {
-    // Asynchronously pre-cache remaining garment models (hoodie, pants, cap)
-    // so garment switching in 3D studio is completely instantaneous (0ms)
-    const loadNext = () => {
-      if (this.isDisposed) return;
-      if (!this.modelsLoaded.hoodie && !this.modelsLoading.hoodie) {
-        this.loadHoodieModel(() => {
-          if (this.isDisposed) return;
-          if (!this.modelsLoaded.pants && !this.modelsLoading.pants) {
-            this.loadPantsModel(() => {
-              if (this.isDisposed) return;
-              if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
-                this.loadCapModel();
-              }
-            });
-          }
-        });
-      } else if (!this.modelsLoaded.pants && !this.modelsLoading.pants) {
-        this.loadPantsModel(() => {
-          if (this.isDisposed) return;
-          if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
-            this.loadCapModel();
-          }
-        });
-      } else if (!this.modelsLoaded.cap && !this.modelsLoading.cap) {
-        this.loadCapModel();
-      }
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      window.requestIdleCallback(() => loadNext(), { timeout: 1500 });
-    } else {
-      setTimeout(loadNext, 1000);
-    }
+    // Disabled aggressive background preloading storm that parsed multiple 3D models simultaneously.
+    // Models are smoothly loaded strictly on demand via ensureGarmentModelLoaded().
   }
 
   loadModel(onDone) {
@@ -506,9 +476,6 @@ export class SceneManager {
         const cbs = [...this.tshirtCallbacks];
         this.tshirtCallbacks = [];
         cbs.forEach(cb => cb());
-
-        // Kick off background preloading for remaining garments
-        this.preloadAllGarmentModels();
       },
       undefined,
       (err) => {
@@ -891,67 +858,42 @@ export class SceneManager {
     this.zipperMesh.add(pullerMesh);
     this.attachmentsGroup.add(this.zipperMesh);
 
-    // 2. Ribbed Crewneck Collar, Wrist Cuffs & Waistband Hem for Sweatshirt
+    // 2. Sweatshirt: Clean authentic fleece silhouette (zero floating/detached geometry bugs)
     this.sweatshirtGroup = new THREE.Group();
     this.crewCollarGroup = this.sweatshirtGroup; // compatibility alias
-
-    // Seamless ribbed crewneck collar rim sitting flush on torso neckline (2.48, 0.14)
-    const crewGeom = new THREE.TorusGeometry(1.24, 0.11, 24, 48);
-    crewGeom.rotateX(Math.PI * 0.42);
-    const crewMesh = new THREE.Mesh(crewGeom, fabMat);
-    crewMesh.position.set(0, 2.48, 0.14);
-    this.sweatshirtGroup.add(crewMesh);
-
-    // Ribbed long sleeve cuffs
-    const cuffGeom = new THREE.CylinderGeometry(0.50, 0.46, 0.90, 24);
-    const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
-    leftCuff.position.set(-3.72, 0.22, 0.05);
-    leftCuff.rotation.set(0.10, 0, 0.58);
-    const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
-    rightCuff.position.set(3.72, 0.22, 0.05);
-    rightCuff.rotation.set(0.10, 0, -0.58);
-    this.sweatshirtGroup.add(leftCuff, rightCuff);
-
-    // Ribbed bottom hem waistband
-    const waistGeom = new THREE.CylinderGeometry(2.32, 2.30, 0.70, 32);
-    const waistHem = new THREE.Mesh(waistGeom, fabMat);
-    waistHem.position.set(0, -2.18, 0.02);
-    waistHem.scale.set(1.0, 1.0, 0.44); // oval cross-section matching torso
-    this.sweatshirtGroup.add(waistHem);
-
     this.attachmentsGroup.add(this.sweatshirtGroup);
 
     // 3. Polo Turned-down Folded Collar & 2-Button Placket
     this.poloGroup = new THREE.Group();
 
     // Turned-down collar band contouring the neck without gaps or holes
-    const poloCollarCurve = new THREE.CylinderGeometry(1.26, 1.34, 0.55, 32, 1, true, Math.PI * 0.22, Math.PI * 1.56);
-    poloCollarCurve.rotateX(-0.18);
+    const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.28, 0.42, 32, 1, true, Math.PI * 0.25, Math.PI * 1.50);
+    poloCollarCurve.rotateX(-0.16);
     const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
-    poloCollarMesh.position.set(0, 2.52, 0.10);
+    poloCollarMesh.position.set(0, 2.22, 0.12);
 
     // Left and right folded lapel wings laying flat against upper chest
     const lapelShape = new THREE.Shape();
     lapelShape.moveTo(0, 0);
-    lapelShape.lineTo(0.65, -0.85);
-    lapelShape.lineTo(0.15, -0.90);
+    lapelShape.lineTo(0.60, -0.75);
+    lapelShape.lineTo(0.12, -0.80);
     lapelShape.lineTo(0, 0);
     const extrudeSettings = { depth: 0.025, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
     const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
     const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
-    leftLapel.position.set(-0.12, 2.45, 0.90);
+    leftLapel.position.set(-0.12, 2.16, 0.88);
     leftLapel.rotation.set(0.18, 0.08, -0.15);
 
     const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
-    rightLapel.position.set(0.12, 2.45, 0.90);
+    rightLapel.position.set(0.12, 2.16, 0.88);
     rightLapel.rotation.set(0.18, -0.08, 0.15);
     rightLapel.scale.set(-1, 1, 1);
 
     // Front center placket with stitch welt
-    const placketGeom = new THREE.BoxGeometry(0.44, 1.40, 0.03);
+    const placketGeom = new THREE.BoxGeometry(0.40, 1.25, 0.03);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
-    placketMesh.position.set(0, 1.65, 0.89);
+    placketMesh.position.set(0, 1.48, 0.87);
     placketMesh.rotation.set(0.14, 0, 0);
 
     // Pearlescent buttons
@@ -963,9 +905,9 @@ export class SceneManager {
     const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
     const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.position.set(0, 2.05, 0.93);
+    b1.position.set(0, 1.84, 0.90);
     const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.position.set(0, 1.55, 0.87);
+    b2.position.set(0, 1.38, 0.85);
 
     this.poloGroup.add(poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
     this.attachmentsGroup.add(this.poloGroup);
@@ -1709,8 +1651,11 @@ export class SceneManager {
 
   handleResize() {
     if (!this.container || this.isDisposed) return;
-    this.width = this.container.clientWidth;
-    this.height = this.container.clientHeight;
+    const w = this.container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+    const h = this.container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
+    if (w <= 0 || h <= 0) return;
+    this.width = w;
+    this.height = h;
 
     this.camera.aspect = this.width / this.height;
     this.camera.updateProjectionMatrix();
@@ -1718,12 +1663,32 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   }
 
+  pause() {
+    this.isPaused = true;
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+  }
+
+  resume() {
+    if (!this.isPaused) return;
+    this.isPaused = false;
+    this.clock.getDelta(); // Clear delta backlog to avoid sudden jump
+    if (!this.animFrameId && !this.isDisposed) {
+      this.animFrameId = requestAnimationFrame(this.animate);
+    }
+  }
+
   animate() {
-    if (this.isDisposed) return;
+    if (this.isDisposed || this.isPaused) {
+      this.animFrameId = null;
+      return;
+    }
     this.animFrameId = requestAnimationFrame(this.animate);
 
     // Use constant fixed delta (1/60s) during video recording for deterministic, silky-smooth 60 FPS video
-    const delta = this.isRecordingVideo ? (1 / (this.recordingFps || 60)) : Math.min(this.clock.getDelta(), 0.05);
+    const delta = this.isRecordingVideo ? (1 / (this.recordingFps || 60)) : Math.min(this.clock.getDelta(), 0.033);
 
     if (this.mixer) {
       this.mixer.update(delta);

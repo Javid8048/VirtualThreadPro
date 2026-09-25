@@ -135,18 +135,18 @@ export function ExportPanel({
   return (
     <aside
       data-export-panel="true"
-      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[440px] sm:w-[480px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
+      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[350px] sm:w-[380px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
       style={{ maxHeight: 'calc(100vh - 84px)' }}
     >
       {/* Top Header: Export Studio Branding */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 bg-gray-50/90 dark:bg-studio-850/90 border-b border-gray-200/80 dark:border-studio-700/60 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-brand-500/15 text-brand-500 border border-brand-500/25">
-            <Sparkles className="size-4" />
+      <div className="flex items-center justify-between px-4 pt-3 pb-2.5 bg-gray-50/90 dark:bg-studio-850/90 border-b border-gray-200/80 dark:border-studio-700/60 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-brand-500/15 text-brand-500 border border-brand-500/25">
+            <Sparkles className="size-3.5" />
           </div>
           <div>
-            <h3 className="text-sm font-extrabold text-gray-900 dark:text-white leading-tight">Export Studio</h3>
-            <p className="text-[10px] text-gray-500 dark:text-studio-400">Ultra-smooth 60 FPS video & 4K snapshots</p>
+            <h3 className="text-xs font-extrabold text-gray-900 dark:text-white leading-tight">Export Studio</h3>
+            <p className="text-[9px] text-gray-500 dark:text-studio-400">60 FPS video & 4K snapshots</p>
           </div>
         </div>
 
@@ -155,79 +155,79 @@ export function ExportPanel({
           type="button"
           onClick={onClose}
           disabled={isRecording}
-          className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1.5 rounded-xl hover:bg-gray-200/60 dark:hover:bg-studio-800 disabled:opacity-40"
+          className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-200/60 dark:hover:bg-studio-800 disabled:opacity-40"
           title="Close Export Panel"
         >
-          <X className="size-4 stroke-[2.5]" />
+          <X className="size-3.5 stroke-[2.5]" />
         </button>
       </div>
 
       {/* Subtabs: Video Recording vs 4K Snapshot */}
-      <div className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-studio-900 border-b border-gray-100 dark:border-studio-800 shrink-0">
+      <div className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-studio-900 border-b border-gray-100 dark:border-studio-800 shrink-0">
         <button
           disabled={isRecording}
           onClick={() => setActiveTab('video')}
-          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
             activeTab === 'video'
-              ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
+              ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/25'
               : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200/70 dark:hover:bg-studio-750'
           }`}
         >
-          <Video className="size-3.5" />
+          <Video className="size-3" />
           <span>Video Render</span>
         </button>
 
         <button
           disabled={isRecording}
           onClick={() => setActiveTab('image')}
-          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
             activeTab === 'image'
-              ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
+              ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/25'
               : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200/70 dark:hover:bg-studio-750'
           }`}
         >
-          <Camera className="size-3.5" />
+          <Camera className="size-3" />
           <span>4K Snapshot</span>
         </button>
       </div>
 
       {/* Main Body Content with scroll */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5 text-gray-900 dark:text-studio-100">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3.5 text-gray-900 dark:text-studio-100">
         {/* ========================================================================= */}
         {/* TAB 1: VIDEO RECORDING */}
         {/* ========================================================================= */}
         {activeTab === 'video' && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {/* Format Selection */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1.5">
-                  <Film className="size-3.5 text-brand-500" />
-                  <span>Video Format & Aspect Ratio</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1">
+                  <Film className="size-3 text-brand-500" />
+                  <span>Video Format</span>
                 </label>
-                <span className="text-[10px] text-gray-500 dark:text-studio-400 font-mono">60 FPS Render</span>
+                <span className="text-[9px] text-gray-500 dark:text-studio-400 font-mono">60 FPS Render</span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {/* Mobile (9:16) */}
                 <button
                   disabled={isRecording}
                   onClick={() => setVideoFormat('mobile')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                  className={`p-2 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                     videoFormat === 'mobile'
                       ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
                       : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className={`p-1.5 rounded-lg ${videoFormat === 'mobile' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
-                      <Smartphone className="size-3.5" />
+                  <div className="flex items-center justify-between mb-1">
+                    <div className={`p-1 rounded-md ${videoFormat === 'mobile' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
+                      <Smartphone className="size-3" />
                     </div>
-                    <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400">9:16</span>
+                    <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400">9:16</span>
                   </div>
                   <div>
-                    <div className="text-xs font-extrabold text-gray-900 dark:text-white">Mobile</div>
-                    <div className="text-[10px] text-gray-500 dark:text-studio-400">1080×1920</div>
+                    <div className="text-[11px] font-extrabold text-gray-900 dark:text-white">Mobile</div>
+                    <div className="text-[9px] text-gray-500 dark:text-studio-400">1080×1920</div>
                   </div>
                 </button>
 
@@ -235,21 +235,21 @@ export function ExportPanel({
                 <button
                   disabled={isRecording}
                   onClick={() => setVideoFormat('desktop')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                  className={`p-2 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                     videoFormat === 'desktop'
                       ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
                       : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className={`p-1.5 rounded-lg ${videoFormat === 'desktop' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
-                      <Monitor className="size-3.5" />
+                  <div className="flex items-center justify-between mb-1">
+                    <div className={`p-1 rounded-md ${videoFormat === 'desktop' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
+                      <Monitor className="size-3" />
                     </div>
-                    <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400">16:9</span>
+                    <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400">16:9</span>
                   </div>
                   <div>
-                    <div className="text-xs font-extrabold text-gray-900 dark:text-white">Desktop</div>
-                    <div className="text-[10px] text-gray-500 dark:text-studio-400">1920×1080</div>
+                    <div className="text-[11px] font-extrabold text-gray-900 dark:text-white">Desktop</div>
+                    <div className="text-[9px] text-gray-500 dark:text-studio-400">1920×1080</div>
                   </div>
                 </button>
 
@@ -257,21 +257,21 @@ export function ExportPanel({
                 <button
                   disabled={isRecording}
                   onClick={() => setVideoFormat('square')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                  className={`p-2 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                     videoFormat === 'square'
                       ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
                       : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className={`p-1.5 rounded-lg ${videoFormat === 'square' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
-                      <Square className="size-3.5" />
+                  <div className="flex items-center justify-between mb-1">
+                    <div className={`p-1 rounded-md ${videoFormat === 'square' ? 'bg-brand-500 text-white' : 'bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400'}`}>
+                      <Square className="size-3" />
                     </div>
-                    <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400">1:1</span>
+                    <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400">1:1</span>
                   </div>
                   <div>
-                    <div className="text-xs font-extrabold text-gray-900 dark:text-white">Square</div>
-                    <div className="text-[10px] text-gray-500 dark:text-studio-400">1080×1080</div>
+                    <div className="text-[11px] font-extrabold text-gray-900 dark:text-white">Square</div>
+                    <div className="text-[9px] text-gray-500 dark:text-studio-400">1080×1080</div>
                   </div>
                 </button>
               </div>

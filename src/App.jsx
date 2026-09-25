@@ -117,9 +117,9 @@ export default function App() {
     if (acidWash) sm.setAcidWash(acidWash);
     if (puffPrint) sm.setPuffPrint(puffPrint);
 
-    setTimeout(() => {
-      sm.handleResize();
-    }, 50);
+    if (currentPage === 'landing' || viewMode !== '3d') {
+      sm.pause();
+    }
 
     return () => {
       sm.dispose();
@@ -130,14 +130,34 @@ export default function App() {
     };
   }, []);
 
-  // Ensure 3D viewport canvas matches container dimensions when entering studio
+  // Pause/resume WebGL rendering when switching between landing and studio, or changing viewMode
   useEffect(() => {
-    if (sceneManagerRef.current && currentPage === 'studio') {
+    if (!sceneManagerRef.current) return;
+    if (currentPage === 'studio' && viewMode === '3d') {
+      sceneManagerRef.current.resume();
       setTimeout(() => {
         sceneManagerRef.current?.handleResize();
-      }, 30);
+      }, 40);
+    } else {
+      sceneManagerRef.current.pause();
     }
-  }, [currentPage]);
+  }, [currentPage, viewMode]);
+
+  // Pause WebGL rendering when browser tab is inactive/hidden to eliminate CPU/GPU drain
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!sceneManagerRef.current) return;
+      if (document.hidden) {
+        sceneManagerRef.current.pause();
+      } else if (currentPage === 'studio' && viewMode === '3d') {
+        sceneManagerRef.current.resume();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentPage, viewMode]);
 
   // Handlers
   const handleGarmentTypeChange = (type) => {
