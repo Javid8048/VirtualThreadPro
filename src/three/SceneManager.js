@@ -550,8 +550,6 @@ export class SceneManager {
       if (activeSide === 'back' && this.hoodieDecalMeshBack) return this.hoodieDecalMeshBack;
       return this.hoodieDecalMeshFront || this.realHoodieRoot;
     }
-    if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
-    if (this.animationMode === 'walking' && this.tshirtWalking) return this.tshirtWalking;
     return this.tshirtStatic;
   }
 
@@ -1430,15 +1428,15 @@ export class SceneManager {
     const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
     const isTshirtFamily = !isPants && !isCap && !isHoodieFamily;
 
-    // Show/hide upper body shirt meshes
+    // Show high-res upper body shirt mesh for all t-shirt family garments
     if (this.tshirtStatic) {
-      this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
+      this.tshirtStatic.visible = isTshirtFamily;
     }
     if (this.tshirtWaves) {
-      this.tshirtWaves.visible = isTshirtFamily && (this.animationMode === 'waves');
+      this.tshirtWaves.visible = false;
     }
     if (this.tshirtWalking) {
-      this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
+      this.tshirtWalking.visible = false;
     }
 
     // Upper body t-shirt scaling
@@ -1508,64 +1506,24 @@ export class SceneManager {
       Object.values(this.actions).forEach((a) => a.stop());
     }
 
+    // Always maintain high-resolution master t-shirt visible for all t-shirt family garments
+    if (this.tshirtStatic) this.tshirtStatic.visible = true;
+    if (this.tshirtWaves) this.tshirtWaves.visible = false;
+    if (this.tshirtWalking) this.tshirtWalking.visible = false;
+
     if (mode === 'static') {
-      if (this.tshirtStatic) this.tshirtStatic.visible = true;
-      if (this.tshirtWaves) this.tshirtWaves.visible = false;
-      if (this.tshirtWalking) this.tshirtWalking.visible = false;
       if (this.tshirtPivot) {
-        this.tshirtPivot.rotation.y = 0;
+        this.tshirtPivot.rotation.set(0, 0, 0);
+        this.tshirtPivot.position.set(0, 0, 0);
         this.tshirtPivot.scale.set(1, 1, 1);
       }
-    } else if (mode === 'waves') {
-      if (this.tshirtStatic) this.tshirtStatic.visible = false;
-      if (this.tshirtWalking) this.tshirtWalking.visible = false;
-      if (this.tshirtWaves) {
-        this.tshirtWaves.visible = true;
-        const action = this.actions['tshirt_waves'];
-        if (action) {
-          action.reset();
-          action.setLoop(THREE.LoopRepeat, Infinity);
-          action.play();
-        }
-      }
-      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
-    } else if (mode === 'walking') {
-      if (this.tshirtStatic) this.tshirtStatic.visible = false;
-      if (this.tshirtWaves) this.tshirtWaves.visible = false;
-      if (this.tshirtWalking) {
-        this.tshirtWalking.visible = true;
-        const action = this.actions['tshirt_walking'];
-        if (action) {
-          action.reset();
-          action.setLoop(THREE.LoopRepeat, Infinity);
-          action.setEffectiveTimeScale(this.walkSpeed || 1.0);
-          action.play();
-        }
+      if (this.attachmentsGroup) {
+        this.attachmentsGroup.rotation.set(0, 0, 0);
+        this.attachmentsGroup.position.set(0, 0, 0);
       }
     } else if (mode === 'knit') {
-      if (this.tshirtStatic) this.tshirtStatic.visible = true;
-      if (this.tshirtWaves) this.tshirtWaves.visible = false;
-      if (this.tshirtWalking) this.tshirtWalking.visible = false;
       this.triggerKnitAnimation();
-    } else if (mode === 'turntable') {
-      if (this.tshirtStatic) this.tshirtStatic.visible = true;
-      if (this.tshirtWaves) this.tshirtWaves.visible = false;
-      if (this.tshirtWalking) this.tshirtWalking.visible = false;
-      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
-    } else if (mode === 'rotate_walk') {
-      // Rotate & Walk: dynamic walk cycle while rotating 360 degrees
-      if (this.tshirtStatic) this.tshirtStatic.visible = false;
-      if (this.tshirtWaves) this.tshirtWaves.visible = false;
-      if (this.tshirtWalking) {
-        this.tshirtWalking.visible = true;
-        const action = this.actions['tshirt_walking'];
-        if (action) {
-          action.reset();
-          action.setLoop(THREE.LoopRepeat, Infinity);
-          action.setEffectiveTimeScale(this.walkSpeed || 1.0);
-          action.play();
-        }
-      }
+    } else if (mode === 'turntable' || mode === 'rotate_walk' || mode === 'walking' || mode === 'waves') {
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
     }
 
@@ -1881,6 +1839,91 @@ export class SceneManager {
           this.pLeftStr.rotation.set(0, 0, -0.06);
           this.pRightStr.rotation.set(0, 0, 0.06);
         }
+      }
+    }
+
+    // T-shirt family motion physics (oversized_tee, cropped_tee, regular_tee, sweatshirt, polo)
+    const isTshirtFam = (
+      this.garmentType === 'oversized_tee' ||
+      this.garmentType === 'cropped_tee' ||
+      this.garmentType === 'regular_tee' ||
+      this.garmentType === 'sweatshirt' ||
+      this.garmentType === 'polo'
+    );
+
+    if (this.tshirtPivot && isTshirtFam) {
+      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
+        this.tshirtWalkTime = (this.tshirtWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.4;
+        const strideBounce = Math.abs(Math.sin(this.tshirtWalkTime)) * 0.08;
+        const shoulderSway = Math.sin(this.tshirtWalkTime * 0.5) * 0.035;
+        const torsoPitch = Math.sin(this.tshirtWalkTime) * 0.024;
+
+        this.tshirtPivot.position.y = strideBounce - 0.04;
+        this.tshirtPivot.rotation.z = shoulderSway;
+        this.tshirtPivot.rotation.x = torsoPitch;
+
+        if (this.attachmentsGroup) {
+          this.attachmentsGroup.position.y = this.tshirtPivot.position.y;
+          this.attachmentsGroup.rotation.z = shoulderSway;
+          this.attachmentsGroup.rotation.x = torsoPitch;
+        }
+      } else if (this.animationMode === 'waves') {
+        this.tshirtWaveTime = (this.tshirtWaveTime || 0) + delta * 3.0;
+        const waveFlutter = Math.sin(this.tshirtWaveTime) * 0.030;
+        const waveRoll = Math.cos(this.tshirtWaveTime * 0.75) * 0.022;
+        const waveRise = Math.sin(this.tshirtWaveTime * 1.5) * 0.032;
+
+        this.tshirtPivot.rotation.z = waveFlutter;
+        this.tshirtPivot.rotation.x = waveRoll;
+        this.tshirtPivot.position.y = waveRise;
+
+        if (this.attachmentsGroup) {
+          this.attachmentsGroup.position.y = waveRise;
+          this.attachmentsGroup.rotation.z = waveFlutter;
+          this.attachmentsGroup.rotation.x = waveRoll;
+        }
+      } else if (this.animationMode !== 'knit') {
+        this.tshirtPivot.position.y = 0;
+        this.tshirtPivot.rotation.x = 0;
+        this.tshirtPivot.rotation.z = 0;
+        if (this.attachmentsGroup) {
+          this.attachmentsGroup.position.y = 0;
+          this.attachmentsGroup.rotation.x = 0;
+          this.attachmentsGroup.rotation.z = 0;
+        }
+      }
+    }
+
+    // Hoodie aerodynamic wind wave physics
+    if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
+      if (this.animationMode === 'waves') {
+        this.hoodieWaveTime = (this.hoodieWaveTime || 0) + delta * 2.8;
+        this.realHoodieRoot.rotation.z = Math.sin(this.hoodieWaveTime) * 0.024;
+        this.realHoodieRoot.position.y = Math.sin(this.hoodieWaveTime * 1.5) * 0.03;
+        this.realHoodieRoot.rotation.x = Math.cos(this.hoodieWaveTime * 0.7) * 0.018;
+      } else if (this.animationMode !== 'walking' && this.animationMode !== 'rotate_walk' && this.animationMode !== 'knit') {
+        this.realHoodieRoot.position.y = 0;
+        this.realHoodieRoot.rotation.x = 0;
+        this.realHoodieRoot.rotation.z = 0;
+      }
+    }
+
+    // Cap walking & wind wave motion
+    if (this.realCapRoot && this.garmentType === 'cap') {
+      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
+        this.capWalkTime = (this.capWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.4;
+        const capBounce = Math.abs(Math.sin(this.capWalkTime)) * 0.06;
+        const capSway = Math.sin(this.capWalkTime * 0.5) * 0.022;
+        this.realCapRoot.position.y = capBounce - 0.03;
+        this.realCapRoot.rotation.z = capSway;
+      } else if (this.animationMode === 'waves') {
+        this.capWaveTime = (this.capWaveTime || 0) + delta * 2.6;
+        this.realCapRoot.rotation.z = Math.sin(this.capWaveTime) * 0.020;
+        this.realCapRoot.position.y = Math.sin(this.capWaveTime * 1.4) * 0.020;
+      } else if (this.animationMode !== 'knit') {
+        this.realCapRoot.position.y = 0;
+        this.realCapRoot.rotation.x = 0;
+        this.realCapRoot.rotation.z = 0;
       }
     }
 
