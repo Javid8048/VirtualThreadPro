@@ -813,18 +813,18 @@ export class SceneManager {
     // Auto adjust camera focus & framing per garment silhouette in ZOOM view by default
     if (this.controls && this.camera) {
       if (this.garmentType === 'cap') {
-        this.camera.position.set(0, 0.4, 11.0);
-        this.controls.target.set(0, 0.2, 0);
+        this.camera.position.set(0, 0.35, 9.5);
+        this.controls.target.set(0, 0.20, 0);
       } else if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') {
-        this.camera.position.set(-0.55, 0.8, 14.5);
-        this.controls.target.set(-0.55, 0.15, 0);
+        this.camera.position.set(0, 0.70, 14.2);
+        this.controls.target.set(0, 0.15, 0);
       } else if (this.garmentType === 'sweatpants') {
-        this.camera.position.set(-0.8, 0.4, 15.0);
+        this.camera.position.set(0, 0.35, 14.8);
         this.controls.target.set(0, 0, 0);
       } else {
         // Standard studio framing in Zoom view for t-shirts, sweatshirt, polo
-        this.camera.position.set(0, 0.8, 15.0);
-        this.controls.target.set(0, 0.2, 0);
+        this.camera.position.set(0, 0.75, 14.2);
+        this.controls.target.set(0, 0.20, 0);
       }
       this.controls.update();
     }
@@ -858,9 +858,45 @@ export class SceneManager {
     this.zipperMesh.add(pullerMesh);
     this.attachmentsGroup.add(this.zipperMesh);
 
-    // 2. Sweatshirt: Clean authentic fleece silhouette (zero floating/detached geometry bugs)
+    // 2. Sweatshirt: Long sleeves, ribbed cuffs, waistband, and crew collar
     this.sweatshirtGroup = new THREE.Group();
     this.crewCollarGroup = this.sweatshirtGroup; // compatibility alias
+
+    // Seamless left & right long sleeve extensions connecting directly inside t-shirt sleeve openings
+    const armGeom = new THREE.CylinderGeometry(0.38, 0.46, 1.85, 24);
+    
+    // Left sleeve extension & ribbed cuff
+    const leftArm = new THREE.Mesh(armGeom, fabMat);
+    leftArm.position.set(-2.95, -0.05, 0.04);
+    leftArm.rotation.set(0.12, 0, 0.62);
+    
+    const cuffGeom = new THREE.CylinderGeometry(0.37, 0.35, 0.42, 24);
+    const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
+    leftCuff.position.set(-3.72, -0.56, 0.08);
+    leftCuff.rotation.set(0.12, 0, 0.62);
+
+    // Right sleeve extension & ribbed cuff
+    const rightArm = new THREE.Mesh(armGeom, fabMat);
+    rightArm.position.set(2.95, -0.05, 0.04);
+    rightArm.rotation.set(0.12, 0, -0.62);
+
+    const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
+    rightCuff.position.set(3.72, -0.56, 0.08);
+    rightCuff.rotation.set(0.12, 0, -0.62);
+
+    // Ribbed crewneck collar rim sitting flush on neckline
+    const crewGeom = new THREE.TorusGeometry(1.22, 0.09, 20, 48);
+    crewGeom.rotateX(Math.PI * 0.42);
+    const crewMesh = new THREE.Mesh(crewGeom, fabMat);
+    crewMesh.position.set(0, 2.18, 0.12);
+
+    // Ribbed bottom hem waistband
+    const waistGeom = new THREE.CylinderGeometry(2.28, 2.25, 0.50, 32);
+    const waistHem = new THREE.Mesh(waistGeom, fabMat);
+    waistHem.position.set(0, -2.12, 0.02);
+    waistHem.scale.set(1.0, 1.0, 0.45); // oval cross-section matching torso
+
+    this.sweatshirtGroup.add(leftArm, leftCuff, rightArm, rightCuff, crewMesh, waistHem);
     this.attachmentsGroup.add(this.sweatshirtGroup);
 
     // 3. Polo Turned-down Folded Collar & 2-Button Placket
@@ -944,11 +980,10 @@ export class SceneManager {
 
     this.hoodieFabricMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.garmentColor || '#ffffff'),
-      map: hoodieDiffuse,
       normalMap: hoodieNormal,
-      normalScale: new THREE.Vector2(0.35, 0.35),
-      roughness: 0.90,
-      metalness: 0.0,
+      normalScale: new THREE.Vector2(0.28, 0.28),
+      roughness: 0.82,
+      metalness: 0.02,
       side: THREE.DoubleSide
     });
 
@@ -1042,7 +1077,7 @@ export class SceneManager {
         fUvs.needsUpdate = true;
 
         this.hoodieDecalMeshFront = new THREE.Mesh(frontDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.46);
+        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.38);
         this.hoodieDecalMeshFront.rotation.set(-0.25, 0, 0);
         this.hoodieDecalMeshFront.renderOrder = 2;
         this.hoodieDecalMeshFront.visible = false;
@@ -1060,7 +1095,7 @@ export class SceneManager {
         bUvs.needsUpdate = true;
 
         this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.03);
+        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.08);
         this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
         this.hoodieDecalMeshBack.renderOrder = 2;
         this.hoodieDecalMeshBack.visible = false;
@@ -1197,7 +1232,7 @@ export class SceneManager {
         }
         tUvs.needsUpdate = true;
         this.pantsDecalMeshThigh = new THREE.Mesh(thighDecalGeom, this.decalMaterial);
-        this.pantsDecalMeshThigh.position.set(-0.95, 0.8, 1.25);
+        this.pantsDecalMeshThigh.position.set(-0.95, 0.8, 1.16);
         this.pantsDecalMeshThigh.rotation.set(-0.04, 0.10, 0.02);
         this.realPantsRoot.add(this.pantsDecalMeshThigh);
 
@@ -1211,7 +1246,7 @@ export class SceneManager {
         }
         pocketDecalGeom.computeVertexNormals();
         this.pantsDecalMeshPocket = new THREE.Mesh(pocketDecalGeom, this.decalMaterial);
-        this.pantsDecalMeshPocket.position.set(0.95, 1.8, -1.25);
+        this.pantsDecalMeshPocket.position.set(0.95, 1.8, -1.16);
         this.pantsDecalMeshPocket.rotation.set(0.04, Math.PI - 0.10, 0);
         this.realPantsRoot.add(this.pantsDecalMeshPocket);
 
@@ -1299,8 +1334,8 @@ export class SceneManager {
         }
         cUvs.needsUpdate = true;
         this.capDecalMeshFront = new THREE.Mesh(capDecalGeom, this.decalMaterial);
-        this.capDecalMeshFront.position.set(0, 0.42, 1.84);
-        this.capDecalMeshFront.rotation.x = -0.26;
+        this.capDecalMeshFront.position.set(0, 0.48, 1.48);
+        this.capDecalMeshFront.rotation.x = -0.22;
         this.realCapRoot.add(this.capDecalMeshFront);
 
         this.scene.add(this.realCapRoot);
@@ -1349,14 +1384,16 @@ export class SceneManager {
     // Upper body t-shirt scaling
     if (this.tshirtStatic) {
       if (t === 'cropped_tee') {
-        this.tshirtStatic.scale.set(0.0105, 0.0100, 0.0076);
-        this.tshirtStatic.position.set(0, -0.427445 + 0.88, 0);
+        // High-waisted boxy streetwear crop: wide drop-shoulder with clean raised hem
+        this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
+        this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
       } else if (t === 'regular_tee') {
-        // Classic tailored fitted cut (clean standard chest and narrower shoulder seams, clearly distinct from oversized)
-        this.tshirtStatic.scale.set(0.0084, 0.0092, 0.0080);
+        // Classic tailored fitted cut (standard shoulder seams, tailored torso, distinct from oversized)
+        this.tshirtStatic.scale.set(0.0086, 0.0096, 0.0084);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else if (t === 'sweatshirt') {
-        this.tshirtStatic.scale.set(0.0102, 0.0102, 0.0104);
+        // Heavyweight fleece boxy drape matching long-sleeve sweatshirt attachments
+        this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0104);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else {
         // Streetwear oversized drop-shoulder cut
