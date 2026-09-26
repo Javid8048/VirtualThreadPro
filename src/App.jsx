@@ -414,6 +414,7 @@ export default function App() {
           garmentType={garmentType}
           garmentColor={garmentColor}
           designManager={designManager}
+          sceneManager={sceneManagerRef.current}
           onSwitchTo3D={() => setViewMode('3d')}
           backdropMode={backdropMode}
           activeSide={activeSide}

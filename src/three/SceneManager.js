@@ -2088,6 +2088,105 @@ export class SceneManager {
     return dataUrl;
   }
 
+  captureGarmentSnapshot(side = 'front', width = 1000, height = 1000) {
+    if (!this.renderer || !this.camera || !this.scene) return null;
+
+    // Save camera & controls state
+    const originalPos = this.camera.position.clone();
+    const originalTarget = this.controls ? this.controls.target.clone() : new THREE.Vector3();
+    const originalWidth = this.width;
+    const originalHeight = this.height;
+    const originalRatio = this.renderer.getPixelRatio();
+
+    // Save garment mesh transforms to ensure neutral flat pose
+    const originalTransforms = [];
+    const rootsToReset = [
+      this.tshirtPivot,
+      this.realHoodieRoot,
+      this.realPantsRoot,
+      this.realCapRoot,
+      this.attachmentsGroup
+    ].filter(Boolean);
+
+    rootsToReset.forEach(r => {
+      originalTransforms.push({
+        obj: r,
+        rotX: r.rotation.x,
+        rotY: r.rotation.y,
+        rotZ: r.rotation.z,
+        posY: r.position.y
+      });
+      r.rotation.set(0, 0, 0);
+      r.position.y = 0;
+    });
+
+    // Framing per garment
+    const isPants = (this.garmentType === 'sweatpants');
+    const isCap = (this.garmentType === 'cap');
+    const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
+
+    let camZ = 16.5;
+    let camY = 0.70;
+    let targetY = 0.15;
+
+    if (isCap) {
+      camZ = 10.5;
+      camY = 0.35;
+      targetY = 0.15;
+    } else if (isPants) {
+      camZ = 16.5;
+      camY = 0.30;
+      targetY = 0;
+    } else if (isHoodie) {
+      camZ = 16.5;
+      camY = 0.65;
+      targetY = 0.15;
+    }
+
+    if (side === 'back') {
+      this.camera.position.set(0, camY, -camZ);
+    } else {
+      this.camera.position.set(0, camY, camZ);
+    }
+    this.camera.lookAt(0, targetY, 0);
+
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(width, height, false);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+
+    // Temporarily hide decals during base garment snapshot so base garment remains clean
+    const prevDecalVis = this.decalMaterial.opacity;
+    this.decalMaterial.opacity = 0;
+
+    // Save and temporarily clear background for pure transparent PNG
+    const originalBg = this.scene.background;
+    this.scene.background = null;
+
+    this.renderer.render(this.scene, this.camera);
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+
+    this.decalMaterial.opacity = prevDecalVis;
+    this.scene.background = originalBg;
+
+    // Restore garment transforms
+    originalTransforms.forEach(t => {
+      t.obj.rotation.set(t.rotX, t.rotY, t.rotZ);
+      t.obj.position.y = t.posY;
+    });
+
+    // Restore camera & renderer state
+    this.renderer.setSize(originalWidth, originalHeight);
+    this.renderer.setPixelRatio(originalRatio);
+    this.camera.position.copy(originalPos);
+    if (this.controls) this.controls.target.copy(originalTarget);
+    this.camera.aspect = originalWidth / originalHeight;
+    this.camera.updateProjectionMatrix();
+    if (this.controls) this.controls.update();
+
+    return dataUrl;
+  }
+
   dispose() {
     this.isDisposed = true;
     if (this.animFrameId) {

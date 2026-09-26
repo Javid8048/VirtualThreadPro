@@ -7,6 +7,7 @@ export function StaticGarmentView({
   garmentType,
   garmentColor,
   designManager,
+  sceneManager,
   onSwitchTo3D,
   backdropMode,
   activeSide: propActiveSide = 'front',
@@ -17,6 +18,7 @@ export function StaticGarmentView({
 }) {
   const [layers, setLayers] = useState([]);
   const [internalSide, setInternalSide] = useState('front');
+  const [snapshot, setSnapshot] = useState(null);
 
   const activeSide = propActiveSide || internalSide;
 
@@ -40,6 +42,35 @@ export function StaticGarmentView({
   };
 
   const currentLayers = layers.filter(l => (l.side || 'front') === activeSide);
+
+  // Sync snapshot with current side, garment type, and color
+  useEffect(() => {
+    const sm = sceneManager || (typeof window !== 'undefined' ? window.__sceneManager : null);
+    if (!sm) return;
+
+    let isMounted = true;
+    const performCapture = () => {
+      if (!isMounted) return;
+      try {
+        const snap = sm.captureGarmentSnapshot(activeSide, 1000, 1000);
+        if (snap && isMounted) {
+          setSnapshot(snap);
+        }
+      } catch (err) {
+        console.warn('Failed to capture snapshot in 2D Flat view:', err);
+      }
+    };
+
+    sm.ensureGarmentModelLoaded(garmentType, () => {
+      performCapture();
+    });
+
+    performCapture();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sceneManager, garmentType, garmentColor, activeSide]);
 
   // Background style
   const bgClasses = {
@@ -86,227 +117,33 @@ export function StaticGarmentView({
         className="relative w-[560px] max-w-[85vw] aspect-square flex items-center justify-center transition-all duration-300"
       >
         
-        {/* Dynamic Fabric Color Overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none rounded-3xl transition-colors duration-300"
-          style={{
-            backgroundColor: garmentColor,
-            maskImage: `url(${getAssetUrl(`/garments/${garmentType}.png`)})`,
-            WebkitMaskImage: `url(${getAssetUrl(`/garments/${garmentType}.png`)})`,
-            maskSize: 'contain',
-            WebkitMaskSize: 'contain',
-            maskRepeat: 'no-repeat',
-            WebkitMaskRepeat: 'no-repeat',
-            maskPosition: 'center',
-            WebkitMaskPosition: 'center',
-            mixBlendMode: 'multiply',
-            opacity: garmentColor.toLowerCase() === '#ffffff' ? 0 : 0.72
-          }}
-        />
+        {/* Dynamic Fabric Color Overlay - fallback when snapshot is not yet ready */}
+        {!snapshot && (
+          <div
+            className="absolute inset-0 pointer-events-none rounded-3xl transition-colors duration-300"
+            style={{
+              backgroundColor: garmentColor,
+              maskImage: `url(${getAssetUrl(`/garments/${garmentType}.png`)})`,
+              WebkitMaskImage: `url(${getAssetUrl(`/garments/${garmentType}.png`)})`,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              maskPosition: 'center',
+              WebkitMaskPosition: 'center',
+              mixBlendMode: 'multiply',
+              opacity: garmentColor.toLowerCase() === '#ffffff' ? 0 : 0.72
+            }}
+          />
+        )}
 
-        {/* Base Photorealistic Static Garment Image */}
+        {/* Photorealistic Garment Display: Clean 3D Snapshot or static fallback */}
         <img
-          src={getAssetUrl(`/garments/${garmentType}.png`)}
-          alt={product.title}
+          src={snapshot || getAssetUrl(`/garments/${garmentType}.png`)}
+          alt={`${product.title} ${activeSide.toUpperCase()}`}
           className="w-full h-full object-contain filter drop-shadow-2xl pointer-events-none transition-all duration-300"
           draggable={false}
         />
-
-        {/* ========================================================================= */}
-        {/* Authentic BACK VIEW Overlays (Per Garment: covers front-only features)     */}
-        {/* ========================================================================= */}
-        {activeSide === 'back' && (
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <svg
-              viewBox="0 0 560 560"
-              className="w-full h-full object-contain"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <filter id="backCollarShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.25" />
-                </filter>
-                <filter id="backPocketShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.18" />
-                </filter>
-              </defs>
-
-              {/* 1. POLO SHIRT BACK VIEW: Cover collar scoop, placket, and buttons */}
-              {garmentType === 'polo' && (
-                <>
-                  {/* Opaque shield covering front placket and buttons */}
-                  <rect
-                    x="250"
-                    y="65"
-                    width="60"
-                    height="165"
-                    rx="4"
-                    fill={garmentColor || '#ffffff'}
-                  />
-                  {/* High Back Turned-Down Collar Band */}
-                  <path
-                    d="M 230 54 Q 280 64 330 54 Q 342 86 280 86 Q 218 86 230 54 Z"
-                    fill={garmentColor || '#ffffff'}
-                    filter="url(#backCollarShadow)"
-                  />
-                  <path
-                    d="M 228 53 Q 280 65 332 53"
-                    fill="none"
-                    stroke={garmentColor === '#ffffff' ? '#d4d4d8' : 'rgba(0,0,0,0.22)'}
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 230 56 Q 280 68 330 56"
-                    fill="none"
-                    stroke="#a1a1aa"
-                    strokeWidth="1"
-                    strokeDasharray="3,2"
-                  />
-                  {/* Back Shoulder Yoke Seam */}
-                  <line x1="165" y1="135" x2="395" y2="135" stroke="#a1a1aa" strokeWidth="1" strokeDasharray="4,2" opacity="0.40" />
-                  <line x1="280" y1="86" x2="280" y2="390" stroke="#000000" strokeWidth="1" strokeDasharray="8,6" opacity="0.06" />
-                </>
-              )}
-
-              {/* 2. SWEATPANTS BACK VIEW: Cover front drawstrings, add back pockets */}
-              {garmentType === 'sweatpants' && (
-                <>
-                  {/* Opaque shield covering front drawstrings and fly */}
-                  <rect
-                    x="230"
-                    y="30"
-                    width="100"
-                    height="175"
-                    rx="6"
-                    fill={garmentColor || '#ffffff'}
-                  />
-                  {/* Clean continuous back elastic waistband */}
-                  <path
-                    d="M 195 40 Q 280 48 365 40"
-                    fill="none"
-                    stroke={garmentColor === '#ffffff' ? '#d4d4d8' : 'rgba(0,0,0,0.20)'}
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 195 44 Q 280 52 365 44"
-                    fill="none"
-                    stroke="#a1a1aa"
-                    strokeWidth="1.2"
-                    strokeDasharray="4,2"
-                  />
-                  {/* Center Back Rise Seam */}
-                  <line x1="280" y1="46" x2="280" y2="225" stroke="#a1a1aa" strokeWidth="1.2" strokeDasharray="3,2" opacity="0.5" />
-                  {/* Left Back Patch Pocket */}
-                  <polygon
-                    points="218,85 258,85 258,135 238,148 218,135"
-                    fill={garmentColor || '#ffffff'}
-                    stroke={garmentColor === '#ffffff' ? '#d4d4d8' : 'rgba(0,0,0,0.18)'}
-                    strokeWidth="1.5"
-                    filter="url(#backPocketShadow)"
-                  />
-                  {/* Right Back Patch Pocket */}
-                  <polygon
-                    points="302,85 342,85 342,135 322,148 302,135"
-                    fill={garmentColor || '#ffffff'}
-                    stroke={garmentColor === '#ffffff' ? '#d4d4d8' : 'rgba(0,0,0,0.18)'}
-                    strokeWidth="1.5"
-                    filter="url(#backPocketShadow)"
-                  />
-                </>
-              )}
-
-              {/* 3. HOODIES (PULLOVER & ZIP) BACK VIEW: Cover pocket & zipper, show draped back hood */}
-              {(garmentType === 'hoodie' || garmentType === 'zip_hoodie') && (
-                <>
-                  {/* Opaque shield covering front kangaroo pocket & zipper runner */}
-                  <rect
-                    x="180"
-                    y="225"
-                    width="200"
-                    height="195"
-                    rx="8"
-                    fill={garmentColor || '#ffffff'}
-                  />
-                  {/* Smooth back torso seam */}
-                  <line x1="280" y1="120" x2="280" y2="410" stroke="#000000" strokeWidth="1" strokeDasharray="8,6" opacity="0.05" />
-                  {/* Draped 3D Back Hood Overlay */}
-                  <path
-                    d="M 215 48 Q 280 128 345 48 Q 280 32 215 48 Z"
-                    fill={garmentColor || '#ffffff'}
-                    filter="url(#backCollarShadow)"
-                  />
-                  <path
-                    d="M 215 48 Q 280 128 345 48"
-                    fill="none"
-                    stroke={garmentColor === '#ffffff' ? '#d4d4d8' : 'rgba(0,0,0,0.20)'}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 218 52 Q 280 124 342 52"
-                    fill="none"
-                    stroke="#a1a1aa"
-                    strokeWidth="1"
-                    strokeDasharray="3,2"
-                  />
-                </>
-              )}
-
-              {/* 4. CAP BACK VIEW: Cover visor brim, show strap & arch opening */}
-              {garmentType === 'cap' && (
-                <>
-                  {/* Visor occlusion overlay */}
-                  <ellipse cx="280" cy="420" rx="140" ry="40" fill={garmentColor || '#ffffff'} opacity="0.9" />
-                  {/* Rear semi-circular arch cutout */}
-                  <path
-                    d="M 240 370 Q 280 330 320 370 Z"
-                    fill="#18181b"
-                  />
-                  {/* Adjustable fabric closure strap */}
-                  <rect x="235" y="372" width="90" height="14" rx="3" fill={garmentColor || '#ffffff'} stroke="#a1a1aa" strokeWidth="1" />
-                  {/* Metallic brass closure buckle */}
-                  <rect x="305" y="370" width="14" height="18" rx="2" fill="#d4d4d4" stroke="#71717a" strokeWidth="1" />
-                </>
-              )}
-
-              {/* 5. T-SHIRTS & SWEATSHIRT BACK VIEW: High back neck, dropped shoulder seams */}
-              {garmentType !== 'polo' && garmentType !== 'sweatpants' && garmentType !== 'hoodie' && garmentType !== 'zip_hoodie' && garmentType !== 'cap' && (
-                <>
-                  {/* Inside Neck Scoop Fill Cover */}
-                  <path
-                    d="M 244 64 C 254 84, 306 84, 316 64 C 300 58, 260 58, 244 64 Z"
-                    fill={garmentColor || '#ffffff'}
-                    filter="url(#backCollarShadow)"
-                  />
-                  {/* High Back Neckline Ribbed Collar Rim */}
-                  <path
-                    d="M 242 63 Q 280 72 318 63"
-                    fill="none"
-                    stroke={garmentColor === '#ffffff' ? '#e2e2e8' : 'rgba(0,0,0,0.18)'}
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                  />
-                  {/* Back Neck Ribbing Double Stitch */}
-                  <path
-                    d="M 242 66 Q 280 75 318 66"
-                    fill="none"
-                    stroke="#a1a1aa"
-                    strokeWidth="1"
-                    strokeDasharray="3,2"
-                  />
-                  {/* Dropped Shoulder Seams across upper back */}
-                  <line x1="165" y1="140" x2="242" y2="64" stroke="#a1a1aa" strokeWidth="1" strokeDasharray="4,2" opacity="0.45" />
-                  <line x1="395" y1="140" x2="318" y2="64" stroke="#a1a1aa" strokeWidth="1" strokeDasharray="4,2" opacity="0.45" />
-                  {/* Subtle Back Center Spine Crease */}
-                  <line x1="280" y1="78" x2="280" y2="400" stroke="#000000" strokeWidth="1" strokeDasharray="8,6" opacity="0.06" />
-                </>
-              )}
-
-            </svg>
-          </div>
-        )}
 
         {/* Dynamic Decals / Graphic Layer Placement Overlay */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
