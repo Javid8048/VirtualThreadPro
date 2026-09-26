@@ -41,6 +41,8 @@ export function SidebarLeft({
   onOpenProductsCatalog,
   viewMode = '3d',
   onViewModeChange,
+  activeSide = 'front',
+  onSideChange,
   isExportStudioOpen = false,
   onBackToLanding
 }) {
@@ -222,6 +224,7 @@ export function SidebarLeft({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
+                        if (onSideChange) onSideChange('front');
                         if (onCameraChange) onCameraChange('front');
                         if (onTriggerUploadFront) onTriggerUploadFront();
                       }}
@@ -232,6 +235,7 @@ export function SidebarLeft({
                     </button>
                     <button
                       onClick={() => {
+                        if (onSideChange) onSideChange('front');
                         if (onCameraChange) onCameraChange('front');
                         if (designManager) {
                           designManager.addLayer({
@@ -265,6 +269,7 @@ export function SidebarLeft({
                           key={l.id}
                           onClick={() => {
                             if (designManager) designManager.setActiveLayer(l.id);
+                            if (onSideChange) onSideChange('front');
                             if (onCameraChange) onCameraChange('front');
                             if (onOpenPositionGuide) onOpenPositionGuide();
                           }}
@@ -313,6 +318,7 @@ export function SidebarLeft({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
+                        if (onSideChange) onSideChange('back');
                         if (onCameraChange) onCameraChange('back');
                         if (onTriggerUploadBack) onTriggerUploadBack();
                       }}
@@ -323,6 +329,7 @@ export function SidebarLeft({
                     </button>
                     <button
                       onClick={() => {
+                        if (onSideChange) onSideChange('back');
                         if (onCameraChange) onCameraChange('back');
                         if (designManager) {
                           designManager.addLayer({
@@ -356,6 +363,7 @@ export function SidebarLeft({
                           key={l.id}
                           onClick={() => {
                             if (designManager) designManager.setActiveLayer(l.id);
+                            if (onSideChange) onSideChange('back');
                             if (onCameraChange) onCameraChange('back');
                             if (onOpenPositionGuide) onOpenPositionGuide();
                           }}
@@ -488,217 +496,221 @@ export function SidebarLeft({
           )}
         </div>
 
-        {/* 3. Animation */}
-        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
-          <button
-            onClick={() => toggleSection('anim')}
-            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Play className="size-3.5 text-gray-400 dark:text-studio-400" />
-              <span>Animation</span>
-            </div>
-            {openSection === 'anim' ? (
-              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
-            ) : (
-              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
+        {/* 3. Animation (3D Studio Only) */}
+        {viewMode === '3d' && (
+          <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
+            <button
+              onClick={() => toggleSection('anim')}
+              className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Play className="size-3.5 text-gray-400 dark:text-studio-400" />
+                <span>Animation</span>
+              </div>
+              {openSection === 'anim' ? (
+                <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
+              ) : (
+                <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
+              )}
+            </button>
+
+            {openSection === 'anim' && (
+              <div className="pt-2 pb-1 space-y-1.5 animate-fadeIn">
+                <button
+                  onClick={() => onAnimationModeChange('static')}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'static' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <span>Static</span>
+                  {animationMode === 'static' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+
+                <button
+                  onClick={() => onAnimationModeChange('walking')}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'walking' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Play className="size-3 text-emerald-500" />
+                    <span>Walk</span>
+                  </div>
+                  {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+
+                <button
+                  onClick={() => onAnimationModeChange('waves')}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'waves' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Wind className="size-3 text-sky-500" />
+                    <span>Waves</span>
+                  </div>
+                  {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+
+                <button
+                  onClick={() => {
+                    onAnimationModeChange('knit');
+                    if (onTriggerKnit) onTriggerKnit();
+                  }}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'knit' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Knit</span>
+                  </div>
+                  {animationMode === 'knit' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+
+                {/* Animation Speed Slider */}
+                <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5 mt-1.5 animate-fadeIn">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-gray-600 dark:text-studio-300">
+                    <span>Animation Speed</span>
+                    <span className="font-mono text-black dark:text-white font-bold bg-white dark:bg-studio-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-studio-700">
+                      {(walkSpeed || 1.0).toFixed(1)}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="2.5"
+                    step="0.1"
+                    value={walkSpeed || 1.0}
+                    onChange={(e) => onWalkSpeedChange(parseFloat(e.target.value))}
+                    className="w-full accent-brand-500 cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  onClick={() => onAnimationModeChange('turntable')}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'turntable' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Compass className="size-3 text-brand-500" />
+                    <span>360° Turntable</span>
+                  </div>
+                  {animationMode === 'turntable' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+
+                <button
+                  onClick={() => onAnimationModeChange('rotate_walk')}
+                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                    animationMode === 'rotate_walk' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <RotateCw className="size-3 text-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
+                    <span>Rotate & Walk</span>
+                  </div>
+                  {animationMode === 'rotate_walk' && <Check className="size-3 text-black dark:text-white" />}
+                </button>
+              </div>
             )}
-          </button>
+          </div>
+        )}
 
-          {openSection === 'anim' && (
-            <div className="pt-2 pb-1 space-y-1.5 animate-fadeIn">
-              <button
-                onClick={() => onAnimationModeChange('static')}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'static' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <span>Static</span>
-                {animationMode === 'static' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
-
-              <button
-                onClick={() => onAnimationModeChange('walking')}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'walking' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Play className="size-3 text-emerald-500" />
-                  <span>Walk</span>
-                </div>
-                {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
-
-              <button
-                onClick={() => onAnimationModeChange('waves')}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'waves' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Wind className="size-3 text-sky-500" />
-                  <span>Waves</span>
-                </div>
-                {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
-
-              <button
-                onClick={() => {
-                  onAnimationModeChange('knit');
-                  if (onTriggerKnit) onTriggerKnit();
-                }}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'knit' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-                  <span>Knit</span>
-                </div>
-                {animationMode === 'knit' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
-
-              {/* Animation Speed Slider */}
-              <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5 mt-1.5 animate-fadeIn">
-                <div className="flex justify-between items-center text-[10px] font-bold text-gray-600 dark:text-studio-300">
-                  <span>Animation Speed</span>
-                  <span className="font-mono text-black dark:text-white font-bold bg-white dark:bg-studio-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-studio-700">
-                    {(walkSpeed || 1.0).toFixed(1)}x
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="2.5"
-                  step="0.1"
-                  value={walkSpeed || 1.0}
-                  onChange={(e) => onWalkSpeedChange(parseFloat(e.target.value))}
-                  className="w-full accent-brand-500 cursor-pointer"
-                />
+        {/* 4. Camera Animation (3D Studio Only) */}
+        {viewMode === '3d' && (
+          <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
+            <button
+              onClick={() => toggleSection('cam')}
+              className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span>Camera Animation</span>
               </div>
+              {openSection === 'cam' ? (
+                <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
+              ) : (
+                <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
+              )}
+            </button>
 
-              <button
-                onClick={() => onAnimationModeChange('turntable')}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'turntable' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Compass className="size-3 text-brand-500" />
-                  <span>360° Turntable</span>
+            {openSection === 'cam' && (
+              <div className="pt-2 pb-1 space-y-2 animate-fadeIn">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => onCameraAnimationModeChange('none')}
+                    className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
+                      cameraAnimationMode === 'none' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <span>None (Manual Orbit)</span>
+                    {cameraAnimationMode === 'none' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
+                  <button
+                    onClick={() => onCameraAnimationModeChange('rotate')}
+                    className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
+                      cameraAnimationMode === 'rotate' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <span>Rotate 360°</span>
+                    {cameraAnimationMode === 'rotate' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
+                  <button
+                    onClick={() => onCameraAnimationModeChange('rotatezoom')}
+                    className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
+                      cameraAnimationMode === 'rotatezoom' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <span>Rotation & Zoom</span>
+                    {cameraAnimationMode === 'rotatezoom' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
                 </div>
-                {animationMode === 'turntable' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
 
-              <button
-                onClick={() => onAnimationModeChange('rotate_walk')}
-                className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                  animationMode === 'rotate_walk' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <RotateCw className="size-3 text-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
-                  <span>Rotate & Walk</span>
+                <div className="pt-1">
+                  <div className="text-[10px] font-bold text-gray-500 dark:text-studio-400 mb-1">Camera Presets</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        onCameraAnimationModeChange('none');
+                        onCameraChange('front');
+                      }}
+                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                    >
+                      Front View
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCameraAnimationModeChange('none');
+                        onCameraChange('back');
+                      }}
+                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                    >
+                      Back View
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCameraAnimationModeChange('none');
+                        onCameraChange('hero');
+                      }}
+                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                    >
+                      Hero 45°
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCameraAnimationModeChange('none');
+                        onCameraChange('chest');
+                      }}
+                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                    >
+                      Chest Zoom
+                    </button>
+                  </div>
                 </div>
-                {animationMode === 'rotate_walk' && <Check className="size-3 text-black dark:text-white" />}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 4. Camera Animation */}
-        <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
-          <button
-            onClick={() => toggleSection('cam')}
-            className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <span>Camera Animation</span>
-            </div>
-            {openSection === 'cam' ? (
-              <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
-            ) : (
-              <ChevronRight className="size-4 text-gray-400 dark:text-studio-400" />
+              </div>
             )}
-          </button>
-
-          {openSection === 'cam' && (
-            <div className="pt-2 pb-1 space-y-2 animate-fadeIn">
-              <div className="space-y-1">
-                <button
-                  onClick={() => onCameraAnimationModeChange('none')}
-                  className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'none' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <span>None (Manual Orbit)</span>
-                  {cameraAnimationMode === 'none' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
-                <button
-                  onClick={() => onCameraAnimationModeChange('rotate')}
-                  className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'rotate' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <span>Rotate 360°</span>
-                  {cameraAnimationMode === 'rotate' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
-                <button
-                  onClick={() => onCameraAnimationModeChange('rotatezoom')}
-                  className={`w-full py-1.5 px-2 rounded-xl text-left text-[11px] font-medium flex items-center justify-between ${
-                    cameraAnimationMode === 'rotatezoom' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <span>Rotation & Zoom</span>
-                  {cameraAnimationMode === 'rotatezoom' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
-              </div>
-
-              <div className="pt-1">
-                <div className="text-[10px] font-bold text-gray-500 dark:text-studio-400 mb-1">Camera Presets</div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => {
-                      onCameraAnimationModeChange('none');
-                      onCameraChange('front');
-                    }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
-                  >
-                    Front View
-                  </button>
-                  <button
-                    onClick={() => {
-                      onCameraAnimationModeChange('none');
-                      onCameraChange('back');
-                    }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
-                  >
-                    Back View
-                  </button>
-                  <button
-                    onClick={() => {
-                      onCameraAnimationModeChange('none');
-                      onCameraChange('hero');
-                    }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
-                  >
-                    Hero 45°
-                  </button>
-                  <button
-                    onClick={() => {
-                      onCameraAnimationModeChange('none');
-                      onCameraChange('chest');
-                    }}
-                    className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
-                  >
-                    Chest Zoom
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 5. Advanced Controls: Acid Wash & Puff Print */}
         <div className="py-2.5">

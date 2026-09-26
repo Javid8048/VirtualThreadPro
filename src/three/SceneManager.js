@@ -543,7 +543,11 @@ export class SceneManager {
 
   getActiveMesh() {
     const t = this.garmentType || 'oversized_tee';
-    if (t === 'sweatpants') return this.pantsDecalMeshThigh || this.realPantsRoot;
+    if (t === 'sweatpants') {
+      const activeSide = this.designManager?.getActiveLayer()?.side;
+      if (activeSide === 'back' && this.pantsDecalMeshPocket) return this.pantsDecalMeshPocket;
+      return this.pantsDecalMeshThigh || this.realPantsRoot;
+    }
     if (t === 'cap') return this.capDecalMeshFront || this.realCapRoot;
     if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
       const activeSide = this.designManager?.getActiveLayer()?.side;
@@ -959,34 +963,41 @@ export class SceneManager {
     // 2. Polo Turned-down Folded Collar & 2-Button Placket
     this.poloGroup = new THREE.Group();
 
-    // Turned-down collar band contouring the neck opening cleanly
-    const poloCollarCurve = new THREE.CylinderGeometry(1.24, 1.32, 0.45, 32, 1, true, Math.PI * 0.25, Math.PI * 1.50);
+    // Fabric neck insert to completely mask and occlude the round crewneck rim underneath
+    const neckCoverGeom = new THREE.CylinderGeometry(1.18, 1.25, 0.38, 32, 1, false);
+    const neckCoverMesh = new THREE.Mesh(neckCoverGeom, fabMat);
+    neckCoverMesh.position.set(0, 3.16, 0.50);
+    neckCoverMesh.rotation.set(0.24, 0, 0);
+
+    // Turned-down continuous collar band contouring the neck from back to front
+    const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.48, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
     poloCollarCurve.rotateX(-0.16);
     const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
-    poloCollarMesh.position.set(0, 3.22, 0.08);
+    poloCollarMesh.position.set(0, 3.24, 0.06);
 
     // Left and right folded lapel wings laying flat against upper chest
     const lapelShape = new THREE.Shape();
     lapelShape.moveTo(0, 0);
-    lapelShape.lineTo(0.60, -0.75);
-    lapelShape.lineTo(0.12, -0.80);
-    lapelShape.lineTo(0, 0);
-    const extrudeSettings = { depth: 0.025, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.01, bevelThickness: 0.01 };
+    lapelShape.lineTo(0.78, -0.88);
+    lapelShape.lineTo(0.18, -0.96);
+    lapelShape.lineTo(-0.06, -0.15);
+    lapelShape.closePath();
+    const extrudeSettings = { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 };
     const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
     const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
-    leftLapel.position.set(-0.10, 3.12, 0.96);
-    leftLapel.rotation.set(0.18, 0.08, -0.15);
+    leftLapel.position.set(-0.14, 3.20, 0.95);
+    leftLapel.rotation.set(0.20, 0.10, -0.18);
 
     const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
-    rightLapel.position.set(0.10, 3.12, 0.96);
-    rightLapel.rotation.set(0.18, -0.08, 0.15);
+    rightLapel.position.set(0.14, 3.20, 0.95);
+    rightLapel.rotation.set(0.20, -0.10, 0.18);
     rightLapel.scale.set(-1, 1, 1);
 
     // Front center placket with stitch welt
-    const placketGeom = new THREE.BoxGeometry(0.38, 1.35, 0.04);
+    const placketGeom = new THREE.BoxGeometry(0.42, 1.42, 0.045);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
-    placketMesh.position.set(0, 2.25, 0.95);
+    placketMesh.position.set(0, 2.22, 0.96);
     placketMesh.rotation.set(0.14, 0, 0);
 
     // Pearlescent buttons
@@ -998,11 +1009,11 @@ export class SceneManager {
     const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
     const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.position.set(0, 2.65, 0.98);
+    b1.position.set(0, 2.62, 0.99);
     const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.position.set(0, 2.05, 0.90);
+    b2.position.set(0, 2.02, 0.91);
 
-    this.poloGroup.add(poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
+    this.poloGroup.add(neckCoverMesh, poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
     this.attachmentsGroup.add(this.poloGroup);
 
     this.scene.add(this.attachmentsGroup);
@@ -1210,38 +1221,38 @@ export class SceneManager {
     this.modelsLoading.pants = true;
     if (onDone) this.pantsCallbacks.push(onDone);
 
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.load(
-      getAssetUrl('/models/hiphop_joggers.glb'),
-      (gltf) => {
+    const objLoader = new OBJLoader();
+    objLoader.load(
+      getAssetUrl('/models/pants.obj'),
+      (pantsObj) => {
         this.realPantsRoot = new THREE.Group();
         this.realPantsRoot.name = 'real_pants_root';
 
-        const pantsModel = gltf.scene;
-        // Native bounds: W: 0.380, H: 0.876, D: 0.300, Center: (0, 0.544, -0.003)
-        // Normalize height to 7.6 units and center at (0, 0, 0)
-        const scaleP = 8.67;
-        pantsModel.scale.set(scaleP, scaleP, scaleP);
-        pantsModel.position.set(0, -0.544 * scaleP, 0.003 * scaleP);
-
-        pantsModel.traverse((child) => {
+        pantsObj.traverse((child) => {
           if (child.isMesh) {
+            child.geometry.computeVertexNormals();
             child.material = this.fabricMaterial;
             child.castShadow = false;
             child.receiveShadow = false;
           }
         });
-        this.realPantsRoot.add(pantsModel);
+
+        // Native bounds: W: 86.05, H: 100.56, D: 30.14, Center: (0, -51.638, 2.04)
+        // Scale to normalize height to 7.8 units and center perfectly at (0, 0, 0)
+        const scaleP = 0.077561;
+        pantsObj.scale.set(scaleP, scaleP, scaleP);
+        pantsObj.position.set(0, 51.6384 * scaleP, -2.0398 * scaleP);
+        this.realPantsRoot.add(pantsObj);
 
         // Hanging Waist Drawstrings with Metal Aglets for streetwear realism
         const stringMat = new THREE.MeshStandardMaterial({ color: 0xededed, roughness: 0.90 });
         const agletMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, metalness: 0.95, roughness: 0.15 });
         const strGeom = new THREE.CylinderGeometry(0.035, 0.035, 1.4, 12);
         this.pLeftStr = new THREE.Mesh(strGeom, stringMat);
-        this.pLeftStr.position.set(-0.25, 3.2, 1.35);
+        this.pLeftStr.position.set(-0.25, 3.65, 1.15);
         this.pLeftStr.rotation.z = -0.06;
         this.pRightStr = new THREE.Mesh(strGeom, stringMat);
-        this.pRightStr.position.set(0.25, 3.2, 1.35);
+        this.pRightStr.position.set(0.25, 3.65, 1.15);
         this.pRightStr.rotation.z = 0.06;
 
         const agletGeom = new THREE.CylinderGeometry(0.042, 0.042, 0.22, 12);
@@ -1253,29 +1264,8 @@ export class SceneManager {
         this.pRightStr.add(a2);
         this.realPantsRoot.add(this.pLeftStr, this.pRightStr);
 
-        // Ribbed Elastic Waistband Band
-        const waistBandGeom = new THREE.CylinderGeometry(1.68, 1.65, 0.45, 32);
-        const waistBandMesh = new THREE.Mesh(waistBandGeom, this.fabricMaterial);
-        waistBandMesh.position.set(0, 3.32, 0);
-        waistBandMesh.scale.set(1.0, 1.0, 0.82);
-        this.realPantsRoot.add(waistBandMesh);
-
-        // Angled Side Pocket Welts
-        const weltMat = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(this.garmentColor),
-          roughness: 0.85
-        });
-        const weltGeom = new THREE.BoxGeometry(0.08, 1.10, 0.05);
-        const leftWelt = new THREE.Mesh(weltGeom, weltMat);
-        leftWelt.position.set(-1.42, 2.30, 0.45);
-        leftWelt.rotation.set(0, 0.25, 0.35);
-        const rightWelt = new THREE.Mesh(weltGeom, weltMat);
-        rightWelt.position.set(1.42, 2.30, 0.45);
-        rightWelt.rotation.set(0, -0.25, -0.35);
-        this.realPantsRoot.add(leftWelt, rightWelt);
-
         // Left Thigh Decal Mesh
-        const thighDecalGeom = new THREE.PlaneGeometry(1.4, 1.6, 16, 16);
+        const thighDecalGeom = new THREE.PlaneGeometry(1.5, 1.7, 16, 16);
         const tPos = thighDecalGeom.attributes.position;
         for (let i = 0; i < tPos.count; i++) {
           const x = tPos.getX(i);
@@ -1290,7 +1280,7 @@ export class SceneManager {
         }
         tUvs.needsUpdate = true;
         this.pantsDecalMeshThigh = new THREE.Mesh(thighDecalGeom, this.decalMaterial);
-        this.pantsDecalMeshThigh.position.set(-0.95, 0.8, 1.16);
+        this.pantsDecalMeshThigh.position.set(-1.15, 0.65, 1.15);
         this.pantsDecalMeshThigh.rotation.set(-0.04, 0.10, 0.02);
         this.realPantsRoot.add(this.pantsDecalMeshThigh);
 
@@ -1304,7 +1294,7 @@ export class SceneManager {
         }
         pocketDecalGeom.computeVertexNormals();
         this.pantsDecalMeshPocket = new THREE.Mesh(pocketDecalGeom, this.decalMaterial);
-        this.pantsDecalMeshPocket.position.set(0.95, 1.8, -1.16);
+        this.pantsDecalMeshPocket.position.set(1.15, 1.45, -1.15);
         this.pantsDecalMeshPocket.rotation.set(0.04, Math.PI - 0.10, 0);
         this.realPantsRoot.add(this.pantsDecalMeshPocket);
 
@@ -1321,7 +1311,7 @@ export class SceneManager {
       },
       undefined,
       (err) => {
-        console.error('Error loading real pants GLB:', err);
+        console.error('Error loading real pants OBJ:', err);
         this.modelsLoading.pants = false;
       }
     );

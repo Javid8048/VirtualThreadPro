@@ -491,6 +491,8 @@ export default function App() {
         onOpenProductsCatalog={() => setProductsCatalogOpen(true)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        activeSide={activeSide}
+        onSideChange={handleSideChange}
         isExportStudioOpen={rightDrawerMode === 'export'}
       />
 
