@@ -399,7 +399,8 @@ export function LandingPage({
           </div>
         </section>
 
-        {/* Studio Capabilities Section (Clean 4-column feature breakdown) */}
+        {/* Studio Capabilities Section (Commented out per user request) */}
+        {/*
         <section className="py-14 border-t border-gray-200 dark:border-white/10">
           <div className="mb-10 text-center sm:text-left">
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">
@@ -434,8 +435,10 @@ export function LandingPage({
             })}
           </div>
         </section>
+        */}
 
-        {/* Studio Plans & Membership Tiers (ZERO forbidden words) */}
+        {/* Studio Plans & Membership Tiers (Commented out per user request) */}
+        {/*
         <section className="py-14 border-t border-gray-200 dark:border-white/10">
           <div className="mb-10 text-center">
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-950 dark:text-white">
@@ -508,6 +511,7 @@ export function LandingPage({
             })}
           </div>
         </section>
+        */}
 
         {/* Interactive FAQ Accordion */}
         <section className="py-14 border-t border-gray-200 dark:border-white/10 max-w-3xl mx-auto w-full">
