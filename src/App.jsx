@@ -27,7 +27,8 @@ export default function App() {
   // Garment Blank Type State (9 Streetwear Blanks)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
-  const [currentCamera, setCurrentCamera] = useState('chest');
+  const [currentCamera, setCurrentCamera] = useState('front');
+  const [isZoomed, setIsZoomed] = useState(true); // Independent zoom state (default enabled)
   const [activeSide, setActiveSide] = useState('front');
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -163,10 +164,11 @@ export default function App() {
   const handleGarmentTypeChange = (type) => {
     setGarmentType(type);
     setViewMode('3d');
-    setCurrentCamera('chest');
+    setCurrentCamera('front');
+    setIsZoomed(true);
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setGarmentType(type);
-      sceneManagerRef.current.setCameraPreset('zoom');
+      sceneManagerRef.current.setCameraPreset('front', true);
       sceneManagerRef.current.handleResize();
     }
   };
@@ -175,7 +177,8 @@ export default function App() {
   const handleSelectGarmentFromLanding = (type) => {
     handleGarmentTypeChange(type);
     setPositionGuideOpen(true);
-    setCurrentCamera('chest');
+    setCurrentCamera('front');
+    setIsZoomed(true);
     setCurrentPage('studio');
   };
   window.__SELECT_GARMENT_FROM_LANDING__ = handleSelectGarmentFromLanding;
@@ -191,7 +194,7 @@ export default function App() {
         }
         if (sceneManagerRef.current) {
           sceneManagerRef.current.setAnimationMode('static');
-          sceneManagerRef.current.setCameraPreset('zoom');
+          sceneManagerRef.current.setCameraPreset('front', true);
         }
         setAnimationMode('static');
         setInteractionMode('orbit');
@@ -200,7 +203,7 @@ export default function App() {
     } else {
       if (sceneManagerRef.current) {
         sceneManagerRef.current.setAnimationMode('static');
-        sceneManagerRef.current.setCameraPreset('zoom');
+        sceneManagerRef.current.setCameraPreset('front', true);
       }
       setAnimationMode('static');
       setInteractionMode('orbit');
@@ -208,6 +211,16 @@ export default function App() {
     }
   };
   window.__HANDLE_BACK_TO_LANDING__ = handleBackToLanding;
+
+  const handleToggleZoom = () => {
+    setIsZoomed((prev) => {
+      const next = !prev;
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.setZoom(next);
+      }
+      return next;
+    });
+  };
 
   const handleZoomIn = () => {
     if (sceneManagerRef.current) {
@@ -281,12 +294,17 @@ export default function App() {
   };
 
   const handleCameraChange = (view) => {
-    setCurrentCamera(view);
-    if (view === 'front' || view === 'back') {
-      setActiveSide(view);
+    if (view === 'zoom') {
+      handleToggleZoom();
+      return;
+    }
+    const targetSide = (view === 'chest') ? 'front' : view;
+    setCurrentCamera(targetSide);
+    if (targetSide === 'front' || targetSide === 'back') {
+      setActiveSide(targetSide);
     }
     if (sceneManagerRef.current) {
-      sceneManagerRef.current.setCameraPreset(view);
+      sceneManagerRef.current.setCameraPreset(targetSide, isZoomed);
     }
   };
 
@@ -294,7 +312,7 @@ export default function App() {
     setActiveSide(side);
     setCurrentCamera(side);
     if (sceneManagerRef.current) {
-      sceneManagerRef.current.setCameraPreset(side);
+      sceneManagerRef.current.setCameraPreset(side, isZoomed);
     }
   };
 
@@ -447,6 +465,8 @@ export default function App() {
               onInteractionModeChange={handleInteractionModeChange}
               currentCamera={currentCamera}
               onCameraChange={handleCameraChange}
+              isZoomed={isZoomed}
+              onToggleZoom={handleToggleZoom}
               onZoomIn={handleZoomIn}
               onZoomOut={handleZoomOut}
               animationMode={animationMode}
@@ -467,22 +487,25 @@ export default function App() {
           <SidebarLeft
             onBackToLanding={handleBackToLanding}
             garmentColor={garmentColor}
-        onGarmentColorChange={handleGarmentColorChange}
-        backdropMode={backdropMode}
-        onBackdropModeChange={setBackdropMode}
-        animationMode={animationMode}
-        onAnimationModeChange={handleAnimationModeChange}
-        walkSpeed={walkSpeed}
-        onWalkSpeedChange={handleWalkSpeedChange}
-        cameraAnimationMode={cameraAnimationMode}
-        onCameraAnimationModeChange={handleCameraAnimationModeChange}
-        acidWash={acidWash}
-        onAcidWashChange={handleAcidWashChange}
-        puffPrint={puffPrint}
-        onPuffPrintChange={handlePuffPrintChange}
-        onTriggerKnit={handleTriggerKnit}
-        onCameraChange={handleCameraChange}
-        onOpenExport={handleOpenExport}
+            onGarmentColorChange={handleGarmentColorChange}
+            backdropMode={backdropMode}
+            onBackdropModeChange={setBackdropMode}
+            animationMode={animationMode}
+            onAnimationModeChange={handleAnimationModeChange}
+            walkSpeed={walkSpeed}
+            onWalkSpeedChange={handleWalkSpeedChange}
+            cameraAnimationMode={cameraAnimationMode}
+            onCameraAnimationModeChange={handleCameraAnimationModeChange}
+            acidWash={acidWash}
+            onAcidWashChange={handleAcidWashChange}
+            puffPrint={puffPrint}
+            onPuffPrintChange={handlePuffPrintChange}
+            onTriggerKnit={handleTriggerKnit}
+            currentCamera={currentCamera}
+            onCameraChange={handleCameraChange}
+            isZoomed={isZoomed}
+            onToggleZoom={handleToggleZoom}
+            onOpenExport={handleOpenExport}
         onOpenPositionGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
         onTriggerUploadFront={handleTriggerUploadFront}
         onTriggerUploadBack={handleTriggerUploadBack}

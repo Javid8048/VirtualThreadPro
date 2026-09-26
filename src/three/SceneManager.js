@@ -140,7 +140,7 @@ export class SceneManager {
 
     // 3. Camera (Default to Zoom view for instant close-up inspection)
     this.camera = new THREE.PerspectiveCamera(42, this.width / this.height, 0.1, 100);
-    this.camera.position.set(0, 0.8, 15.0);
+    this.camera.position.set(0, 0.75, 14.2);
 
     // 4. Orbit Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -148,7 +148,11 @@ export class SceneManager {
     this.controls.dampingFactor = 0.05;
     this.controls.minDistance = 5;
     this.controls.maxDistance = 38;
-    this.controls.target.set(0, 0.2, 0);
+    this.controls.target.set(0, 0.75, 0);
+
+    // Zoom state (independent toggle: default enabled)
+    this.isZoomed = true;
+    this.currentCameraView = 'front';
 
     // 5. Canvas Design Manager (Optimized 2048x2048 texture with 60 FPS RAF scheduling)
     this.designManager = new CanvasDesignManager('#ffffff');
@@ -1575,7 +1579,30 @@ export class SceneManager {
     this.controls.update();
   }
 
-  setCameraPreset(view) {
+  setZoom(enabled) {
+    this.isZoomed = Boolean(enabled);
+    this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
+  }
+
+  setCameraPreset(view, isZoomed = this.isZoomed) {
+    if (typeof isZoomed === 'boolean') {
+      this.isZoomed = isZoomed;
+    }
+
+    let effectiveView = view;
+    if (view === 'zoom') {
+      this.isZoomed = !this.isZoomed;
+      effectiveView = this.currentCameraView || 'front';
+    } else if (view === 'chest') {
+      this.isZoomed = true;
+      effectiveView = this.currentCameraView || 'front';
+    } else if (view) {
+      this.currentCameraView = view;
+      effectiveView = view;
+    } else {
+      effectiveView = this.currentCameraView || 'front';
+    }
+
     const duration = 0.8;
     const startTime = performance.now();
     const startPos = this.camera.position.clone();
@@ -1587,63 +1614,73 @@ export class SceneManager {
     let controlsTarget = new THREE.Vector3(0, 0, 0);
 
     if (isHoodie) {
-      controlsTarget.set(-0.55, 0.15, 0);
-      switch (view) {
-        case 'front': targetPos.set(-0.55, 0.15, 23.5); break;
-        case 'back': targetPos.set(-0.55, 0.15, -23.5); break;
-        case 'side': targetPos.set(23.5, 0.15, 0); break;
-        case 'hero': targetPos.set(11.5, 1.8, 19.0); break;
-        case 'zoom':
-        case 'chest':
+      const centerY = this.isZoomed ? 0.65 : 0.15;
+      controlsTarget.set(-0.55, centerY, 0);
+      const dist = this.isZoomed ? 14.5 : 23.5;
+      switch (effectiveView) {
+        case 'front': targetPos.set(-0.55, centerY, dist); break;
+        case 'back': targetPos.set(-0.55, centerY, -dist); break;
+        case 'side':
+        case 'right': targetPos.set(dist - 0.55, centerY, 0); break;
+        case 'left': targetPos.set(-dist - 0.55, centerY, 0); break;
+        case 'hero': targetPos.set(this.isZoomed ? 8.0 : 11.5, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.0 : 19.0); break;
         default:
-          targetPos.set(-0.55, 0.8, 14.5);
+          targetPos.set(-0.55, centerY, dist);
           break;
       }
     } else if (isPants) {
-      controlsTarget.set(0, 0, 0);
-      switch (view) {
-        case 'front': targetPos.set(0, 0, 24.5); break;
-        case 'back': targetPos.set(0, 0, -24.5); break;
-        case 'side': targetPos.set(24.5, 0, 0); break;
-        case 'hero': targetPos.set(12, 1.5, 20.0); break;
-        case 'zoom':
-        case 'chest':
+      const centerY = this.isZoomed ? 0.30 : 0.0;
+      controlsTarget.set(0, centerY, 0);
+      const dist = this.isZoomed ? 15.0 : 24.5;
+      switch (effectiveView) {
+        case 'front': targetPos.set(0, centerY, dist); break;
+        case 'back': targetPos.set(0, centerY, -dist); break;
+        case 'side':
+        case 'right': targetPos.set(dist, centerY, 0); break;
+        case 'left': targetPos.set(-dist, centerY, 0); break;
+        case 'hero': targetPos.set(this.isZoomed ? 8.0 : 12.0, this.isZoomed ? 1.2 : 1.5, this.isZoomed ? 12.5 : 20.0); break;
         default:
-          targetPos.set(-0.8, 0.4, 15.0);
+          targetPos.set(0, centerY, dist);
           break;
       }
     } else if (isCap) {
-      controlsTarget.set(0, 0, 0);
-      switch (view) {
-        case 'front': targetPos.set(0, 0, 14.5); break;
-        case 'back': targetPos.set(0, 0, -14.5); break;
-        case 'side': targetPos.set(14.5, 0, 0); break;
-        case 'hero': targetPos.set(2.8, 1.6, 13.5); break;
-        case 'zoom':
-        case 'chest':
+      const centerY = 0.40;
+      controlsTarget.set(0, centerY, 0);
+      const dist = this.isZoomed ? 9.5 : 14.5;
+      switch (effectiveView) {
+        case 'front': targetPos.set(0, centerY, dist); break;
+        case 'back': targetPos.set(0, centerY, -dist); break;
+        case 'side':
+        case 'right': targetPos.set(dist, centerY, 0); break;
+        case 'left': targetPos.set(-dist, centerY, 0); break;
+        case 'hero': targetPos.set(this.isZoomed ? 2.0 : 2.8, this.isZoomed ? 1.2 : 1.6, this.isZoomed ? 8.5 : 13.5); break;
         default:
-          targetPos.set(0, 0.4, 11.0);
+          targetPos.set(0, centerY, dist);
           break;
       }
     } else {
-      controlsTarget.set(0, 0.2, 0);
-      switch (view) {
+      const centerY = this.isZoomed ? 0.75 : 0.20;
+      controlsTarget.set(0, centerY, 0);
+      const dist = this.isZoomed ? 14.2 : 24.5;
+      switch (effectiveView) {
         case 'front':
-          targetPos.set(0, 0, 24.5);
+          targetPos.set(0, centerY, dist);
           break;
         case 'back':
-          targetPos.set(0, 0, -24.5);
+          targetPos.set(0, centerY, -dist);
           break;
         case 'side':
-          targetPos.set(24.5, 0, 0);
+        case 'right':
+          targetPos.set(dist, centerY, 0);
+          break;
+        case 'left':
+          targetPos.set(-dist, centerY, 0);
           break;
         case 'hero':
-          targetPos.set(13, 1.8, 20.0);
+          targetPos.set(this.isZoomed ? 8.2 : 13.0, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.2 : 20.0);
           break;
-        case 'zoom':
-        case 'chest':
         default:
-          targetPos.set(0, 0.8, 15.0);
+          targetPos.set(0, centerY, dist);
           break;
       }
     }
@@ -1729,8 +1766,9 @@ export class SceneManager {
     }
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Use constant fixed delta (1/60s) during video recording for deterministic, silky-smooth 60 FPS video
-    const delta = this.isRecordingVideo ? (1 / (this.recordingFps || 60)) : Math.min(this.clock.getDelta(), 0.033);
+    // Use real clock delta so animations, physics, and walk cycles run at natural real-time speed
+    const rawDelta = this.clock.getDelta();
+    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     if (this.mixer) {
       this.mixer.update(delta);
@@ -1917,40 +1955,46 @@ export class SceneManager {
       }
     }
 
-    // 360 Turntable rotation of garment (Normal mode when not recording video)
-    if (!this.isRecordingVideo && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
+    // Turntable rotation of garment (when active and not running showcase360 spin)
+    const isShowcaseSpin = this.isRecordingVideo && this.recordingMotion === 'showcase360';
+    if (!isShowcaseSpin && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
+      const turnStep = delta * this.turntableSpeed;
       if (this.tshirtPivot) {
-        this.tshirtPivot.rotation.y += delta * this.turntableSpeed;
+        this.tshirtPivot.rotation.y += turnStep;
       }
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
-        this.realHoodieRoot.rotation.y += delta * this.turntableSpeed;
+        this.realHoodieRoot.rotation.y += turnStep;
       }
       if (this.realPantsRoot && this.garmentType === 'sweatpants') {
-        this.realPantsRoot.rotation.y += delta * this.turntableSpeed;
+        this.realPantsRoot.rotation.y += turnStep;
       }
       if (this.realCapRoot && this.garmentType === 'cap') {
-        this.realCapRoot.rotation.y += delta * this.turntableSpeed;
+        this.realCapRoot.rotation.y += turnStep;
       }
       if (this.attachmentsGroup) {
-        this.attachmentsGroup.rotation.y += delta * this.turntableSpeed;
+        this.attachmentsGroup.rotation.y += turnStep;
       }
     }
 
-    // Video recording showcase motion: exact 360° spin loop
+    // Video recording showcase motion: exact, guaranteed 360° spin loop based on elapsed real-time
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
-      const rotStep = this.recordingAngularSpeed * delta;
-      if (this.tshirtPivot) this.tshirtPivot.rotation.y += rotStep;
+      const elapsedSec = (performance.now() - (this.recordingStartTime || performance.now())) / 1000;
+      const progress = Math.min(1.0, elapsedSec / (this.recordingDuration || 5));
+      const loops = (this.recordingDuration || 5) >= 15 ? 2 : 1;
+      const targetAngle = progress * (2 * Math.PI * loops);
+
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y = targetAngle;
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
-        this.realHoodieRoot.rotation.y += rotStep;
+        this.realHoodieRoot.rotation.y = targetAngle;
       }
       if (this.realPantsRoot && this.garmentType === 'sweatpants') {
-        this.realPantsRoot.rotation.y += rotStep;
+        this.realPantsRoot.rotation.y = targetAngle;
       }
       if (this.realCapRoot && this.garmentType === 'cap') {
-        this.realCapRoot.rotation.y += rotStep;
+        this.realCapRoot.rotation.y = targetAngle;
       }
       if (this.attachmentsGroup) {
-        this.attachmentsGroup.rotation.y += rotStep;
+        this.attachmentsGroup.rotation.y = targetAngle;
       }
     }
 
@@ -1994,6 +2038,7 @@ export class SceneManager {
     this.recordingDuration = durationSeconds;
     this.recordingMotion = motion;
     this.onRecordingFrame = onFrame;
+    this.recordingStartTime = performance.now();
 
     // Snapshot current state to restore cleanly upon completion
     this.preRecordState = {
@@ -2010,20 +2055,46 @@ export class SceneManager {
 
     // Temporarily freeze user orbit controls during video recording
     this.controls.enabled = false;
-    this.controls.target.set(0, 0, 0);
 
-    // Camera Framing per video format
-    if (format === 'mobile') {
-      // Mobile 9:16 vertical: pull camera back to z=34 so collar, both sleeves, and waist fit cleanly
-      this.camera.position.set(0, 0, 34);
-    } else if (format === 'square') {
-      // Square 1:1: comfortable framing
-      this.camera.position.set(0, 0, 27);
+    // Target vertical focus height based on isZoomed state
+    let targetY = 0;
+    if (this.isZoomed) {
+      if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') targetY = 0.65;
+      else if (this.garmentType === 'sweatpants') targetY = 0.30;
+      else if (this.garmentType === 'cap') targetY = 0.40;
+      else targetY = 0.75;
     } else {
-      // Desktop 16:9: standard distance
-      this.camera.position.set(0, 0, 24.5);
+      if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') targetY = 0.15;
+      else if (this.garmentType === 'cap') targetY = 0.40;
+      else if (this.garmentType === 'sweatpants') targetY = 0.0;
+      else targetY = 0.20;
     }
-    this.camera.lookAt(0, 0, 0);
+
+    const targetX = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') ? -0.55 : 0;
+    this.controls.target.set(targetX, targetY, 0);
+
+    // Camera Framing per video format and isZoomed state
+    let camDistance = 24.5;
+    if (this.isZoomed) {
+      if (format === 'mobile') {
+        camDistance = (this.garmentType === 'cap') ? 14.0 : 21.0;
+      } else if (format === 'square') {
+        camDistance = (this.garmentType === 'cap') ? 11.5 : 16.5;
+      } else {
+        camDistance = (this.garmentType === 'cap') ? 9.5 : 14.2;
+      }
+    } else {
+      if (format === 'mobile') {
+        camDistance = (this.garmentType === 'cap') ? 20.0 : 34.0;
+      } else if (format === 'square') {
+        camDistance = (this.garmentType === 'cap') ? 16.0 : 27.0;
+      } else {
+        camDistance = (this.garmentType === 'cap') ? 14.5 : 24.5;
+      }
+    }
+
+    this.camera.position.set(targetX, targetY, camDistance);
+    this.camera.lookAt(targetX, targetY, 0);
 
     // If 360 showcase motion requested:
     // Reset garment to front (rotation.y = 0) and calculate angular speed for an exact 360 loop

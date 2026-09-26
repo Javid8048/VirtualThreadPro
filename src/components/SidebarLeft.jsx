@@ -30,7 +30,10 @@ export function SidebarLeft({
   puffPrint = 0,
   onPuffPrintChange,
   onTriggerKnit,
+  currentCamera = 'front',
   onCameraChange,
+  isZoomed = true,
+  onToggleZoom,
   onOpenExport,
   onOpenPositionGuide,
   onTriggerUploadFront,
@@ -667,14 +670,18 @@ export function SidebarLeft({
                 </div>
 
                 <div className="pt-1">
-                  <div className="text-[10px] font-bold text-gray-500 dark:text-studio-400 mb-1">Camera Presets</div>
+                  <div className="text-[10px] font-bold text-gray-500 dark:text-studio-400 mb-1">Camera Presets & Zoom</div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
                       onClick={() => {
                         onCameraAnimationModeChange('none');
                         onCameraChange('front');
                       }}
-                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                      className={`py-1 px-2 rounded-xl text-[10px] font-semibold border transition-all ${
+                        currentCamera === 'front'
+                          ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
+                          : 'border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300'
+                      }`}
                     >
                       Front View
                     </button>
@@ -683,7 +690,11 @@ export function SidebarLeft({
                         onCameraAnimationModeChange('none');
                         onCameraChange('back');
                       }}
-                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                      className={`py-1 px-2 rounded-xl text-[10px] font-semibold border transition-all ${
+                        currentCamera === 'back'
+                          ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
+                          : 'border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300'
+                      }`}
                     >
                       Back View
                     </button>
@@ -692,18 +703,26 @@ export function SidebarLeft({
                         onCameraAnimationModeChange('none');
                         onCameraChange('hero');
                       }}
-                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                      className={`py-1 px-2 rounded-xl text-[10px] font-semibold border transition-all ${
+                        currentCamera === 'hero'
+                          ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
+                          : 'border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300'
+                      }`}
                     >
                       Hero 45°
                     </button>
                     <button
                       onClick={() => {
-                        onCameraAnimationModeChange('none');
-                        onCameraChange('chest');
+                        if (onToggleZoom) onToggleZoom();
+                        else onCameraChange('zoom');
                       }}
-                      className="py-1 px-2 rounded-xl text-[10px] font-semibold border border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300"
+                      className={`py-1 px-2 rounded-xl text-[10px] font-semibold border transition-all ${
+                        isZoomed
+                          ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
+                          : 'border-gray-200 dark:border-studio-700 hover:bg-gray-50 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300'
+                      }`}
                     >
-                      Chest Zoom
+                      {isZoomed ? 'Zoomed (ON)' : 'Zoom (OFF)'}
                     </button>
                   </div>
                 </div>

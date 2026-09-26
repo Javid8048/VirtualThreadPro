@@ -15,8 +15,10 @@ import {
 export function HeaderNav({
   interactionMode = 'orbit',
   onInteractionModeChange,
-  currentCamera = 'chest',
+  currentCamera = 'front',
   onCameraChange,
+  isZoomed = true,
+  onToggleZoom,
   onZoomIn,
   onZoomOut,
   animationMode = 'static',
@@ -32,7 +34,6 @@ export function HeaderNav({
   const isTurntable = animationMode === 'turntable';
 
   const cameraViews = [
-    { id: 'chest', label: 'Zoom' },
     { id: 'front', label: 'Front' },
     { id: 'back', label: 'Back' },
     { id: 'side', label: 'Side' },
@@ -104,7 +105,7 @@ export function HeaderNav({
 
         <div className="w-px h-5 bg-gray-200 dark:bg-studio-700 shrink-0" />
 
-        {/* Quick Camera Rotate Angles & Zoom Controls */}
+        {/* Quick Camera Rotate Angles & Independent Zoom Controls */}
         <div className="flex items-center gap-1 shrink-0">
           {cameraViews.map((v) => {
             const isActive = currentCamera === v.id;
@@ -123,6 +124,26 @@ export function HeaderNav({
               </button>
             );
           })}
+
+          {/* Independent Zoom Mode Toggle */}
+          {onToggleZoom && (
+            <button
+              type="button"
+              onClick={onToggleZoom}
+              className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ml-0.5 ${
+                isZoomed
+                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 ring-1.5 ring-brand-400/50'
+                  : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-studio-800 border border-gray-200/80 dark:border-studio-700/60'
+              }`}
+              title={isZoomed ? "Zoom Mode: Active (Click to switch to Wide Full Garment view)" : "Zoom Mode: Inactive (Click to switch to Close-up Zoom view)"}
+            >
+              <ZoomIn className="size-3.5" />
+              <span>{isZoomed ? 'Zoomed' : 'Zoom'}</span>
+              {isZoomed && (
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
+          )}
 
           {/* Quick Zoom In & Zoom Out Buttons */}
           {(onZoomIn || onZoomOut) && (
