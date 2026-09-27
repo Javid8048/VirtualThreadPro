@@ -42,7 +42,7 @@ export function ExportPanel({
 
   // Video recording state
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
-  const [videoMotion, setVideoMotion] = useState('showcase360'); // 'showcase360' | 'current'
+  const [videoMotion, setVideoMotion] = useState('current'); // 'current' | 'showcase360'
   const [preferredFormat, setPreferredFormat] = useState('webm'); // 'webm' | 'mp4'
   const [videoDuration, setVideoDuration] = useState(5); // in seconds: 1 to 30
   const [isRecording, setIsRecording] = useState(() => (activeVideoRecorderInstance?.isRecording || Boolean(asyncExportState?.isRecording)));
@@ -52,9 +52,6 @@ export function ExportPanel({
   const [lastRecordedFile, setLastRecordedFile] = useState(() => asyncExportState?.fileName || null);
   const [isExportingGLTF, setIsExportingGLTF] = useState(false);
   const [hasAcceptedAup, setHasAcceptedAup] = useState(true);
-  const [videoCaptureMode, setVideoCaptureMode] = useState('studio3d'); // 'studio3d' | 'screen'
-  const [isScreenRecording, setIsScreenRecording] = useState(false);
-  const [screenElapsed, setScreenElapsed] = useState(0);
 
   const recorderRef = useRef(null);
 
@@ -137,14 +134,13 @@ export function ExportPanel({
       activeVideoRecorderInstance = recorder;
       recorderRef.current = recorder;
 
-      const bg = backdropMode === 'light' ? '#f4f4f6' : '#121318';
       const result = await recorder.startRecording(
         {
           durationSeconds: numDuration,
           format: videoFormat,
           motion: videoMotion,
           preferredFormat: preferredFormat,
-          backgroundColor: bg
+          backgroundColor: null
         },
         (pct, sec) => {
           setRecordingProgress(pct);
@@ -198,51 +194,12 @@ export function ExportPanel({
     }
   };
 
-  const handleStartScreenRecording = async () => {
-    if (!hasAcceptedAup) return;
-    try {
-      const recorder = new CanvasVideoRecorder(sceneManager);
-      activeVideoRecorderInstance = recorder;
-      recorderRef.current = recorder;
-      setIsScreenRecording(true);
-      setIsRecording(true);
-      setScreenElapsed(0);
-
-      const result = await recorder.startScreenRecording(
-        (sec) => {
-          setScreenElapsed(sec);
-          setElapsedSeconds(sec);
-        },
-        () => {
-          setIsScreenRecording(false);
-          setIsRecording(false);
-        }
-      );
-
-      const filename = `virtualthreads-screen-recording-${Date.now()}.${result.isMp4 ? 'mp4' : 'webm'}`;
-      recorder.downloadBlob(result.blob, filename);
-      setLastRecordedFile(filename);
-      setRecordedSuccess(true);
-    } catch (err) {
-      if (err.name !== 'NotAllowedError') {
-        console.error('Screen recording error:', err);
-        alert('Screen recording error: ' + (err.message || err));
-      }
-    } finally {
-      setIsScreenRecording(false);
-      setIsRecording(false);
-      activeVideoRecorderInstance = null;
-      recorderRef.current = null;
-    }
-  };
-
   const handleStopEarly = () => {
     if (activeVideoRecorderInstance) {
       activeVideoRecorderInstance.stopEarly();
     } else if (recorderRef.current) {
       recorderRef.current.stopEarly();
     }
-    setIsScreenRecording(false);
     setIsRecording(false);
   };
 
@@ -340,69 +297,6 @@ export function ExportPanel({
         {/* ========================================================================= */}
         {activeTab === 'video' && (
           <div className="space-y-3.5">
-            {/* Capture Mode Toggle: Studio 3D (60 FPS) vs Live Screen Recording */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1">
-                  <Film className="size-3 text-brand-500" />
-                  <span>Recording Mode</span>
-                </label>
-                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  60 FPS Smooth
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-studio-800 rounded-xl border border-gray-200 dark:border-studio-700/60">
-                <button
-                  type="button"
-                  disabled={isRecording}
-                  onClick={() => setVideoCaptureMode('studio3d')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
-                    videoCaptureMode === 'studio3d'
-                      ? 'bg-brand-500 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
-                  }`}
-                >
-                  Studio 3D (60 FPS)
-                </button>
-                <button
-                  type="button"
-                  disabled={isRecording}
-                  onClick={() => setVideoCaptureMode('screen')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
-                    videoCaptureMode === 'screen'
-                      ? 'bg-brand-500 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
-                  }`}
-                >
-                  Screen Recording
-                </button>
-              </div>
-            </div>
-
-            {videoCaptureMode === 'screen' ? (
-              <div className="p-3 bg-brand-50/60 dark:bg-brand-500/10 rounded-2xl border border-brand-200 dark:border-brand-500/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Monitor className="size-4 text-brand-500" />
-                  <h4 className="text-xs font-extrabold text-gray-900 dark:text-white">Live Screen Recording (60 FPS)</h4>
-                </div>
-                <p className="text-[11px] text-gray-600 dark:text-studio-300 leading-relaxed">
-                  Record your studio screen or browser tab in real-time at 60 FPS. Move, rotate, and customize the garment in real time during the recording.
-                </p>
-                {isScreenRecording && (
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-studio-900 border border-brand-300 dark:border-brand-500/40">
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
-                      <span className="size-2 rounded-full bg-red-500 animate-ping" />
-                      Screen Recording Active
-                    </span>
-                    <span className="font-mono text-xs font-bold text-gray-900 dark:text-white">
-                      {screenElapsed.toFixed(1)}s
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
             {/* Format Selection */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -410,7 +304,10 @@ export function ExportPanel({
                   <Film className="size-3 text-brand-500" />
                   <span>Video Format</span>
                 </label>
-                <span className="text-[9px] text-gray-500 dark:text-studio-400 font-mono">60 FPS Render</span>
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  60 FPS Smooth
+                </span>
               </div>
 
               <div className="grid grid-cols-3 gap-1.5">
@@ -492,25 +389,6 @@ export function ExportPanel({
                 <button
                   type="button"
                   disabled={isRecording}
-                  onClick={() => setVideoMotion('showcase360')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all ${
-                    videoMotion === 'showcase360'
-                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
-                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <RotateCw className="size-3.5 text-brand-500" />
-                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">360° Showcase</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
-                    Smooth full loop revealing front, sleeves & back
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isRecording}
                   onClick={() => setVideoMotion('current')}
                   className={`p-2.5 rounded-2xl border text-left transition-all ${
                     videoMotion === 'current'
@@ -519,11 +397,30 @@ export function ExportPanel({
                   }`}
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <Film className="size-3.5 text-indigo-500" />
-                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">Current Pose</span>
+                    <Film className="size-3.5 text-brand-500" />
+                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">Active Screen View</span>
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-studio-400">
-                    Captures active garment pose or animation
+                    Preserves current zoom, angle, animation & background
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setVideoMotion('showcase360')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    videoMotion === 'showcase360'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <RotateCw className="size-3.5 text-indigo-500" />
+                    <span className="text-xs font-extrabold text-gray-900 dark:text-white">360° Turntable</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
+                    Smooth 360° spin loop revealing all angles
                   </div>
                 </button>
               </div>
@@ -672,11 +569,9 @@ export function ExportPanel({
                 ))}
               </div>
             </div>
-            </>
-            )}
 
             {/* Recording Progress Status Box */}
-            {isRecording && !isScreenRecording && (
+            {isRecording && (
               <div className="p-4 rounded-2xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 space-y-2.5 animate-fadeIn">
                 <div className="flex items-center justify-between text-xs font-bold text-brand-700 dark:text-brand-300">
                   <span className="flex items-center gap-1.5">
@@ -722,42 +617,23 @@ export function ExportPanel({
             )}
 
             {/* Start / Stop Recording Action Button */}
-            {isScreenRecording ? (
-              <button
-                onClick={handleStopEarly}
-                className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm shadow-lg shadow-red-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-              >
-                <StopCircle className="size-4" />
-                <span>Stop Screen Recording & Download ({screenElapsed.toFixed(1)}s)</span>
-              </button>
-            ) : videoCaptureMode === 'screen' ? (
-              <button
-                disabled={!hasAcceptedAup}
-                onClick={handleStartScreenRecording}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
-              >
-                <Video className="size-4" />
-                <span>Start Live Screen Recording (60 FPS)</span>
-              </button>
-            ) : (
-              <button
-                disabled={isRecording || !hasAcceptedAup}
-                onClick={handleStartRecording}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
-              >
-                {isRecording ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    <span>Recording {videoDuration}s Video...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="size-4" />
-                    <span>Start 60 FPS Video Recording ({videoDuration}s)</span>
-                  </>
-                )}
-              </button>
-            )}
+            <button
+              disabled={isRecording || !hasAcceptedAup}
+              onClick={handleStartRecording}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {isRecording ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Recording {videoDuration}s Video...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="size-4" />
+                  <span>Start 60 FPS Video Recording ({videoDuration}s)</span>
+                </>
+              )}
+            </button>
           </div>
         )}
 

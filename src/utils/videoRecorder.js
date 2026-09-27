@@ -3,10 +3,8 @@
  * High-performance 60 FPS hardware video recorder for VirtualThreads 3D Studio.
  *
  * Captures silky-smooth 60 FPS video directly from the WebGL canvas using MediaRecorder
- * with hardware-accelerated GPU stream encoding, eliminating all 2D CPU readback stalls,
- * dropped frames, and timing jitter.
- *
- * Also provides native Live Screen Recording via navigator.mediaDevices.getDisplayMedia.
+ * with hardware-accelerated GPU stream encoding, preserving the exact camera zoom,
+ * background, lighting, and animation speeds.
  */
 export class CanvasVideoRecorder {
   constructor(canvasOrSceneManager) {
@@ -25,7 +23,6 @@ export class CanvasVideoRecorder {
     this.stopTimeout = null;
     this.safetyFinalizeTimeout = null;
     this._finalizePromise = null;
-    this.screenStream = null;
   }
 
   /**
@@ -62,10 +59,11 @@ export class CanvasVideoRecorder {
 
   /**
    * Starts recording the 3D studio canvas directly at 60 FPS with hardware acceleration.
+   * Preserves the active zoom, camera angle, animation speed, and studio background.
    * @param {Object} options
    * @param {number} options.durationSeconds - Duration in seconds (1 to 30)
    * @param {'mobile' | 'desktop' | 'square'} options.format - Video aspect ratio
-   * @param {'showcase360' | 'current'} options.motion - Motion mode
+   * @param {'current' | 'showcase360'} options.motion - Motion mode
    * @param {'webm' | 'mp4'} options.preferredFormat - Preferred video format
    * @param {string} options.backgroundColor - Studio background color
    * @param {Function} onProgress - Callback (pct: number, elapsedSec: number)
@@ -74,9 +72,9 @@ export class CanvasVideoRecorder {
     {
       durationSeconds = 5,
       format = 'desktop',
-      motion = 'showcase360',
+      motion = 'current',
       preferredFormat = 'webm',
-      backgroundColor = '#121318'
+      backgroundColor = null
     } = {},
     onProgress = () => {}
   ) {
@@ -88,7 +86,7 @@ export class CanvasVideoRecorder {
         }
 
         // Direct hardware-accelerated 60 FPS stream from WebGL canvas
-        // Eliminates CPU readback stalls and yields screen-recording smoothness
+        // Eliminates CPU readback stalls and maintains screen animation smoothness
         const stream = this.canvas.captureStream ? this.canvas.captureStream(60) : null;
         if (!stream) {
           reject(new Error('Browser does not support canvas video capture (captureStream).'));
@@ -98,13 +96,13 @@ export class CanvasVideoRecorder {
         const selectedMime = CanvasVideoRecorder.getSupportedMimeType(preferredFormat);
         const options = {
           mimeType: selectedMime,
-          videoBitsPerSecond: 16000000 // 16 Mbps for pristine 60 FPS high-motion clarity
+          videoBitsPerSecond: 16000000 // 16 Mbps for high-motion clarity
         };
 
         this.recordedChunks = [];
         this.mediaRecorder = new MediaRecorder(stream, options);
 
-        // Instruct SceneManager to initialize 60 FPS fixed delta stepping and backdrop
+        // Instruct SceneManager to initialize video recording session
         if (this.sceneManager && this.sceneManager.startVideoRecording) {
           this.sceneManager.startVideoRecording({
             fps: 60,
@@ -182,15 +180,15 @@ export class CanvasVideoRecorder {
           const pct = Math.min(99, Math.round((elapsedMs / totalDurationMs) * 100));
           const sec = Math.min(durationSeconds, elapsedMs / 1000);
           onProgress(pct, sec);
-        }, 80);
+        }, 60);
 
-        // Start continuous recording (no micro-timeslicing to allow optimal hardware B-frame compression)
+        // Start continuous recording (no micro-timeslicing to allow optimal hardware compression)
         this.mediaRecorder.start();
 
         // Exact timer to conclude recording at requested duration
         this.stopTimeout = setTimeout(() => {
           this.stopEarly();
-        }, totalDurationMs + 80);
+        }, totalDurationMs + 50);
       } catch (err) {
         this.isRecording = false;
         if (this.sceneManager && this.sceneManager.stopVideoRecording) {
@@ -198,85 +196,6 @@ export class CanvasVideoRecorder {
         }
         reject(err);
       }
-    });
-  }
-
-  /**
-   * Starts a live screen recording session capturing user interactions in the studio.
-   * Uses navigator.mediaDevices.getDisplayMedia.
-   */
-  async startScreenRecording(onProgress = () => {}, onStoppedByUser = () => {}) {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      throw new Error('Screen recording is not supported in this browser environment.');
-    }
-
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        frameRate: 60,
-        displaySurface: 'browser'
-      },
-      audio: false
-    });
-
-    this.screenStream = stream;
-    const selectedMime = CanvasVideoRecorder.getSupportedMimeType('webm');
-
-    this.recordedChunks = [];
-    this.mediaRecorder = new MediaRecorder(stream, {
-      mimeType: selectedMime,
-      videoBitsPerSecond: 16000000
-    });
-
-    this.isRecording = true;
-    const startTime = performance.now();
-    this.progressTimer = setInterval(() => {
-      if (!this.isRecording) {
-        clearInterval(this.progressTimer);
-        return;
-      }
-      const elapsedSec = (performance.now() - startTime) / 1000;
-      onProgress(elapsedSec);
-    }, 200);
-
-    return new Promise((resolve, reject) => {
-      this.mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          this.recordedChunks.push(e.data);
-        }
-      };
-
-      const handleStop = () => {
-        this.isRecording = false;
-        if (this.progressTimer) {
-          clearInterval(this.progressTimer);
-          this.progressTimer = null;
-        }
-        if (this.screenStream) {
-          this.screenStream.getTracks().forEach((track) => track.stop());
-          this.screenStream = null;
-        }
-        if (this.recordedChunks.length === 0) {
-          reject(new Error('No screen recording frames captured.'));
-          return;
-        }
-        const blob = new Blob(this.recordedChunks, { type: selectedMime });
-        const isMp4 = selectedMime.includes('mp4');
-        resolve({ blob, mimeType: selectedMime, isMp4, isScreenRecording: true });
-      };
-
-      this.mediaRecorder.onstop = handleStop;
-
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.onended = () => {
-          if (this.isRecording) {
-            this.stopEarly();
-            onStoppedByUser();
-          }
-        };
-      }
-
-      this.mediaRecorder.start();
     });
   }
 
@@ -305,21 +224,16 @@ export class CanvasVideoRecorder {
         } catch (err) {}
       }
 
-      if (this.screenStream) {
-        this.screenStream.getTracks().forEach((track) => track.stop());
-        this.screenStream = null;
-      }
-
       // Safety finalization fallback if onstop is delayed
       this.safetyFinalizeTimeout = setTimeout(() => {
         if (typeof this._finalizePromise === 'function') {
           this._finalizePromise();
         }
-      }, 700);
+      }, 500);
     }
   }
 
-  downloadBlob(blob, filename = 'virtualthreads-mockup.webm') {
+  downloadBlob(blob, filename = 'virtualthreads-animation.webm') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.style.display = 'none';

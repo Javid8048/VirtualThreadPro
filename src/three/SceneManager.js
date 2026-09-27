@@ -1917,9 +1917,9 @@ export class SceneManager {
     }
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Use fixed deterministic 60 FPS delta during video recording for zero-jitter smoothness
+    // High-precision clock delta: maintains live animation speed and smoothness during video recording
     const rawDelta = this.clock.getDelta();
-    const delta = this.isRecordingVideo ? (1 / 60) : Math.min(Math.max(rawDelta, 0.001), 0.05);
+    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     if (this.mixer) {
       this.mixer.update(delta);
@@ -2038,13 +2038,13 @@ export class SceneManager {
       }
     }
 
-    // Video recording showcase motion: mathematically exact 360° spin loop with zero jitter
+    // Video recording showcase motion: smooth continuous 360° spin loop based on elapsed time
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
-      this.recordingFrame = (this.recordingFrame || 0) + 1;
-      const totalFrames = Math.max(1, (this.recordingDuration || 5) * 60);
-      const progress = Math.min(1.0, this.recordingFrame / totalFrames);
-      const loops = (this.recordingDuration || 5) >= 15 ? 2 : 1;
-      const targetAngle = progress * (2 * Math.PI * loops);
+      const elapsedSec = (performance.now() - (this.recordingStartTime || performance.now())) / 1000;
+      const totalDuration = this.recordingDuration || 5;
+      const progress = Math.min(1.0, elapsedSec / totalDuration);
+      const loops = totalDuration >= 15 ? 2 : 1;
+      const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = targetAngle;
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
@@ -2093,8 +2093,8 @@ export class SceneManager {
     fps = 60,
     durationSeconds = 5,
     format = 'desktop',
-    motion = 'showcase360',
-    backgroundColor = '#121318',
+    motion = 'current',
+    backgroundColor = null,
     onFrame = null
   } = {}) {
     this.isRecordingVideo = true;
@@ -2105,77 +2105,29 @@ export class SceneManager {
     this.onRecordingFrame = onFrame;
     this.recordingStartTime = performance.now();
 
-    // Set background on Three.js Scene directly for WebGL hardware acceleration (smooth 60 FPS)
+    // Preserve the user's active studio background and lighting
     this.originalSceneBackground = this.scene.background;
-    this.scene.background = new THREE.Color(
-      backgroundColor === '#f4f4f6' || backgroundColor === '#ffffff' ? 0xf4f4f6 : 0x121318
-    );
+    if (backgroundColor && backgroundColor !== 'transparent' && backgroundColor !== '#121318') {
+      this.scene.background = new THREE.Color(backgroundColor);
+    }
 
-    // Snapshot current state to restore cleanly upon completion
+    // Save controls state and lock orbit interaction during capture to prevent mouse movement
     this.preRecordState = {
-      cameraPosition: this.camera.position.clone(),
-      cameraFov: this.camera.fov,
-      controlsTarget: this.controls.target.clone(),
-      controlsEnabled: this.controls.enabled,
-      tshirtRotationY: this.tshirtPivot ? this.tshirtPivot.rotation.y : 0,
-      hoodieRotationY: this.realHoodieRoot ? this.realHoodieRoot.rotation.y : 0,
-      pantsRotationY: this.realPantsRoot ? this.realPantsRoot.rotation.y : 0,
-      capRotationY: this.realCapRoot ? this.realCapRoot.rotation.y : 0,
-      attachmentsRotationY: this.attachmentsGroup ? this.attachmentsGroup.rotation.y : 0
+      controlsEnabled: this.controls ? this.controls.enabled : true
     };
-
-    // Temporarily freeze user orbit controls during video recording
-    this.controls.enabled = false;
-
-    // Target vertical focus height based on isZoomed state
-    let targetY = 0;
-    if (this.isZoomed) {
-      if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') targetY = 0.65;
-      else if (this.garmentType === 'sweatpants') targetY = 0.30;
-      else if (this.garmentType === 'cap') targetY = 0.40;
-      else targetY = 0.75;
-    } else {
-      if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') targetY = 0.15;
-      else if (this.garmentType === 'cap') targetY = 0.40;
-      else if (this.garmentType === 'sweatpants') targetY = 0.0;
-      else targetY = 0.20;
+    if (this.controls) {
+      this.controls.enabled = false;
     }
 
-    const targetX = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') ? -0.55 : 0;
-    this.controls.target.set(targetX, targetY, 0);
-
-    // Camera Framing per video format and isZoomed state
-    let camDistance = 24.5;
-    if (this.isZoomed) {
-      if (format === 'mobile') {
-        camDistance = (this.garmentType === 'cap') ? 14.0 : 21.0;
-      } else if (format === 'square') {
-        camDistance = (this.garmentType === 'cap') ? 11.5 : 16.5;
-      } else {
-        camDistance = (this.garmentType === 'cap') ? 9.5 : 14.2;
-      }
-    } else {
-      if (format === 'mobile') {
-        camDistance = (this.garmentType === 'cap') ? 20.0 : 34.0;
-      } else if (format === 'square') {
-        camDistance = (this.garmentType === 'cap') ? 16.0 : 27.0;
-      } else {
-        camDistance = (this.garmentType === 'cap') ? 14.5 : 24.5;
-      }
-    }
-
-    this.camera.position.set(targetX, targetY, camDistance);
-    this.camera.lookAt(targetX, targetY, 0);
-
-    // If 360 showcase motion requested:
-    // Reset garment to front (rotation.y = 0)
-    if (motion === 'showcase360') {
-      if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
-      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
-      if (this.realPantsRoot) this.realPantsRoot.rotation.y = 0;
-      if (this.realCapRoot) this.realCapRoot.rotation.y = 0;
-      if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
-    }
+    // Preserve exact camera position, zoom, and orientation matching screen view
+    this.recordingBaseAngle = (
+      this.tshirtPivot?.rotation.y ||
+      this.realHoodieRoot?.rotation.y ||
+      this.realPantsRoot?.rotation.y ||
+      this.realCapRoot?.rotation.y ||
+      this.attachmentsGroup?.rotation.y ||
+      0
+    );
   }
 
   stopVideoRecording() {
@@ -2184,28 +2136,18 @@ export class SceneManager {
     this.onRecordingFrame = null;
     this.recordingFrame = 0;
 
-    // Restore scene background
-    this.scene.background = this.originalSceneBackground || null;
-
-    // Restore interactive state
-    if (this.preRecordState) {
-      const s = this.preRecordState;
-      this.camera.position.copy(s.cameraPosition);
-      this.camera.fov = s.cameraFov;
-      this.camera.updateProjectionMatrix();
-      this.controls.target.copy(s.controlsTarget);
-      this.controls.enabled = s.controlsEnabled;
-
-      if (this.tshirtPivot) this.tshirtPivot.rotation.y = s.tshirtRotationY;
-      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = s.hoodieRotationY;
-      if (this.realPantsRoot) this.realPantsRoot.rotation.y = s.pantsRotationY;
-      if (this.realCapRoot) this.realCapRoot.rotation.y = s.capRotationY;
-      if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = s.attachmentsRotationY;
-      this.clock.getDelta(); // Clear delta backlog to prevent sudden jump
-      this.preRecordState = null;
-    } else {
-      this.clock.getDelta();
+    // Restore background if modified
+    if (this.originalSceneBackground !== undefined) {
+      this.scene.background = this.originalSceneBackground;
     }
+
+    // Restore user orbit controls
+    if (this.preRecordState && this.controls) {
+      this.controls.enabled = this.preRecordState.controlsEnabled;
+      this.preRecordState = null;
+    }
+
+    this.clock.getDelta(); // Clear delta backlog
   }
 
   captureSnapshot(width = 3840, height = 2160, isTransparent = true) {
