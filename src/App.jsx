@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, CheckCircle, Shirt } from 'lucide-react';
 import { SidebarLeft } from './components/SidebarLeft';
 import { PositionGuide } from './components/PositionGuide';
 import { ExportPanel } from './components/ExportPanel';
@@ -8,13 +8,27 @@ import { GetStartedModal } from './components/GetStartedModal';
 import { StaticGarmentView } from './components/StaticGarmentView';
 import { LandingPage } from './components/LandingPage';
 import { HeaderNav } from './components/HeaderNav';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { SceneManager } from './three/SceneManager';
+
+const garmentNameMap = {
+  oversized_tee: 'Oversized Tee',
+  regular_tee: 'Classic Tee',
+  cropped_tee: 'Cropped Tee',
+  polo: 'Polo Shirt',
+  sweatshirt: 'Sweatshirt',
+  hoodie: 'Hoodie',
+  zip_hoodie: 'Zip Hoodie',
+  sweatpants: 'Sweatpants',
+  cap: 'Streetwear Cap'
+};
 
 export default function App() {
   const containerRef = useRef(null);
   const sceneManagerRef = useRef(null);
   const fileInputRef = useRef(null);
   const uploadTargetSideRef = useRef('front');
+  const artworkCacheRef = useRef({});
 
   // URL search params support (e.g. ?garment=hoodie or ?page=studio)
   const initialParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
@@ -28,7 +42,7 @@ export default function App() {
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [currentCamera, setCurrentCamera] = useState('front');
-  const [isZoomed, setIsZoomed] = useState(true); // Independent zoom state (default enabled)
+  const [isZoomed, setIsZoomed] = useState(false); // Default wide view per user request
   const [activeSide, setActiveSide] = useState('front');
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
@@ -89,11 +103,34 @@ export default function App() {
     setExportTab(typeof tab === 'string' ? tab : 'video');
     setRightDrawerMode('export');
   };
+  window.__HANDLE_OPEN_EXPORT__ = handleOpenExport;
   const [mobileFrameGuide, setMobileFrameGuide] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   window.__IS_LOADED__ = isLoaded;
+  const [isGarmentLoading, setIsGarmentLoading] = useState(false);
+  const [pendingGarmentType, setPendingGarmentType] = useState(null);
   const [designManager, setDesignManager] = useState(null);
+
+  // Global Asynchronous Video Export State (Persists across panel open/close)
+  const [asyncExportState, setAsyncExportState] = useState({
+    isRecording: false,
+    progress: 0,
+    elapsedSec: 0,
+    duration: 5,
+    status: 'idle', // 'idle' | 'recording' | 'complete' | 'error'
+    fileName: null
+  });
+
+  // Auto-dismiss completed export toast after 4 seconds
+  useEffect(() => {
+    if (asyncExportState.status === 'complete') {
+      const timer = setTimeout(() => {
+        setAsyncExportState((prev) => ({ ...prev, status: 'idle' }));
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [asyncExportState.status]);
 
   // Initialize Three.js Scene early for instantaneous studio launch (0ms delay)
   useEffect(() => {
@@ -106,6 +143,12 @@ export default function App() {
       },
       garmentType
     );
+
+    sm.onGarmentLoading = (loading, type) => {
+      setIsGarmentLoading(loading);
+      if (type) setPendingGarmentType(type);
+      if (!loading) setPendingGarmentType(null);
+    };
 
     sceneManagerRef.current = sm;
     window.__SCENE_MANAGER__ = sm;
@@ -160,67 +203,144 @@ export default function App() {
     };
   }, [currentPage, viewMode]);
 
+  // Global Keyboard Shortcuts (Undo/Redo & WCAG 2.1 AA Keyboard 3D Orbit Navigation)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
+
+      // 1. Undo / Redo Shortcuts (Ctrl+Z, Cmd+Z, Ctrl+Y, Ctrl+Shift+Z)
+      if ((e.ctrlKey || e.metaKey) && !isInput) {
+        if (e.key === 'z' || e.key === 'Z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            designManager?.redo?.();
+          } else {
+            designManager?.undo?.();
+          }
+          return;
+        } else if (e.key === 'y' || e.key === 'Y') {
+          e.preventDefault();
+          designManager?.redo?.();
+          return;
+        }
+      }
+
+      // 2. WCAG 2.1 AA 15° Keyboard Orbit Controls for 3D Studio
+      if (currentPage === 'studio' && viewMode === '3d' && sceneManagerRef.current && !isInput) {
+        const controls = sceneManagerRef.current.controls;
+        if (!controls) return;
+        const ROTATE_STEP = (15 * Math.PI) / 180; // 15 degrees
+
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          controls.rotateLeft(ROTATE_STEP);
+          controls.update();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          controls.rotateLeft(-ROTATE_STEP);
+          controls.update();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          controls.rotateUp(ROTATE_STEP);
+          controls.update();
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          controls.rotateUp(-ROTATE_STEP);
+          controls.update();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [designManager, currentPage, viewMode]);
+
   // Handlers
   const handleGarmentTypeChange = (type) => {
+    if (type === garmentType) return;
+    setIsGarmentLoading(true);
+    setPendingGarmentType(type);
+
+    // Cache current garment's artwork before switching (Document 2 non-destructive UX)
+    if (designManager) {
+      artworkCacheRef.current[garmentType] = [...designManager.layers];
+    }
+
     setGarmentType(type);
-    setViewMode('3d');
     setCurrentCamera('front');
-    setIsZoomed(true);
+    setIsZoomed(false);
     if (sceneManagerRef.current) {
-      sceneManagerRef.current.setGarmentType(type);
-      sceneManagerRef.current.setCameraPreset('front', true);
+      sceneManagerRef.current.setGarmentType(type, () => {
+        setIsGarmentLoading(false);
+        setPendingGarmentType(null);
+      });
+      sceneManagerRef.current.setCameraPreset('front', false);
       sceneManagerRef.current.handleResize();
+    } else {
+      setTimeout(() => {
+        setIsGarmentLoading(false);
+        setPendingGarmentType(null);
+      }, 300);
+    }
+
+    // Restore cached artwork for the new garment if previously customized
+    if (designManager) {
+      const cached = artworkCacheRef.current[type];
+      if (cached && cached.length > 0) {
+        designManager.layers = [...cached];
+        designManager.activeLayerId = cached[0]?.id || null;
+        designManager.saveHistory();
+        designManager.flush();
+      }
     }
   };
+
   window.__SET_GARMENT_TYPE__ = handleGarmentTypeChange;
+  window.__SET_VIEW_MODE__ = setViewMode;
 
   const handleSelectGarmentFromLanding = (type) => {
     handleGarmentTypeChange(type);
     setPositionGuideOpen(true);
     setCurrentCamera('front');
-    setIsZoomed(true);
+    setIsZoomed(false);
     setCurrentPage('studio');
   };
   window.__SELECT_GARMENT_FROM_LANDING__ = handleSelectGarmentFromLanding;
   window.__SET_CURRENT_PAGE__ = setCurrentPage;
 
   const handleBackToLanding = () => {
-    const hasDesigns = designManager && designManager.layers && designManager.layers.length > 0;
-    if (hasDesigns) {
-      const confirmDiscard = window.confirm("Confirm you want to discard the design");
-      if (confirmDiscard) {
-        if (designManager) {
-          designManager.clearLayers();
-        }
-        if (sceneManagerRef.current) {
-          sceneManagerRef.current.setAnimationMode('static');
-          sceneManagerRef.current.setCameraPreset('front', true);
-        }
-        setAnimationMode('static');
-        setInteractionMode('orbit');
-        setCurrentPage('landing');
-      }
-    } else {
-      if (sceneManagerRef.current) {
-        sceneManagerRef.current.setAnimationMode('static');
-        sceneManagerRef.current.setCameraPreset('front', true);
-      }
-      setAnimationMode('static');
-      setInteractionMode('orbit');
-      setCurrentPage('landing');
+    // Non-destructive: retain custom designs in session so returning to studio keeps work intact
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setAnimationMode('static');
+      sceneManagerRef.current.setCameraPreset('front', true);
     }
+    setAnimationMode('static');
+    setInteractionMode('orbit');
+    setCurrentPage('landing');
   };
   window.__HANDLE_BACK_TO_LANDING__ = handleBackToLanding;
 
-  const handleToggleZoom = () => {
-    setIsZoomed((prev) => {
-      const next = !prev;
-      if (sceneManagerRef.current) {
-        sceneManagerRef.current.setZoom(next);
-      }
-      return next;
-    });
+  const handleToggleZoom = async () => {
+    const next = !isZoomed;
+    setIsZoomed(next);
+    if (sceneManagerRef.current) {
+      await sceneManagerRef.current.setZoom(next);
+    }
+    return next;
   };
+
+  const handleSetZoom = async (zoomed) => {
+    const val = Boolean(zoomed);
+    setIsZoomed(val);
+    if (sceneManagerRef.current) {
+      await sceneManagerRef.current.setZoom(val);
+    }
+    return val;
+  };
+  window.__TOGGLE_ZOOM__ = handleToggleZoom;
+  window.__SET_ZOOM__ = handleSetZoom;
+  window.__IS_ZOOMED__ = () => isZoomed;
 
   const handleZoomIn = () => {
     if (sceneManagerRef.current) {
@@ -257,6 +377,13 @@ export default function App() {
 
   const handleCameraAnimationModeChange = (mode) => {
     setCameraAnimationMode(mode);
+    if (mode !== 'none') {
+      // Requirement 4: When camera animation is activated, garment animation is set to static
+      setAnimationMode('static');
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.setAnimationMode('static');
+      }
+    }
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setCameraAnimationMode(mode);
     }
@@ -271,7 +398,12 @@ export default function App() {
   const handleAnimationModeChange = (mode) => {
     const normalizedMode = (mode === 'walk') ? 'walking' : (mode === 'none') ? 'static' : (mode === 'wind') ? 'waves' : mode;
     setAnimationMode(normalizedMode);
+
+    // Requirement 4: When animation is on, camera animation should be off.
+    // Requirement 5: When static clicked, from the above menu bar, all animation, camera animation should be off.
+    setCameraAnimationMode('none');
     if (sceneManagerRef.current) {
+      sceneManagerRef.current.setCameraAnimationMode('none');
       sceneManagerRef.current.setAnimationMode(normalizedMode);
     }
   };
@@ -311,10 +443,11 @@ export default function App() {
   const handleSideChange = (side) => {
     setActiveSide(side);
     setCurrentCamera(side);
-    if (sceneManagerRef.current) {
+    if (sceneManagerRef.current && viewMode === '3d') {
       sceneManagerRef.current.setCameraPreset(side, isZoomed);
     }
   };
+  window.__SET_ACTIVE_SIDE__ = handleSideChange;
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -350,6 +483,21 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file || !sceneManagerRef.current) return;
 
+    // Security Check 1 (SEC-01): Enforce 15MB file size ceiling
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File too large (Max 15MB allowed)');
+      e.target.value = '';
+      return;
+    }
+
+    // Security Check 2 (SEC-02): Restrict MIME types to safe raster formats
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Invalid format. Please upload PNG, JPG, or WebP');
+      e.target.value = '';
+      return;
+    }
+
     const targetSide = uploadTargetSideRef.current || 'front';
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -365,7 +513,7 @@ export default function App() {
           rotation: 0,
           printType: 'screen'
         });
-        setPositionGuideOpen(true);
+        setRightDrawerMode('design');
       };
       img.src = event.target.result;
     };
@@ -398,11 +546,11 @@ export default function App() {
   return (
     <div className={`relative w-full ${currentPage === 'landing' ? 'min-h-screen' : 'h-screen w-screen overflow-hidden'} ${getBackdropClass()}`}>
       
-      {/* Hidden Global File Input */}
+      {/* Hidden Global File Input (SEC-02: Restricted to safe raster images) */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp"
         onChange={handleGlobalFileUpload}
         className="hidden"
       />
@@ -418,10 +566,13 @@ export default function App() {
         />
       )}
 
-      {/* 3D WebGL Canvas Viewport (Active in 3D Mode in Studio) */}
+      {/* 3D WebGL Canvas Viewport (Active in 3D Mode in Studio - WCAG 2.1 AA Accessible) */}
       <div
         ref={containerRef}
-        className={`absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing z-0 ${
+        role="region"
+        aria-label="Interactive 3D garment customization studio displaying active streetwear model"
+        tabIndex={0}
+        className={`absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing z-0 focus:outline-none ${
           currentPage === 'studio' && viewMode === '3d' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -443,12 +594,40 @@ export default function App() {
         />
       )}
 
-      {/* Loading Overlay (Only shown inside Studio) */}
+      {/* Loading Overlay (Initial Studio Load) */}
       {currentPage === 'studio' && !isLoaded && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#121318] z-50 text-white select-none">
           <div className="size-12 rounded-full border-4 border-white/20 border-t-[#4f46e5] animate-spin mb-4" />
-          <h2 className="text-base font-bold tracking-wide">Loading 3D Studio...</h2>
+          <h2 className="text-base font-bold tracking-wide">Loading {garmentNameMap[garmentType] || '3D Garment'}...</h2>
           <p className="text-xs text-gray-400 mt-1">Preparing photorealistic streetwear model</p>
+        </div>
+      )}
+
+      {/* Garment Switching Loader Overlay */}
+      {currentPage === 'studio' && isLoaded && isGarmentLoading && viewMode === '3d' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-40 text-white select-none pointer-events-auto transition-all duration-200">
+          <div className="flex flex-col items-center bg-white/95 dark:bg-studio-900/95 border border-gray-200/90 dark:border-studio-700/80 px-8 py-6 rounded-3xl shadow-2xl backdrop-blur-xl max-w-sm mx-4 text-center animate-fadeIn">
+            <div className="relative flex items-center justify-center mb-4">
+              <div className="size-16 rounded-full border-3 border-gray-200 dark:border-studio-800 border-t-brand-500 border-r-indigo-500 animate-spin" />
+              <div className="absolute size-9 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                <Shirt className="size-4 animate-pulse" />
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <h3 className="text-sm font-extrabold tracking-wide uppercase text-gray-900 dark:text-white flex items-center gap-2 justify-center">
+                <span>Loading {garmentNameMap[pendingGarmentType || garmentType] || 'Garment'}</span>
+                <span className="size-2 rounded-full bg-brand-500 animate-ping" />
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-studio-400">
+                Preparing photorealistic 3D model & fabrics...
+              </p>
+            </div>
+
+            <div className="w-44 h-1.5 bg-gray-200 dark:bg-studio-800 rounded-full overflow-hidden mt-4">
+              <div className="h-full bg-gradient-to-r from-brand-500 to-indigo-600 rounded-full w-full animate-pulse" />
+            </div>
+          </div>
         </div>
       )}
 
@@ -472,6 +651,7 @@ export default function App() {
               animationMode={animationMode}
               onAnimationModeChange={handleAnimationModeChange}
               onToggleTurntable={() => handleAnimationModeChange(animationMode === 'turntable' ? 'static' : 'turntable')}
+              cameraAnimationMode={cameraAnimationMode}
               positionGuideOpen={rightDrawerMode === 'design'}
               onTogglePositionGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
               onOpenExport={handleOpenExport}
@@ -480,6 +660,10 @@ export default function App() {
               onToggleFullscreen={toggleFullscreen}
               theme={theme}
               onToggleTheme={toggleTheme}
+              onUndo={() => designManager?.undo?.()}
+              onRedo={() => designManager?.redo?.()}
+              canUndo={Boolean(designManager?.canUndo?.())}
+              canRedo={Boolean(designManager?.canRedo?.())}
             />
           )}
 
@@ -542,11 +726,61 @@ export default function App() {
         defaultTab={exportTab}
         sceneManager={sceneManagerRef.current}
         backdropMode={backdropMode}
+        asyncExportState={asyncExportState}
+        setAsyncExportState={setAsyncExportState}
       />
+
+      {/* Floating Background Async Export Status Pill (Active when recording and panel is closed) */}
+      {asyncExportState.isRecording && rightDrawerMode !== 'export' && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-3 bg-white/95 dark:bg-studio-900/95 text-gray-900 dark:text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-brand-500/40 backdrop-blur-xl animate-fadeIn">
+          <div className="size-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold leading-tight">Exporting Video ({asyncExportState.progress}%)</span>
+            <span className="text-[10px] text-gray-500 dark:text-studio-400 font-mono">
+              {asyncExportState.elapsedSec.toFixed(1)}s / {asyncExportState.duration}s
+            </span>
+          </div>
+          <button
+            onClick={() => handleOpenExport('video')}
+            className="px-2.5 py-1 rounded-xl bg-gray-150 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 text-xs font-bold transition-colors"
+          >
+            Open
+          </button>
+        </div>
+      )}
+
+      {/* Async Video Export Download Success Toast */}
+      {asyncExportState.status === 'complete' && asyncExportState.fileName && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-2xl animate-fadeIn">
+          <CheckCircle className="size-4 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold leading-tight">Video Export Complete!</span>
+            <span className="text-[10px] opacity-90 font-mono truncate max-w-[200px]">{asyncExportState.fileName}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Mobile Bottom Action Dock (Shown on screens < 768px in 3D Studio) */}
+      {viewMode === '3d' && (
+        <MobileBottomNav
+          interactionMode={interactionMode}
+          onInteractionModeChange={handleInteractionModeChange}
+          currentCamera={currentCamera}
+          onCameraChange={handleCameraChange}
+          isZoomed={isZoomed}
+          onToggleZoom={handleToggleZoom}
+          animationMode={animationMode}
+          onAnimationModeChange={handleAnimationModeChange}
+          rightDrawerMode={rightDrawerMode}
+          onToggleDesignGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
+          onOpenExport={handleOpenExport}
+          garmentType={garmentType}
+        />
+      )}
 
       {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio) */}
       {viewMode === '3d' && interactionMode === 'dragDesign' && designManager && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
+        <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
           <span className="font-bold text-gray-700 dark:text-gray-200">Graphic Size:</span>
           
           <button

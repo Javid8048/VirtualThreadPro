@@ -83,13 +83,13 @@ export function GetStartedModal({
                   }}
                   className="text-[11px] text-brand-accent hover:underline flex items-center gap-1 font-semibold"
                 >
-                  <span>View All 11 Blanks</span>
+                  <span>View All 9 Blanks</span>
                   <ChevronRight className="size-3" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {GARMENT_PRODUCTS.slice(0, 6).map((garment) => {
+              <div className="grid grid-cols-2 gap-3 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
+                {GARMENT_PRODUCTS.map((garment) => {
                   const isSelected = chosenGarment === garment.id;
                   return (
                     <button

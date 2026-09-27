@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') {
  * Eliminates see-through bleed and mirrored reflections inside the collar/hem.
  */
 function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity) {
-  material.customProgramCacheKey = () => 'inside-fabric-shader-v8';
+  material.customProgramCacheKey = () => 'inside-fabric-shader-v9';
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uInsideColor = { value: new THREE.Color(getInsideColor()) };
     shader.uniforms.uAcidWash = { value: 0.0 };
@@ -36,8 +36,10 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
       `
       #ifdef USE_MAP
         float knitCoordY = vMapUv.y;
-      #else
+      #elif defined( USE_UV )
         float knitCoordY = vUv.y;
+      #else
+        float knitCoordY = 1.0;
       #endif
 
       if (uKnitProgress < 0.999) {
@@ -84,7 +86,11 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
         } else if (uKnitProgress < 0.999) {
           float distEdge = uKnitProgress - knitCoordY;
           if (distEdge < 0.035) {
-            float threadWeave = sin(vUv.x * 380.0 + uKnitTime * 14.0) * 0.5 + 0.5;
+            #ifdef USE_UV
+              float threadWeave = sin(vUv.x * 380.0 + uKnitTime * 14.0) * 0.5 + 0.5;
+            #else
+              float threadWeave = sin(uKnitTime * 14.0) * 0.5 + 0.5;
+            #endif
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.6, 0.8, 1.0), threadWeave * 0.85);
           }
         }
@@ -150,8 +156,8 @@ export class SceneManager {
     this.controls.maxDistance = 38;
     this.controls.target.set(0, 0.75, 0);
 
-    // Zoom state (independent toggle: default enabled)
-    this.isZoomed = true;
+    // Zoom state (independent toggle: default wide/unzoomed per user request)
+    this.isZoomed = false;
     this.currentCameraView = 'front';
 
     // 5. Canvas Design Manager (Optimized 2048x2048 texture with 60 FPS RAF scheduling)
@@ -175,6 +181,7 @@ export class SceneManager {
     this.garmentColor = '#ffffff';
     this.acidWash = 0.0;
     this.puffPrint = 0.0;
+    this.onGarmentLoading = null;
 
     // On-demand model loading status
     this.modelsLoading = {
@@ -259,13 +266,13 @@ export class SceneManager {
     // Fallback safety: ensure loading overlay clears even on very slow networks
     setTimeout(() => {
       this.triggerLoadedIfReady(true);
-    }, 6000);
+    }, 45000);
   }
 
   initMaterials() {
     // Texture maps
     const textureLoader = new THREE.TextureLoader();
-    const normalMap = textureLoader.load(getAssetUrl('/models/NormalDetails.jpg'));
+    const normalMap = textureLoader.load(getAssetUrl('/models/normaldetailsv2.jpg'));
     normalMap.wrapS = THREE.ClampToEdgeWrapping;
     normalMap.wrapT = THREE.ClampToEdgeWrapping;
     normalMap.flipY = false;
@@ -275,26 +282,25 @@ export class SceneManager {
     if (this.designManager.texture) this.designManager.texture.anisotropy = maxAniso;
     if (this.designManager.decalTexture) this.designManager.decalTexture.anisotropy = maxAniso;
 
-    // Clean, 100% plain photorealistic cloth material with dynamic 4096x4096 canvas
+    // Clean, 100% photorealistic heavy-weight cotton cloth material with dynamic 4096x4096 canvas
     this.shirtMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.texture,
-      roughness: 0.82,
-      metalness: 0.02,
+      roughness: 0.68,
+      metalness: 0.01,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.16, 0.16),
+      normalScale: new THREE.Vector2(0.24, 0.24),
       side: THREE.DoubleSide
     });
     applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor);
 
     this.fabricMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.garmentColor),
-      roughness: 0.78,
-      metalness: 0.02,
+      roughness: 0.70,
+      metalness: 0.01,
       normalMap: normalMap,
       normalScale: new THREE.Vector2(0.25, 0.25),
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor);
 
     // Vibrant, rich satin ink finish on decals (no dullness, max crispness, sharp anisotropic filtering)
     this.decalMaterial = new THREE.MeshStandardMaterial({
@@ -541,6 +547,9 @@ export class SceneManager {
       (err) => {
         console.error('Error loading 3D apparel model:', err);
         this.modelsLoading.tshirt = false;
+        const cbs = [...this.tshirtCallbacks];
+        this.tshirtCallbacks = [];
+        cbs.forEach(cb => cb());
       }
     );
   }
@@ -558,6 +567,8 @@ export class SceneManager {
       if (activeSide === 'back' && this.hoodieDecalMeshBack) return this.hoodieDecalMeshBack;
       return this.hoodieDecalMeshFront || this.realHoodieRoot;
     }
+    if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
+    if (this.animationMode === 'walking' && this.tshirtWalking) return this.tshirtWalking;
     return this.tshirtStatic;
   }
 
@@ -703,25 +714,37 @@ export class SceneManager {
     Object.values(this.lights).forEach((l) => this.scene.remove(l));
     this.lights = {};
 
-    // Standard high-end photorealistic studio lighting rig (always active for all presets/backdrops)
-    // Key light - crisp directional illumination
-    const keyIntensity = preset === 'light' ? 2.0 : 2.4;
+    // Standard photorealistic studio lighting rig matching VirtualThreads reference
+    // Key light - crisp directional illumination from front-left
+    const keyIntensity = preset === 'light' ? 2.0 : 2.2;
     const keyLight = new THREE.DirectionalLight(0xffffff, keyIntensity);
-    keyLight.position.set(6, 8, 16);
+    keyLight.position.set(-4, 7.5, 14);
     this.scene.add(keyLight);
     this.lights.key = keyLight;
 
-    // Soft fill light
-    const fillLight = new THREE.DirectionalLight(0xe8f0ff, 1.4);
-    fillLight.position.set(-8, 3, 12);
+    // Soft fill light from front-right
+    const fillLight = new THREE.DirectionalLight(0xeef2ff, 1.4);
+    fillLight.position.set(6, 4, 12);
     this.scene.add(fillLight);
     this.lights.fill = fillLight;
 
-    // Rim light - definition and separation
-    const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.6);
-    rimLight.position.set(0, 10, -12);
+    // Top-down rim backlight - definition and separation matching reference
+    const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
+    rimLight.position.set(0, 9, -12);
     this.scene.add(rimLight);
     this.lights.rim = rimLight;
+
+    // Soft lateral rim light for shoulder drape separation
+    const sideRimLight = new THREE.DirectionalLight(0xdde8ff, 0.9);
+    sideRimLight.position.set(10, 6, -8);
+    this.scene.add(sideRimLight);
+    this.lights.sideRim = sideRimLight;
+
+    // Back Key light - ensures back of garment is equally well-lit during 360 turntable
+    const backKeyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    backKeyLight.position.set(-4, 7.5, -14);
+    this.scene.add(backKeyLight);
+    this.lights.backKey = backKeyLight;
 
     // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
     const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -735,8 +758,8 @@ export class SceneManager {
     this.scene.add(backGraphicLight);
     this.lights.backGraphic = backGraphicLight;
 
-    // Ambient light - ensures unshadowed cloth areas stay clean authentic white
-    const ambIntensity = preset === 'light' ? 1.0 : 1.15;
+    // Ambient light - ensures unshadowed cloth areas stay clean authentic cotton white
+    const ambIntensity = preset === 'light' ? 1.0 : 1.1;
     const ambLight = new THREE.AmbientLight(0xffffff, ambIntensity);
     this.scene.add(ambLight);
     this.lights.amb = ambLight;
@@ -767,11 +790,15 @@ export class SceneManager {
     this.cameraAnimationMode = mode;
     if (mode === 'none') {
       this.controls.enabled = (this.interactionMode === 'orbit');
-      this.setCameraPreset('front');
+      this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
     } else {
       this.controls.enabled = false;
       this.cameraAngle = 0;
       this.cameraZoomTime = 0;
+      // Requirement 4: When camera animation is activated, garment animation is set to static
+      if (this.animationMode !== 'static') {
+        this.setAnimationMode('static');
+      }
     }
   }
 
@@ -878,37 +905,46 @@ export class SceneManager {
   }
 
   // --- Dynamic Garment Type Switching (All 9 Garments in 3D) ---
-  setGarmentType(type) {
+  setGarmentType(type, onComplete) {
     this.garmentType = type || 'oversized_tee';
     if (this.designManager && this.designManager.setGarmentType) {
       this.designManager.setGarmentType(this.getGarmentFamily(this.garmentType));
     }
-    this.ensureGarmentModelLoaded(this.garmentType, () => {
+
+    const family = this.getGarmentFamily(this.garmentType);
+    if (this.garmentType === 'cap' && (this.animationMode === 'walking' || this.animationMode === 'waves' || this.animationMode === 'rotate_walk')) {
+      this.animationMode = 'static';
+    }
+    const isAlreadyLoaded = !!this.modelsLoaded[family];
+
+    if (this.onGarmentLoading) {
+      this.onGarmentLoading(true, this.garmentType);
+    }
+
+    const finish = () => {
       this.applyGarmentTypeVisibility();
       this.setAnimationMode(this.animationMode);
       this.triggerLoadedIfReady();
-    });
-    this.applyGarmentTypeVisibility();
-    this.setAnimationMode(this.animationMode);
-    this.triggerLoadedIfReady();
-
-    // Auto adjust camera focus & framing per garment silhouette in ZOOM view by default
-    if (this.controls && this.camera) {
-      if (this.garmentType === 'cap') {
-        this.camera.position.set(0, 0.35, 9.5);
-        this.controls.target.set(0, 0.20, 0);
-      } else if (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie') {
-        this.camera.position.set(0, 0.70, 14.2);
-        this.controls.target.set(0, 0.15, 0);
-      } else if (this.garmentType === 'sweatpants') {
-        this.camera.position.set(0, 0.35, 14.8);
-        this.controls.target.set(0, 0, 0);
-      } else {
-        // Standard studio framing in Zoom view for t-shirts, sweatshirt, polo
-        this.camera.position.set(0, 0.75, 14.2);
-        this.controls.target.set(0, 0.20, 0);
+      if (this.controls && this.camera) {
+        this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
       }
-      this.controls.update();
+      if (this.onGarmentLoading) {
+        this.onGarmentLoading(false, this.garmentType);
+      }
+      if (onComplete) onComplete();
+    };
+
+    if (isAlreadyLoaded) {
+      setTimeout(finish, 220);
+    } else {
+      this.ensureGarmentModelLoaded(this.garmentType, () => {
+        finish();
+      });
+    }
+
+    // Auto adjust camera focus & framing per garment silhouette respecting isZoomed state
+    if (this.controls && this.camera) {
+      this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
     }
   }
 
@@ -964,7 +1000,7 @@ export class SceneManager {
     this.sweatshirtGroup.add(leftArm, leftCuff, rightArm, rightCuff, crewMesh, waistHem);
     this.attachmentsGroup.add(this.sweatshirtGroup);
 
-    // 2. Polo Turned-down Folded Collar & 2-Button Placket
+    // 2. Polo Turned-down Folded Collar, 3-Button Placket & Ribbed Sleeve Cuffs (Envato Elements style)
     this.poloGroup = new THREE.Group();
 
     // Fabric neck insert to completely mask and occlude the round crewneck rim underneath
@@ -982,8 +1018,8 @@ export class SceneManager {
     // Left and right folded lapel wings laying flat against upper chest
     const lapelShape = new THREE.Shape();
     lapelShape.moveTo(0, 0);
-    lapelShape.lineTo(0.78, -0.88);
-    lapelShape.lineTo(0.18, -0.96);
+    lapelShape.lineTo(0.82, -0.92);
+    lapelShape.lineTo(0.20, -1.02);
     lapelShape.lineTo(-0.06, -0.15);
     lapelShape.closePath();
     const extrudeSettings = { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 };
@@ -999,25 +1035,56 @@ export class SceneManager {
     rightLapel.scale.set(-1, 1, 1);
 
     // Front center placket with stitch welt
-    const placketGeom = new THREE.BoxGeometry(0.42, 1.42, 0.045);
+    const placketGeom = new THREE.BoxGeometry(0.44, 1.62, 0.045);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
-    placketMesh.position.set(0, 2.22, 0.96);
+    placketMesh.position.set(0, 2.14, 0.96);
     placketMesh.rotation.set(0.14, 0, 0);
 
-    // Pearlescent buttons
+    // Bottom box-stitch placket tab
+    const placketTabGeom = new THREE.BoxGeometry(0.48, 0.22, 0.055);
+    const placketTabMesh = new THREE.Mesh(placketTabGeom, fabMat);
+    placketTabMesh.position.set(0, 1.34, 0.88);
+    placketTabMesh.rotation.set(0.14, 0, 0);
+
+    // Pearlescent buttons (3-button authentic polo placket)
     const buttonMat = new THREE.MeshStandardMaterial({
-      color: 0xfafafa,
-      roughness: 0.18,
-      metalness: 0.08
+      color: 0xf4f4f4,
+      roughness: 0.22,
+      metalness: 0.12
     });
     const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
-    const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.position.set(0, 2.62, 0.99);
-    const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.position.set(0, 2.02, 0.91);
 
-    this.poloGroup.add(neckCoverMesh, poloCollarMesh, leftLapel, rightLapel, placketMesh, b1, b2);
+    const b1 = new THREE.Mesh(buttonGeom, buttonMat);
+    b1.position.set(0, 2.70, 1.00);
+    const b2 = new THREE.Mesh(buttonGeom, buttonMat);
+    b2.position.set(0, 2.22, 0.94);
+    const b3 = new THREE.Mesh(buttonGeom, buttonMat);
+    b3.position.set(0, 1.74, 0.88);
+
+    // Ribbed short-sleeve cuffs (left & right arm bands)
+    const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
+    const leftPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    leftPoloCuff.position.set(-3.25, 1.38, 0.06);
+    leftPoloCuff.rotation.set(0, 0, -0.58);
+
+    const rightPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    rightPoloCuff.position.set(3.25, 1.38, 0.06);
+    rightPoloCuff.rotation.set(0, 0, 0.58);
+
+    this.poloGroup.add(
+      neckCoverMesh,
+      poloCollarMesh,
+      leftLapel,
+      rightLapel,
+      placketMesh,
+      placketTabMesh,
+      b1,
+      b2,
+      b3,
+      leftPoloCuff,
+      rightPoloCuff
+    );
     this.attachmentsGroup.add(this.poloGroup);
 
     this.scene.add(this.attachmentsGroup);
@@ -1058,7 +1125,6 @@ export class SceneManager {
       metalness: 0.02,
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor);
 
     gltfLoader.load(
       getAssetUrl('/models/virtualthreads_hoodie.glb'),
@@ -1209,6 +1275,9 @@ export class SceneManager {
       (err) => {
         console.error('Error loading virtualthreads hoodie GLB:', err);
         this.modelsLoading.hoodie = false;
+        const cbs = [...this.hoodieCallbacks];
+        this.hoodieCallbacks = [];
+        cbs.forEach(cb => cb());
       }
     );
   }
@@ -1317,6 +1386,9 @@ export class SceneManager {
       (err) => {
         console.error('Error loading real pants OBJ:', err);
         this.modelsLoading.pants = false;
+        const cbs = [...this.pantsCallbacks];
+        this.pantsCallbacks = [];
+        cbs.forEach(cb => cb());
       }
     );
   }
@@ -1405,6 +1477,9 @@ export class SceneManager {
       (err) => {
         console.error('Error loading real cap OBJ:', err);
         this.modelsLoading.cap = false;
+        const cbs = [...this.capCallbacks];
+        this.capCallbacks = [];
+        cbs.forEach(cb => cb());
       }
     );
   }
@@ -1424,13 +1499,13 @@ export class SceneManager {
 
     // Show high-res upper body shirt mesh for all t-shirt family garments
     if (this.tshirtStatic) {
-      this.tshirtStatic.visible = isTshirtFamily;
+      this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
     }
     if (this.tshirtWaves) {
-      this.tshirtWaves.visible = false;
+      this.tshirtWaves.visible = isTshirtFamily && this.animationMode === 'waves';
     }
     if (this.tshirtWalking) {
-      this.tshirtWalking.visible = false;
+      this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
     // Upper body t-shirt scaling
@@ -1446,6 +1521,10 @@ export class SceneManager {
       } else if (t === 'sweatshirt') {
         // Heavyweight fleece boxy drape matching long-sleeve sweatshirt attachments
         this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0104);
+        this.tshirtStatic.position.set(0, -0.427445, 0);
+      } else if (t === 'polo') {
+        // Tailored athletic polo shirt cut (Envato Elements style)
+        this.tshirtStatic.scale.set(0.0094, 0.0096, 0.0090);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else {
         // Streetwear oversized drop-shoulder cut
@@ -1493,31 +1572,99 @@ export class SceneManager {
     if (mode === 'walk') mode = 'walking';
     if (mode === 'wind') mode = 'waves';
     if (mode === 'none') mode = 'static';
+    if (this.garmentType === 'cap' && (mode === 'walking' || mode === 'waves')) {
+      mode = 'static';
+    }
+    if (this.garmentType === 'cap' && mode === 'rotate_walk') {
+      mode = 'turntable';
+    }
     this.animationMode = mode;
+
+    // Requirement 4 & 5: When animation is on, camera animation should be off.
+    // When static is clicked, all animation and camera animation should be off.
+    this.cameraAnimationMode = 'none';
 
     // Reset current actions
     if (this.mixer) {
       Object.values(this.actions).forEach((a) => a.stop());
     }
 
-    // Always maintain high-resolution master t-shirt visible for all t-shirt family garments
-    if (this.tshirtStatic) this.tshirtStatic.visible = true;
-    if (this.tshirtWaves) this.tshirtWaves.visible = false;
-    if (this.tshirtWalking) this.tshirtWalking.visible = false;
-
     if (mode === 'static') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = true;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) this.tshirtWalking.visible = false;
       if (this.tshirtPivot) {
-        this.tshirtPivot.rotation.set(0, 0, 0);
         this.tshirtPivot.position.set(0, 0, 0);
+        this.tshirtPivot.rotation.set(0, 0, 0);
         this.tshirtPivot.scale.set(1, 1, 1);
       }
-      if (this.attachmentsGroup) {
-        this.attachmentsGroup.rotation.set(0, 0, 0);
-        this.attachmentsGroup.position.set(0, 0, 0);
+      const rootsToReset = [
+        this.tshirtPivot,
+        this.realHoodieRoot,
+        this.realPantsRoot,
+        this.realCapRoot,
+        this.attachmentsGroup
+      ].filter(Boolean);
+      rootsToReset.forEach((r) => {
+        r.position.set(0, 0, 0);
+        r.rotation.set(0, 0, 0);
+        r.scale.set(1, 1, 1);
+      });
+    } else if (mode === 'waves') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = false;
+      if (this.tshirtWalking) this.tshirtWalking.visible = false;
+      if (this.tshirtWaves) {
+        this.tshirtWaves.visible = true;
+        const action = this.actions.tshirt_waves;
+        if (action) {
+          action.reset();
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.play();
+        }
       }
+      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
+    } else if (mode === 'walking') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = false;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) {
+        this.tshirtWalking.visible = true;
+        const action = this.actions.tshirt_walking;
+        if (action) {
+          action.reset();
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.setEffectiveTimeScale(this.walkSpeed || 1.0);
+          action.play();
+        }
+      }
+      if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
     } else if (mode === 'knit') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = true;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) this.tshirtWalking.visible = false;
       this.triggerKnitAnimation();
-    } else if (mode === 'turntable' || mode === 'rotate_walk' || mode === 'walking' || mode === 'waves') {
+    } else if (mode === 'turntable') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = true;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) this.tshirtWalking.visible = false;
+      if (this.tshirtPivot) {
+        this.tshirtPivot.position.set(0, 0, 0);
+        this.tshirtPivot.rotation.x = 0;
+        this.tshirtPivot.rotation.z = 0;
+        this.tshirtPivot.scale.set(1, 1, 1);
+      }
+    } else if (mode === 'rotate_walk') {
+      if (this.tshirtStatic) this.tshirtStatic.visible = false;
+      if (this.tshirtWaves) this.tshirtWaves.visible = false;
+      if (this.tshirtWalking) {
+        this.tshirtWalking.visible = true;
+        const action = this.actions.tshirt_walking;
+        if (action) {
+          action.reset();
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.setEffectiveTimeScale(this.walkSpeed || 1.0);
+          action.play();
+        }
+      }
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
     }
 
@@ -1579,9 +1726,9 @@ export class SceneManager {
     this.controls.update();
   }
 
-  setZoom(enabled) {
+  async setZoom(enabled) {
     this.isZoomed = Boolean(enabled);
-    this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
+    return await this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
   }
 
   setCameraPreset(view, isZoomed = this.isZoomed) {
@@ -1603,129 +1750,133 @@ export class SceneManager {
       effectiveView = this.currentCameraView || 'front';
     }
 
-    const duration = 0.8;
-    const startTime = performance.now();
-    const startPos = this.camera.position.clone();
-    let targetPos = new THREE.Vector3();
+    return new Promise((resolve) => {
+      const duration = 0.5;
+      const startTime = performance.now();
+      const startPos = this.camera.position.clone();
+      let targetPos = new THREE.Vector3();
 
-    const isPants = (this.garmentType === 'sweatpants');
-    const isCap = (this.garmentType === 'cap');
-    const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
-    let controlsTarget = new THREE.Vector3(0, 0, 0);
+      const isPants = (this.garmentType === 'sweatpants');
+      const isCap = (this.garmentType === 'cap');
+      const isHoodie = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
+      let controlsTarget = new THREE.Vector3(0, 0, 0);
 
-    if (isHoodie) {
-      const centerY = this.isZoomed ? 0.65 : 0.15;
-      controlsTarget.set(-0.55, centerY, 0);
-      const dist = this.isZoomed ? 14.5 : 23.5;
-      switch (effectiveView) {
-        case 'front': targetPos.set(-0.55, centerY, dist); break;
-        case 'back': targetPos.set(-0.55, centerY, -dist); break;
-        case 'side':
-        case 'right': targetPos.set(dist - 0.55, centerY, 0); break;
-        case 'left': targetPos.set(-dist - 0.55, centerY, 0); break;
-        case 'hero': targetPos.set(this.isZoomed ? 8.0 : 11.5, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.0 : 19.0); break;
-        default:
-          targetPos.set(-0.55, centerY, dist);
-          break;
+      if (isHoodie) {
+        const centerY = this.isZoomed ? 0.65 : 0.15;
+        controlsTarget.set(-0.55, centerY, 0);
+        const dist = this.isZoomed ? 14.5 : 23.5;
+        switch (effectiveView) {
+          case 'front': targetPos.set(-0.55, centerY, dist); break;
+          case 'back': targetPos.set(-0.55, centerY, -dist); break;
+          case 'side':
+          case 'right': targetPos.set(dist - 0.55, centerY, 0); break;
+          case 'left': targetPos.set(-dist - 0.55, centerY, 0); break;
+          case 'hero': targetPos.set(this.isZoomed ? 8.0 : 11.5, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.0 : 19.0); break;
+          default:
+            targetPos.set(-0.55, centerY, dist);
+            break;
+        }
+      } else if (isPants) {
+        const centerY = this.isZoomed ? 0.30 : 0.0;
+        controlsTarget.set(0, centerY, 0);
+        const dist = this.isZoomed ? 15.0 : 24.5;
+        switch (effectiveView) {
+          case 'front': targetPos.set(0, centerY, dist); break;
+          case 'back': targetPos.set(0, centerY, -dist); break;
+          case 'side':
+          case 'right': targetPos.set(dist, centerY, 0); break;
+          case 'left': targetPos.set(-dist, centerY, 0); break;
+          case 'hero': targetPos.set(this.isZoomed ? 8.0 : 12.0, this.isZoomed ? 1.2 : 1.5, this.isZoomed ? 12.5 : 20.0); break;
+          default:
+            targetPos.set(0, centerY, dist);
+            break;
+        }
+      } else if (isCap) {
+        const centerY = 0.40;
+        controlsTarget.set(0, centerY, 0);
+        const dist = this.isZoomed ? 9.5 : 14.5;
+        switch (effectiveView) {
+          case 'front': targetPos.set(0, centerY, dist); break;
+          case 'back': targetPos.set(0, centerY, -dist); break;
+          case 'side':
+          case 'right': targetPos.set(dist, centerY, 0); break;
+          case 'left': targetPos.set(-dist, centerY, 0); break;
+          case 'hero': targetPos.set(this.isZoomed ? 2.0 : 2.8, this.isZoomed ? 1.2 : 1.6, this.isZoomed ? 8.5 : 13.5); break;
+          default:
+            targetPos.set(0, centerY, dist);
+            break;
+        }
+      } else {
+        const centerY = this.isZoomed ? 0.75 : 0.20;
+        controlsTarget.set(0, centerY, 0);
+        const dist = this.isZoomed ? 14.2 : 24.5;
+        switch (effectiveView) {
+          case 'front':
+            targetPos.set(0, centerY, dist);
+            break;
+          case 'back':
+            targetPos.set(0, centerY, -dist);
+            break;
+          case 'side':
+          case 'right':
+            targetPos.set(dist, centerY, 0);
+            break;
+          case 'left':
+            targetPos.set(-dist, centerY, 0);
+            break;
+          case 'hero':
+            targetPos.set(this.isZoomed ? 8.2 : 13.0, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.2 : 20.0);
+            break;
+          default:
+            targetPos.set(0, centerY, dist);
+            break;
+        }
       }
-    } else if (isPants) {
-      const centerY = this.isZoomed ? 0.30 : 0.0;
-      controlsTarget.set(0, centerY, 0);
-      const dist = this.isZoomed ? 15.0 : 24.5;
-      switch (effectiveView) {
-        case 'front': targetPos.set(0, centerY, dist); break;
-        case 'back': targetPos.set(0, centerY, -dist); break;
-        case 'side':
-        case 'right': targetPos.set(dist, centerY, 0); break;
-        case 'left': targetPos.set(-dist, centerY, 0); break;
-        case 'hero': targetPos.set(this.isZoomed ? 8.0 : 12.0, this.isZoomed ? 1.2 : 1.5, this.isZoomed ? 12.5 : 20.0); break;
-        default:
-          targetPos.set(0, centerY, dist);
-          break;
+
+      // Calculate spherical/orbital trajectory relative to controlsTarget so camera never passes through (0,0,0)
+      const startRel = new THREE.Vector3().subVectors(startPos, controlsTarget);
+      const targetRel = new THREE.Vector3().subVectors(targetPos, controlsTarget);
+
+      const startRadius = Math.sqrt(startRel.x * startRel.x + startRel.z * startRel.z);
+      const targetRadius = Math.sqrt(targetRel.x * targetRel.x + targetRel.z * targetRel.z);
+
+      const startAngle = Math.atan2(startRel.x, startRel.z);
+      const targetAngle = Math.atan2(targetRel.x, targetRel.z);
+
+      let diffAngle = targetAngle - startAngle;
+      while (diffAngle > Math.PI) diffAngle -= 2 * Math.PI;
+      while (diffAngle < -Math.PI) diffAngle += 2 * Math.PI;
+
+      // For direct 180° front-to-back rotation, enforce a positive clockwise arc around the garment
+      if (Math.abs(Math.abs(diffAngle) - Math.PI) < 0.05) {
+        diffAngle = Math.PI;
       }
-    } else if (isCap) {
-      const centerY = 0.40;
-      controlsTarget.set(0, centerY, 0);
-      const dist = this.isZoomed ? 9.5 : 14.5;
-      switch (effectiveView) {
-        case 'front': targetPos.set(0, centerY, dist); break;
-        case 'back': targetPos.set(0, centerY, -dist); break;
-        case 'side':
-        case 'right': targetPos.set(dist, centerY, 0); break;
-        case 'left': targetPos.set(-dist, centerY, 0); break;
-        case 'hero': targetPos.set(this.isZoomed ? 2.0 : 2.8, this.isZoomed ? 1.2 : 1.6, this.isZoomed ? 8.5 : 13.5); break;
-        default:
-          targetPos.set(0, centerY, dist);
-          break;
-      }
-    } else {
-      const centerY = this.isZoomed ? 0.75 : 0.20;
-      controlsTarget.set(0, centerY, 0);
-      const dist = this.isZoomed ? 14.2 : 24.5;
-      switch (effectiveView) {
-        case 'front':
-          targetPos.set(0, centerY, dist);
-          break;
-        case 'back':
-          targetPos.set(0, centerY, -dist);
-          break;
-        case 'side':
-        case 'right':
-          targetPos.set(dist, centerY, 0);
-          break;
-        case 'left':
-          targetPos.set(-dist, centerY, 0);
-          break;
-        case 'hero':
-          targetPos.set(this.isZoomed ? 8.2 : 13.0, this.isZoomed ? 1.4 : 1.8, this.isZoomed ? 12.2 : 20.0);
-          break;
-        default:
-          targetPos.set(0, centerY, dist);
-          break;
-      }
-    }
 
-    // Calculate spherical/orbital trajectory relative to controlsTarget so camera never passes through (0,0,0)
-    const startRel = new THREE.Vector3().subVectors(startPos, controlsTarget);
-    const targetRel = new THREE.Vector3().subVectors(targetPos, controlsTarget);
+      const animateCam = (now) => {
+        const elapsed = (now - startTime) / 1000;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
 
-    const startRadius = Math.sqrt(startRel.x * startRel.x + startRel.z * startRel.z);
-    const targetRadius = Math.sqrt(targetRel.x * targetRel.x + targetRel.z * targetRel.z);
+        const currentRadius = THREE.MathUtils.lerp(startRadius, targetRadius, ease);
+        const currentAngle = startAngle + diffAngle * ease;
+        const currentY = THREE.MathUtils.lerp(startPos.y, targetPos.y, ease);
 
-    const startAngle = Math.atan2(startRel.x, startRel.z);
-    const targetAngle = Math.atan2(targetRel.x, targetRel.z);
+        this.camera.position.set(
+          controlsTarget.x + Math.sin(currentAngle) * currentRadius,
+          currentY,
+          controlsTarget.z + Math.cos(currentAngle) * currentRadius
+        );
+        this.controls.target.lerp(controlsTarget, ease);
+        if (this.controls.update) this.controls.update();
 
-    let diffAngle = targetAngle - startAngle;
-    while (diffAngle > Math.PI) diffAngle -= 2 * Math.PI;
-    while (diffAngle < -Math.PI) diffAngle += 2 * Math.PI;
-
-    // For direct 180° front-to-back rotation, enforce a positive clockwise arc around the garment
-    if (Math.abs(Math.abs(diffAngle) - Math.PI) < 0.05) {
-      diffAngle = Math.PI;
-    }
-
-    const animateCam = (now) => {
-      const elapsed = (now - startTime) / 1000;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-
-      const currentRadius = THREE.MathUtils.lerp(startRadius, targetRadius, ease);
-      const currentAngle = startAngle + diffAngle * ease;
-      const currentY = THREE.MathUtils.lerp(startPos.y, targetPos.y, ease);
-
-      this.camera.position.set(
-        controlsTarget.x + Math.sin(currentAngle) * currentRadius,
-        currentY,
-        controlsTarget.z + Math.cos(currentAngle) * currentRadius
-      );
-      this.controls.target.lerp(controlsTarget, ease);
-      if (this.controls.update) this.controls.update();
-
-      if (progress < 1) {
-        requestAnimationFrame(animateCam);
-      }
-    };
-    requestAnimationFrame(animateCam);
+        if (progress < 1) {
+          requestAnimationFrame(animateCam);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(animateCam);
+    });
   }
 
   handleResize() {
@@ -1766,9 +1917,9 @@ export class SceneManager {
     }
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Use real clock delta so animations, physics, and walk cycles run at natural real-time speed
+    // Use fixed deterministic 60 FPS delta during video recording for zero-jitter smoothness
     const rawDelta = this.clock.getDelta();
-    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
+    const delta = this.isRecordingVideo ? (1 / 60) : Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     if (this.mixer) {
       this.mixer.update(delta);
@@ -1835,29 +1986,25 @@ export class SceneManager {
     if (this.realPantsRoot && this.garmentType === 'sweatpants') {
       if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
         this.pantsWalkTime = (this.pantsWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.6;
-        const strideBounce = Math.abs(Math.sin(this.pantsWalkTime)) * 0.14;
-        const pelvicSway = Math.sin(this.pantsWalkTime * 0.5) * 0.045;
-        const legPitch = Math.sin(this.pantsWalkTime) * 0.055;
-        this.realPantsRoot.rotation.z = pelvicSway;
-        this.realPantsRoot.rotation.x = legPitch;
-        this.realPantsRoot.position.y = strideBounce - 0.07;
+        const strideBounce = Math.abs(Math.sin(this.pantsWalkTime)) * 0.12;
+        this.realPantsRoot.rotation.z = Math.sin(this.pantsWalkTime * 0.5) * 0.028;
+        this.realPantsRoot.rotation.x = Math.sin(this.pantsWalkTime) * 0.045;
+        this.realPantsRoot.position.y = strideBounce - 0.06;
 
         if (this.pLeftStr && this.pRightStr) {
-          this.pLeftStr.rotation.x = Math.sin(this.pantsWalkTime - 0.4) * 0.35;
-          this.pLeftStr.rotation.z = -0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.20;
-          this.pRightStr.rotation.x = Math.sin(this.pantsWalkTime - 0.6) * 0.35;
-          this.pRightStr.rotation.z = 0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.20;
+          this.pLeftStr.rotation.x = Math.sin(this.pantsWalkTime - 0.4) * 0.28;
+          this.pLeftStr.rotation.z = -0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
+          this.pRightStr.rotation.x = Math.sin(this.pantsWalkTime - 0.6) * 0.28;
+          this.pRightStr.rotation.z = 0.06 + Math.cos(this.pantsWalkTime * 0.5) * 0.16;
         }
       } else if (this.animationMode === 'waves') {
         this.pantsWaveTime = (this.pantsWaveTime || 0) + delta * 2.8;
-        this.realPantsRoot.rotation.z = Math.sin(this.pantsWaveTime) * 0.028;
-        this.realPantsRoot.position.y = Math.sin(this.pantsWaveTime * 1.5) * 0.03;
-        this.realPantsRoot.rotation.x = Math.cos(this.pantsWaveTime * 0.8) * 0.02;
+        this.realPantsRoot.rotation.z = Math.sin(this.pantsWaveTime) * 0.022;
+        this.realPantsRoot.position.y = 0;
+        this.realPantsRoot.rotation.x = 0;
         if (this.pLeftStr && this.pRightStr) {
-          this.pLeftStr.rotation.z = -0.06 + Math.sin(this.pantsWaveTime * 1.5) * 0.25;
-          this.pRightStr.rotation.z = 0.06 + Math.sin(this.pantsWaveTime * 1.5 + 0.3) * 0.25;
-          this.pLeftStr.rotation.x = Math.sin(this.pantsWaveTime * 2.0) * 0.15;
-          this.pRightStr.rotation.x = Math.sin(this.pantsWaveTime * 2.0 + 0.3) * 0.15;
+          this.pLeftStr.rotation.z = -0.06 + Math.sin(this.pantsWaveTime * 1.5) * 0.22;
+          this.pRightStr.rotation.z = 0.06 + Math.sin(this.pantsWaveTime * 1.5 + 0.3) * 0.22;
         }
       } else if (this.animationMode !== 'knit') {
         this.realPantsRoot.position.y = 0;
@@ -1870,95 +2017,10 @@ export class SceneManager {
       }
     }
 
-    // T-shirt family motion physics (oversized_tee, cropped_tee, regular_tee, sweatshirt, polo)
-    const isTshirtFam = (
-      this.garmentType === 'oversized_tee' ||
-      this.garmentType === 'cropped_tee' ||
-      this.garmentType === 'regular_tee' ||
-      this.garmentType === 'sweatshirt' ||
-      this.garmentType === 'polo'
-    );
-
-    if (this.tshirtPivot && isTshirtFam) {
-      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
-        this.tshirtWalkTime = (this.tshirtWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.4;
-        const strideBounce = Math.abs(Math.sin(this.tshirtWalkTime)) * 0.08;
-        const shoulderSway = Math.sin(this.tshirtWalkTime * 0.5) * 0.035;
-        const torsoPitch = Math.sin(this.tshirtWalkTime) * 0.024;
-
-        this.tshirtPivot.position.y = strideBounce - 0.04;
-        this.tshirtPivot.rotation.z = shoulderSway;
-        this.tshirtPivot.rotation.x = torsoPitch;
-
-        if (this.attachmentsGroup) {
-          this.attachmentsGroup.position.y = this.tshirtPivot.position.y;
-          this.attachmentsGroup.rotation.z = shoulderSway;
-          this.attachmentsGroup.rotation.x = torsoPitch;
-        }
-      } else if (this.animationMode === 'waves') {
-        this.tshirtWaveTime = (this.tshirtWaveTime || 0) + delta * 3.0;
-        const waveFlutter = Math.sin(this.tshirtWaveTime) * 0.030;
-        const waveRoll = Math.cos(this.tshirtWaveTime * 0.75) * 0.022;
-        const waveRise = Math.sin(this.tshirtWaveTime * 1.5) * 0.032;
-
-        this.tshirtPivot.rotation.z = waveFlutter;
-        this.tshirtPivot.rotation.x = waveRoll;
-        this.tshirtPivot.position.y = waveRise;
-
-        if (this.attachmentsGroup) {
-          this.attachmentsGroup.position.y = waveRise;
-          this.attachmentsGroup.rotation.z = waveFlutter;
-          this.attachmentsGroup.rotation.x = waveRoll;
-        }
-      } else if (this.animationMode !== 'knit') {
-        this.tshirtPivot.position.y = 0;
-        this.tshirtPivot.rotation.x = 0;
-        this.tshirtPivot.rotation.z = 0;
-        if (this.attachmentsGroup) {
-          this.attachmentsGroup.position.y = 0;
-          this.attachmentsGroup.rotation.x = 0;
-          this.attachmentsGroup.rotation.z = 0;
-        }
-      }
-    }
-
-    // Hoodie aerodynamic wind wave physics
-    if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
-      if (this.animationMode === 'waves') {
-        this.hoodieWaveTime = (this.hoodieWaveTime || 0) + delta * 2.8;
-        this.realHoodieRoot.rotation.z = Math.sin(this.hoodieWaveTime) * 0.024;
-        this.realHoodieRoot.position.y = Math.sin(this.hoodieWaveTime * 1.5) * 0.03;
-        this.realHoodieRoot.rotation.x = Math.cos(this.hoodieWaveTime * 0.7) * 0.018;
-      } else if (this.animationMode !== 'walking' && this.animationMode !== 'rotate_walk' && this.animationMode !== 'knit') {
-        this.realHoodieRoot.position.y = 0;
-        this.realHoodieRoot.rotation.x = 0;
-        this.realHoodieRoot.rotation.z = 0;
-      }
-    }
-
-    // Cap walking & wind wave motion
-    if (this.realCapRoot && this.garmentType === 'cap') {
-      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
-        this.capWalkTime = (this.capWalkTime || 0) + delta * (this.walkSpeed || 1.0) * 4.4;
-        const capBounce = Math.abs(Math.sin(this.capWalkTime)) * 0.06;
-        const capSway = Math.sin(this.capWalkTime * 0.5) * 0.022;
-        this.realCapRoot.position.y = capBounce - 0.03;
-        this.realCapRoot.rotation.z = capSway;
-      } else if (this.animationMode === 'waves') {
-        this.capWaveTime = (this.capWaveTime || 0) + delta * 2.6;
-        this.realCapRoot.rotation.z = Math.sin(this.capWaveTime) * 0.020;
-        this.realCapRoot.position.y = Math.sin(this.capWaveTime * 1.4) * 0.020;
-      } else if (this.animationMode !== 'knit') {
-        this.realCapRoot.position.y = 0;
-        this.realCapRoot.rotation.x = 0;
-        this.realCapRoot.rotation.z = 0;
-      }
-    }
-
     // Turntable rotation of garment (when active and not running showcase360 spin)
     const isShowcaseSpin = this.isRecordingVideo && this.recordingMotion === 'showcase360';
     if (!isShowcaseSpin && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
-      const turnStep = delta * this.turntableSpeed;
+      const turnStep = delta * (this.turntableSpeed || 0.8) * 1.5;
       if (this.tshirtPivot) {
         this.tshirtPivot.rotation.y += turnStep;
       }
@@ -1976,10 +2038,11 @@ export class SceneManager {
       }
     }
 
-    // Video recording showcase motion: exact, guaranteed 360° spin loop based on elapsed real-time
+    // Video recording showcase motion: mathematically exact 360° spin loop with zero jitter
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
-      const elapsedSec = (performance.now() - (this.recordingStartTime || performance.now())) / 1000;
-      const progress = Math.min(1.0, elapsedSec / (this.recordingDuration || 5));
+      this.recordingFrame = (this.recordingFrame || 0) + 1;
+      const totalFrames = Math.max(1, (this.recordingDuration || 5) * 60);
+      const progress = Math.min(1.0, this.recordingFrame / totalFrames);
       const loops = (this.recordingDuration || 5) >= 15 ? 2 : 1;
       const targetAngle = progress * (2 * Math.PI * loops);
 
@@ -2031,14 +2094,22 @@ export class SceneManager {
     durationSeconds = 5,
     format = 'desktop',
     motion = 'showcase360',
+    backgroundColor = '#121318',
     onFrame = null
   } = {}) {
     this.isRecordingVideo = true;
     this.recordingFps = fps;
     this.recordingDuration = durationSeconds;
     this.recordingMotion = motion;
+    this.recordingFrame = 0;
     this.onRecordingFrame = onFrame;
     this.recordingStartTime = performance.now();
+
+    // Set background on Three.js Scene directly for WebGL hardware acceleration (smooth 60 FPS)
+    this.originalSceneBackground = this.scene.background;
+    this.scene.background = new THREE.Color(
+      backgroundColor === '#f4f4f6' || backgroundColor === '#ffffff' ? 0xf4f4f6 : 0x121318
+    );
 
     // Snapshot current state to restore cleanly upon completion
     this.preRecordState = {
@@ -2097,18 +2168,13 @@ export class SceneManager {
     this.camera.lookAt(targetX, targetY, 0);
 
     // If 360 showcase motion requested:
-    // Reset garment to front (rotation.y = 0) and calculate angular speed for an exact 360 loop
+    // Reset garment to front (rotation.y = 0)
     if (motion === 'showcase360') {
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
       if (this.realPantsRoot) this.realPantsRoot.rotation.y = 0;
       if (this.realCapRoot) this.realCapRoot.rotation.y = 0;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
-
-      const loops = durationSeconds >= 15 ? 2 : 1;
-      this.recordingAngularSpeed = (2 * Math.PI * loops) / durationSeconds;
-    } else {
-      this.recordingAngularSpeed = 0;
     }
   }
 
@@ -2116,6 +2182,10 @@ export class SceneManager {
     if (!this.isRecordingVideo) return;
     this.isRecordingVideo = false;
     this.onRecordingFrame = null;
+    this.recordingFrame = 0;
+
+    // Restore scene background
+    this.scene.background = this.originalSceneBackground || null;
 
     // Restore interactive state
     if (this.preRecordState) {
@@ -2215,8 +2285,14 @@ export class SceneManager {
     }
 
     if (side === 'back') {
-      this.camera.position.set(0, camY, -camZ);
+      rootsToReset.forEach(r => {
+        r.rotation.y = Math.PI;
+      });
+      this.camera.position.set(0, camY, camZ);
     } else {
+      rootsToReset.forEach(r => {
+        r.rotation.y = 0;
+      });
       this.camera.position.set(0, camY, camZ);
     }
     this.camera.lookAt(0, targetY, 0);
@@ -2230,6 +2306,13 @@ export class SceneManager {
     const prevDecalVis = this.decalMaterial.opacity;
     this.decalMaterial.opacity = 0;
 
+    const prevMap = this.shirtMaterial?.map;
+    if (this.shirtMaterial) {
+      this.shirtMaterial.map = null;
+      this.shirtMaterial.color.set(this.garmentColor || '#ffffff');
+      this.shirtMaterial.needsUpdate = true;
+    }
+
     // Save and temporarily clear background for pure transparent PNG
     const originalBg = this.scene.background;
     this.scene.background = null;
@@ -2239,6 +2322,12 @@ export class SceneManager {
 
     this.decalMaterial.opacity = prevDecalVis;
     this.scene.background = originalBg;
+
+    if (this.shirtMaterial) {
+      this.shirtMaterial.map = prevMap;
+      this.shirtMaterial.color.set(0xffffff);
+      this.shirtMaterial.needsUpdate = true;
+    }
 
     // Restore garment transforms
     originalTransforms.forEach(t => {
@@ -2256,6 +2345,49 @@ export class SceneManager {
     if (this.controls) this.controls.update();
 
     return dataUrl;
+  }
+
+  exportGLTF(onComplete, onError) {
+    try {
+      const exporter = new GLTFExporter();
+      let target = null;
+      if (this.realHoodieRoot && this.realHoodieRoot.visible) {
+        target = this.realHoodieRoot;
+      } else if (this.realPantsRoot && this.realPantsRoot.visible) {
+        target = this.realPantsRoot;
+      } else if (this.realCapRoot && this.realCapRoot.visible) {
+        target = this.realCapRoot;
+      } else if (this.tshirtPivot && this.tshirtPivot.visible) {
+        target = this.tshirtPivot;
+      } else {
+        target = this.tshirtPivot || this.scene;
+      }
+
+      exporter.parse(
+        target,
+        (gltf) => {
+          const output = typeof gltf === 'string' ? gltf : JSON.stringify(gltf, null, 2);
+          const blob = new Blob([output], { type: 'model/gltf+json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `virtualthreads-${this.garmentType || 'garment'}-${Date.now()}.gltf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          if (onComplete) onComplete();
+        },
+        (err) => {
+          console.error('GLTF Export error:', err);
+          if (onError) onError(err);
+        },
+        { binary: false, embedImages: true }
+      );
+    } catch (err) {
+      console.error('GLTF Export failed:', err);
+      if (onError) onError(err);
+    }
   }
 
   dispose() {

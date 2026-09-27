@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw } from 'lucide-react';
+import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw, X } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 
 const COLOR_SWATCHES = [
@@ -51,6 +51,7 @@ export function SidebarLeft({
 }) {
   const [openSection, setOpenSection] = useState('designs'); // default to 'designs'
   const [layers, setLayers] = useState([]);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // Sync design layers
   useEffect(() => {
@@ -62,49 +63,79 @@ export function SidebarLeft({
 
   const frontLayers = layers.filter((l) => (l.side || 'front') === 'front');
   const backLayers = layers.filter((l) => (l.side || 'front') === 'back');
+  const isCap = currentGarmentType === 'cap';
 
   const toggleSection = (section) => {
     setOpenSection(openSection === section ? null : section);
   };
 
   return (
-    <aside className="absolute left-6 top-20 bottom-6 w-64 rounded-3xl bg-white dark:bg-studio-900 text-gray-900 dark:text-studio-100 shadow-2xl p-4 flex flex-col justify-between select-none z-20 border border-gray-200/80 dark:border-studio-750/80 animate-fadeIn backdrop-blur-xl transition-colors">
-      
-      {/* Top Header Row: Back to Products & VirtualThreads branding */}
-      <div className="flex items-center justify-between pb-2.5 mb-1.5 border-b border-gray-100 dark:border-studio-800">
+    <>
+      {/* Mobile Toggle Button (Visible only on mobile when sidebar is closed) */}
+      {!isMobileOpen && (
         <button
-          onClick={onBackToLanding}
-          className="flex items-center gap-1 text-xs font-bold text-gray-600 dark:text-studio-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-studio-800 py-1.5 px-2.5 rounded-xl transition-all group"
-          title="Return to products landing page"
+          onClick={() => setIsMobileOpen(true)}
+          className="md:hidden fixed left-3 top-20 z-20 px-3 py-2 rounded-2xl bg-white/95 dark:bg-studio-900/95 text-gray-800 dark:text-white shadow-xl border border-gray-200/90 dark:border-studio-700/80 backdrop-blur-md active:scale-95 transition-all flex items-center gap-1.5 text-xs font-bold"
+          title="Open Studio Tools"
         >
-          <ArrowLeft className="size-3.5 text-gray-500 group-hover:-translate-x-0.5 transition-transform" />
-          <span>Products</span>
+          <Settings className="size-3.5 text-brand-500" />
+          <span>Tools</span>
         </button>
-        <div className="flex items-center gap-1.5 pr-1">
-          <div className="size-5 bg-black dark:bg-brand-500 rounded-md flex items-center justify-center text-white shadow-sm">
-            <svg viewBox="0 0 24 24" className="size-3 fill-current" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 4h4.5l3.5 8.5L15.5 4H20l-6.5 15.5h-3L4 4z" />
-            </svg>
-          </div>
-          <span className="font-extrabold text-[11px] tracking-tight text-gray-900 dark:text-white">VirtualThreads</span>
-        </div>
-      </div>
-
-      {/* Top Action Pill: Advanced Controls (Hidden when in Export Studio) */}
-      {!isExportStudioOpen && (
-        <div className="space-y-1.5">
-          <button
-            onClick={onOpenPositionGuide}
-            className="w-full bg-studio-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
-              <span>Design & Graphics Studio</span>
-            </div>
-            <Settings className="size-3.5 text-studio-400 group-hover:rotate-45 transition-transform" />
-          </button>
-        </div>
       )}
+
+      {/* Mobile Backdrop Overlay (Clicking closes drawer) */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-xs z-35 animate-fadeIn"
+        />
+      )}
+
+      <aside className={`fixed md:absolute left-3 md:left-6 top-16 md:top-20 bottom-3 md:bottom-6 w-64 max-w-[calc(100vw-24px)] rounded-3xl bg-white dark:bg-studio-900 text-gray-900 dark:text-studio-100 shadow-2xl p-4 flex flex-col justify-between select-none z-40 md:z-20 border border-gray-200/80 dark:border-studio-750/80 backdrop-blur-xl transition-all duration-300 ${
+        isMobileOpen ? 'translate-x-0' : '-translate-x-[125%] md:translate-x-0'
+      }`}>
+        
+        {/* Top Header Row: Back to Products & VirtualThreads branding & Mobile Close Button */}
+        <div className="flex items-center justify-between pb-2.5 mb-1.5 border-b border-gray-100 dark:border-studio-800">
+          <button
+            onClick={onBackToLanding}
+            className="flex items-center gap-1 text-xs font-bold text-gray-600 dark:text-studio-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-studio-800 py-1.5 px-2.5 rounded-xl transition-all group"
+            title="Return to products landing page"
+          >
+            <ArrowLeft className="size-3.5 text-gray-500 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Products</span>
+          </button>
+          <div className="flex items-center gap-1.5 pr-1">
+            <div className="size-5 bg-black dark:bg-brand-500 rounded-md flex items-center justify-center text-white shadow-sm">
+              <svg viewBox="0 0 24 24" className="size-3 fill-current" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 4h4.5l3.5 8.5L15.5 4H20l-6.5 15.5h-3L4 4z" />
+              </svg>
+            </div>
+            <span className="font-extrabold text-[11px] tracking-tight text-gray-900 dark:text-white">VirtualThreads</span>
+            {/* Mobile close button */}
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="md:hidden ml-1 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+              title="Close sidebar"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+
+      {/* Top Action Pill: Advanced Controls */}
+      <div className="space-y-1.5">
+        <button
+          onClick={onOpenPositionGuide}
+          className="w-full bg-studio-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white font-semibold text-xs py-2.5 px-4 rounded-full flex items-center justify-between transition-all active:scale-95 shadow-md group"
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
+            <span>Design & Graphics Studio</span>
+          </div>
+          <Settings className="size-3.5 text-studio-400 group-hover:rotate-45 transition-transform" />
+        </button>
+      </div>
 
       {/* Accordion Menu Options */}
       <div className="flex-1 my-3 overflow-y-auto space-y-1 text-xs pr-0.5 custom-scrollbar">
@@ -529,31 +560,51 @@ export function SidebarLeft({
                   {animationMode === 'static' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
 
-                <button
-                  onClick={() => onAnimationModeChange('walking')}
-                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                    animationMode === 'walking' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Play className="size-3 text-emerald-500" />
-                    <span>Walk</span>
+                {!isCap ? (
+                  <button
+                    onClick={() => onAnimationModeChange('walking')}
+                    className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                      animationMode === 'walking' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Play className="size-3 text-emerald-500" />
+                      <span>Walk</span>
+                    </div>
+                    {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
+                ) : (
+                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title="Walking motion is designed for apparel & bottoms">
+                    <div className="flex items-center gap-1.5">
+                      <Play className="size-3 text-gray-400" />
+                      <span>Walk</span>
+                    </div>
+                    <span className="text-[9px] font-mono">Apparel Only</span>
                   </div>
-                  {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
+                )}
 
-                <button
-                  onClick={() => onAnimationModeChange('waves')}
-                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                    animationMode === 'waves' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Wind className="size-3 text-sky-500" />
-                    <span>Waves</span>
+                {!isCap ? (
+                  <button
+                    onClick={() => onAnimationModeChange('waves')}
+                    className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                      animationMode === 'waves' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Wind className="size-3 text-sky-500" />
+                      <span>Waves</span>
+                    </div>
+                    {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
+                ) : (
+                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title="Wind wave flutter is designed for apparel & bottoms">
+                    <div className="flex items-center gap-1.5">
+                      <Wind className="size-3 text-gray-400" />
+                      <span>Waves</span>
+                    </div>
+                    <span className="text-[9px] font-mono">Apparel Only</span>
                   </div>
-                  {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
+                )}
 
                 <button
                   onClick={() => {
@@ -603,18 +654,20 @@ export function SidebarLeft({
                   {animationMode === 'turntable' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
 
-                <button
-                  onClick={() => onAnimationModeChange('rotate_walk')}
-                  className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
-                    animationMode === 'rotate_walk' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <RotateCw className="size-3 text-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
-                    <span>Rotate & Walk</span>
-                  </div>
-                  {animationMode === 'rotate_walk' && <Check className="size-3 text-black dark:text-white" />}
-                </button>
+                {!isCap ? (
+                  <button
+                    onClick={() => onAnimationModeChange('rotate_walk')}
+                    className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
+                      animationMode === 'rotate_walk' ? 'bg-gray-100 dark:bg-studio-800 font-bold text-black dark:text-white' : 'text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <RotateCw className="size-3 text-emerald-500 animate-spin" style={{ animationDuration: '4s' }} />
+                      <span>Rotate & Walk</span>
+                    </div>
+                    {animationMode === 'rotate_walk' && <Check className="size-3 text-black dark:text-white" />}
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
@@ -793,17 +846,7 @@ export function SidebarLeft({
 
       </div>
 
-      {/* Bottom Export Pill matching screenshot */}
-      <button
-        onClick={onOpenExport}
-        className="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white font-bold text-xs py-3.5 px-5 rounded-full flex items-center justify-between shadow-lg shadow-indigo-500/25 transition-all active:scale-95"
-      >
-        <span>Export</span>
-        <div className="size-6 rounded-full bg-white/20 flex items-center justify-center">
-          <Video className="size-3.5 fill-white" />
-        </div>
-      </button>
-
     </aside>
+    </>
   );
 }

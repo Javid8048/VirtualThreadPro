@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Camera,
@@ -16,33 +16,66 @@ import {
   Palette,
   Minus,
   Plus,
-  RotateCw
+  RotateCw,
+  Box
 } from 'lucide-react';
 import { CanvasVideoRecorder } from '../utils/videoRecorder';
+
+let activeVideoRecorderInstance = null;
 
 export function ExportPanel({
   isOpen = true,
   onClose,
   defaultTab = 'video',
   sceneManager,
-  backdropMode = 'dark'
+  backdropMode = 'dark',
+  asyncExportState,
+  setAsyncExportState
 }) {
-  const [activeTab, setActiveTab] = useState(defaultTab); // 'video' | 'image'
+  const [activeTab, setActiveTab] = useState(defaultTab); // 'video' | 'image' | 'gltf'
   const [imageRes, setImageRes] = useState('4k');
   const [imageFormat, setImageFormat] = useState('png'); // 'png' | 'jpg'
+
+  useEffect(() => {
+    if (defaultTab) setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // Video recording state
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
   const [videoMotion, setVideoMotion] = useState('showcase360'); // 'showcase360' | 'current'
   const [preferredFormat, setPreferredFormat] = useState('webm'); // 'webm' | 'mp4'
   const [videoDuration, setVideoDuration] = useState(5); // in seconds: 1 to 30
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingProgress, setRecordingProgress] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [recordedSuccess, setRecordedSuccess] = useState(false);
-  const [lastRecordedFile, setLastRecordedFile] = useState(null);
+  const [isRecording, setIsRecording] = useState(() => (activeVideoRecorderInstance?.isRecording || Boolean(asyncExportState?.isRecording)));
+  const [recordingProgress, setRecordingProgress] = useState(() => asyncExportState?.progress || 0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => asyncExportState?.elapsedSec || 0);
+  const [recordedSuccess, setRecordedSuccess] = useState(() => asyncExportState?.status === 'complete');
+  const [lastRecordedFile, setLastRecordedFile] = useState(() => asyncExportState?.fileName || null);
+  const [isExportingGLTF, setIsExportingGLTF] = useState(false);
+  const [hasAcceptedAup, setHasAcceptedAup] = useState(true);
+  const [videoCaptureMode, setVideoCaptureMode] = useState('studio3d'); // 'studio3d' | 'screen'
+  const [isScreenRecording, setIsScreenRecording] = useState(false);
+  const [screenElapsed, setScreenElapsed] = useState(0);
 
   const recorderRef = useRef(null);
+
+  // Sync with global async export state if updated outside
+  useEffect(() => {
+    if (asyncExportState) {
+      if (typeof asyncExportState.isRecording === 'boolean') {
+        setIsRecording(asyncExportState.isRecording);
+      }
+      if (typeof asyncExportState.progress === 'number') {
+        setRecordingProgress(asyncExportState.progress);
+      }
+      if (typeof asyncExportState.elapsedSec === 'number') {
+        setElapsedSeconds(asyncExportState.elapsedSec);
+      }
+      if (asyncExportState.status === 'complete') {
+        setRecordedSuccess(true);
+        if (asyncExportState.fileName) setLastRecordedFile(asyncExportState.fileName);
+      }
+    }
+  }, [asyncExportState]);
 
   if (!isOpen) return null;
 
@@ -81,20 +114,33 @@ export function ExportPanel({
   const handleStartRecording = async () => {
     if (!sceneManager || !sceneManager.renderer) return;
 
+    const numDuration = Number(videoDuration);
     setIsRecording(true);
     setRecordingProgress(0);
     setElapsedSeconds(0);
     setRecordedSuccess(false);
     setLastRecordedFile(null);
 
+    if (setAsyncExportState) {
+      setAsyncExportState({
+        isRecording: true,
+        progress: 0,
+        elapsedSec: 0,
+        duration: numDuration,
+        status: 'recording',
+        fileName: null
+      });
+    }
+
     try {
       const recorder = new CanvasVideoRecorder(sceneManager);
+      activeVideoRecorderInstance = recorder;
       recorderRef.current = recorder;
 
       const bg = backdropMode === 'light' ? '#f4f4f6' : '#121318';
       const result = await recorder.startRecording(
         {
-          durationSeconds: Number(videoDuration),
+          durationSeconds: numDuration,
           format: videoFormat,
           motion: videoMotion,
           preferredFormat: preferredFormat,
@@ -103,27 +149,101 @@ export function ExportPanel({
         (pct, sec) => {
           setRecordingProgress(pct);
           setElapsedSeconds(sec);
+          if (setAsyncExportState) {
+            setAsyncExportState((prev) => ({
+              ...prev,
+              isRecording: true,
+              progress: pct,
+              elapsedSec: sec,
+              duration: numDuration,
+              status: 'recording'
+            }));
+          }
         }
       );
 
       const ext = result.isMp4 ? 'mp4' : 'webm';
-      const filename = `virtualthreads-${videoFormat}-${videoDuration}s-${Date.now()}.${ext}`;
+      const filename = `virtualthreads-${videoFormat}-${numDuration}s-${Date.now()}.${ext}`;
+      recorder.downloadBlob(result.blob, filename);
+      setLastRecordedFile(filename);
+      setRecordedSuccess(true);
+
+      if (setAsyncExportState) {
+        setAsyncExportState({
+          isRecording: false,
+          progress: 100,
+          elapsedSec: numDuration,
+          duration: numDuration,
+          status: 'complete',
+          fileName: filename
+        });
+      }
+    } catch (err) {
+      console.error('Recording failed:', err);
+      if (setAsyncExportState) {
+        setAsyncExportState({
+          isRecording: false,
+          progress: 0,
+          elapsedSec: 0,
+          duration: numDuration,
+          status: 'error',
+          fileName: null
+        });
+      }
+      alert('Video recording error: ' + (err.message || err));
+    } finally {
+      setIsRecording(false);
+      activeVideoRecorderInstance = null;
+      recorderRef.current = null;
+    }
+  };
+
+  const handleStartScreenRecording = async () => {
+    if (!hasAcceptedAup) return;
+    try {
+      const recorder = new CanvasVideoRecorder(sceneManager);
+      activeVideoRecorderInstance = recorder;
+      recorderRef.current = recorder;
+      setIsScreenRecording(true);
+      setIsRecording(true);
+      setScreenElapsed(0);
+
+      const result = await recorder.startScreenRecording(
+        (sec) => {
+          setScreenElapsed(sec);
+          setElapsedSeconds(sec);
+        },
+        () => {
+          setIsScreenRecording(false);
+          setIsRecording(false);
+        }
+      );
+
+      const filename = `virtualthreads-screen-recording-${Date.now()}.${result.isMp4 ? 'mp4' : 'webm'}`;
       recorder.downloadBlob(result.blob, filename);
       setLastRecordedFile(filename);
       setRecordedSuccess(true);
     } catch (err) {
-      console.error('Recording failed:', err);
-      alert('Video recording error: ' + (err.message || err));
+      if (err.name !== 'NotAllowedError') {
+        console.error('Screen recording error:', err);
+        alert('Screen recording error: ' + (err.message || err));
+      }
     } finally {
+      setIsScreenRecording(false);
       setIsRecording(false);
+      activeVideoRecorderInstance = null;
       recorderRef.current = null;
     }
   };
 
   const handleStopEarly = () => {
-    if (recorderRef.current) {
+    if (activeVideoRecorderInstance) {
+      activeVideoRecorderInstance.stopEarly();
+    } else if (recorderRef.current) {
       recorderRef.current.stopEarly();
     }
+    setIsScreenRecording(false);
+    setIsRecording(false);
   };
 
   const handleDurationChange = (val) => {
@@ -131,37 +251,47 @@ export function ExportPanel({
     setVideoDuration(num);
   };
 
+  const handleExportGLTF = () => {
+    if (!sceneManager || !sceneManager.exportGLTF) return;
+    setIsExportingGLTF(true);
+    sceneManager.exportGLTF(
+      () => setIsExportingGLTF(false),
+      () => setIsExportingGLTF(false)
+    );
+  };
+
   return (
     <aside
       data-export-panel="true"
-      className="absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 w-[330px] sm:w-[350px] max-w-[calc(100vw-24px)] bg-white dark:bg-studio-900 rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-30 transition-all animate-fadeIn"
-      style={{ maxHeight: 'calc(100vh - 84px)' }}
+      className="fixed bottom-0 left-0 right-0 sm:absolute sm:right-6 sm:top-20 sm:bottom-6 sm:left-auto w-full sm:w-[350px] max-w-[calc(100vw-24px)] max-h-[82vh] sm:max-h-[calc(100vh-84px)] bg-white dark:bg-studio-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-40 sm:z-30 transition-all animate-fadeIn"
     >
+      {/* Mobile Swipe / Drag Handle Bar */}
+      <div className="w-12 h-1 bg-gray-300 dark:bg-studio-600 rounded-full mx-auto my-1.5 sm:hidden shrink-0" />
+
       {/* Top Header: Export Studio Branding */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2.5 bg-gray-50/90 dark:bg-studio-850/90 border-b border-gray-200/80 dark:border-studio-700/60 shrink-0">
+      <div className="flex items-center justify-between px-4 pt-2.5 pb-2.5 bg-gray-50/90 dark:bg-studio-850/90 border-b border-gray-200/80 dark:border-studio-700/60 shrink-0">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-brand-500/15 text-brand-500 border border-brand-500/25">
             <Sparkles className="size-3.5" />
           </div>
           <div>
             <h3 className="text-xs font-extrabold text-gray-900 dark:text-white leading-tight">Export Studio</h3>
-            <p className="text-[9px] text-gray-500 dark:text-studio-400">60 FPS video & 4K snapshots</p>
+            <p className="text-[9px] text-gray-500 dark:text-studio-400">60 FPS video, 4K & 3D models</p>
           </div>
         </div>
 
-        {/* Close Button */}
+        {/* Close Button: Always enabled for asynchronous background export */}
         <button
           type="button"
           onClick={onClose}
-          disabled={isRecording}
-          className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-200/60 dark:hover:bg-studio-800 disabled:opacity-40"
-          title="Close Export Panel"
+          className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1.5 rounded-lg hover:bg-gray-200/60 dark:hover:bg-studio-800"
+          title={isRecording ? "Run Export in Background (Close Panel)" : "Close Export Panel"}
         >
-          <X className="size-3.5 stroke-[2.5]" />
+          <X className="size-4 stroke-[2.5]" />
         </button>
       </div>
 
-      {/* Subtabs: Video Recording vs 4K Snapshot */}
+      {/* Subtabs: Video Recording vs 4K Snapshot vs 3D Model */}
       <div className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-studio-900 border-b border-gray-100 dark:border-studio-800 shrink-0">
         <button
           disabled={isRecording}
@@ -173,7 +303,7 @@ export function ExportPanel({
           }`}
         >
           <Video className="size-3" />
-          <span>Video Render</span>
+          <span>Video</span>
         </button>
 
         <button
@@ -186,7 +316,20 @@ export function ExportPanel({
           }`}
         >
           <Camera className="size-3" />
-          <span>4K Snapshot</span>
+          <span>4K Photo</span>
+        </button>
+
+        <button
+          disabled={isRecording}
+          onClick={() => setActiveTab('gltf')}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'gltf'
+              ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/25'
+              : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200/70 dark:hover:bg-studio-750'
+          }`}
+        >
+          <Box className="size-3" />
+          <span>3D Model</span>
         </button>
       </div>
 
@@ -197,6 +340,69 @@ export function ExportPanel({
         {/* ========================================================================= */}
         {activeTab === 'video' && (
           <div className="space-y-3.5">
+            {/* Capture Mode Toggle: Studio 3D (60 FPS) vs Live Screen Recording */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1">
+                  <Film className="size-3 text-brand-500" />
+                  <span>Recording Mode</span>
+                </label>
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  60 FPS Smooth
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-studio-800 rounded-xl border border-gray-200 dark:border-studio-700/60">
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setVideoCaptureMode('studio3d')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                    videoCaptureMode === 'studio3d'
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
+                  }`}
+                >
+                  Studio 3D (60 FPS)
+                </button>
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setVideoCaptureMode('screen')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                    videoCaptureMode === 'screen'
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
+                  }`}
+                >
+                  Screen Recording
+                </button>
+              </div>
+            </div>
+
+            {videoCaptureMode === 'screen' ? (
+              <div className="p-3 bg-brand-50/60 dark:bg-brand-500/10 rounded-2xl border border-brand-200 dark:border-brand-500/20 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Monitor className="size-4 text-brand-500" />
+                  <h4 className="text-xs font-extrabold text-gray-900 dark:text-white">Live Screen Recording (60 FPS)</h4>
+                </div>
+                <p className="text-[11px] text-gray-600 dark:text-studio-300 leading-relaxed">
+                  Record your studio screen or browser tab in real-time at 60 FPS. Move, rotate, and customize the garment in real time during the recording.
+                </p>
+                {isScreenRecording && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-studio-900 border border-brand-300 dark:border-brand-500/40">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
+                      <span className="size-2 rounded-full bg-red-500 animate-ping" />
+                      Screen Recording Active
+                    </span>
+                    <span className="font-mono text-xs font-bold text-gray-900 dark:text-white">
+                      {screenElapsed.toFixed(1)}s
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
             {/* Format Selection */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -466,14 +672,16 @@ export function ExportPanel({
                 ))}
               </div>
             </div>
+            </>
+            )}
 
             {/* Recording Progress Status Box */}
-            {isRecording && (
+            {isRecording && !isScreenRecording && (
               <div className="p-4 rounded-2xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 space-y-2.5 animate-fadeIn">
                 <div className="flex items-center justify-between text-xs font-bold text-brand-700 dark:text-brand-300">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="size-3.5 animate-spin" />
-                    Rendering Frame-by-Frame ({recordingProgress}%)
+                    Recording Smooth 60 FPS ({recordingProgress}%)
                   </span>
                   <span>{elapsedSeconds.toFixed(1)}s / {videoDuration}s</span>
                 </div>
@@ -487,7 +695,7 @@ export function ExportPanel({
 
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-brand-600 dark:text-brand-400">
-                    Capturing smooth WebGL buffer...
+                    Direct hardware GPU capture active...
                   </span>
                   <button
                     onClick={handleStopEarly}
@@ -513,24 +721,43 @@ export function ExportPanel({
               </div>
             )}
 
-            {/* Start Recording Action Button */}
-            <button
-              disabled={isRecording}
-              onClick={handleStartRecording}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
-            >
-              {isRecording ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  <span>Recording {videoDuration}s Video...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="size-4" />
-                  <span>Start Video Recording ({videoDuration}s)</span>
-                </>
-              )}
-            </button>
+            {/* Start / Stop Recording Action Button */}
+            {isScreenRecording ? (
+              <button
+                onClick={handleStopEarly}
+                className="w-full py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm shadow-lg shadow-red-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                <StopCircle className="size-4" />
+                <span>Stop Screen Recording & Download ({screenElapsed.toFixed(1)}s)</span>
+              </button>
+            ) : videoCaptureMode === 'screen' ? (
+              <button
+                disabled={!hasAcceptedAup}
+                onClick={handleStartScreenRecording}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Video className="size-4" />
+                <span>Start Live Screen Recording (60 FPS)</span>
+              </button>
+            ) : (
+              <button
+                disabled={isRecording || !hasAcceptedAup}
+                onClick={handleStartRecording}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {isRecording ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Recording {videoDuration}s Video...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-4" />
+                    <span>Start 60 FPS Video Recording ({videoDuration}s)</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         )}
 
@@ -602,13 +829,82 @@ export function ExportPanel({
             {/* Download Snapshot Button */}
             <button
               onClick={handleDownloadSnapshot}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2"
+              disabled={!hasAcceptedAup}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2 disabled:opacity-50"
             >
               <Download className="size-4" />
               <span>Download {imageRes.toUpperCase()} Snapshot ({imageFormat.toUpperCase()})</span>
             </button>
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: 3D MODEL (.GLTF) EXPORT */}
+        {/* ========================================================================= */}
+        {activeTab === 'gltf' && (
+          <div className="space-y-4">
+            <div className="p-3 bg-brand-50/60 dark:bg-brand-500/10 rounded-2xl border border-brand-200 dark:border-brand-500/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Box className="size-4 text-brand-500" />
+                <h4 className="text-xs font-extrabold text-gray-900 dark:text-white">Universal 3D Garment Model</h4>
+              </div>
+              <p className="text-[11px] text-gray-600 dark:text-studio-300 leading-relaxed">
+                Export the customized 3D garment as an industry-standard <span className="font-semibold text-brand-600 dark:text-brand-400">.glTF</span> asset complete with materials, vertex normals, and textures.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs text-gray-600 dark:text-studio-400">
+              <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-studio-800 border border-gray-150 dark:border-studio-700">
+                <span className="font-semibold">Format</span>
+                <span className="font-mono text-gray-900 dark:text-white font-bold">glTF 2.0 (.gltf JSON)</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-studio-800 border border-gray-150 dark:border-studio-700">
+                <span className="font-semibold">Compatibility</span>
+                <span className="text-gray-900 dark:text-white font-medium">Blender, Unity, Unreal, WebGL</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-studio-800 border border-gray-150 dark:border-studio-700">
+                <span className="font-semibold">Textures & Materials</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Embedded PBR</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleExportGLTF}
+              disabled={isExportingGLTF || !hasAcceptedAup}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2 disabled:opacity-50"
+            >
+              {isExportingGLTF ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Packaging 3D Model...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="size-4" />
+                  <span>Download .glTF 3D Model</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Intellectual Property & Acceptable Use Policy (AUP) Compliance */}
+        <div className="mt-4 p-3 bg-gray-50/80 dark:bg-studio-850/80 rounded-2xl border border-gray-200/80 dark:border-studio-750 text-left space-y-2">
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasAcceptedAup}
+              onChange={(e) => setHasAcceptedAup(e.target.checked)}
+              className="mt-0.5 rounded border-gray-300 dark:border-studio-600 text-brand-600 focus:ring-brand-500 shrink-0"
+            />
+            <span className="text-[11px] font-medium text-gray-700 dark:text-studio-300 leading-tight">
+              I confirm that I own or hold the commercial license for all uploaded graphics, emblems, and typography.
+            </span>
+          </label>
+          <p className="text-[10px] text-gray-400 dark:text-studio-500 leading-normal pl-6 border-t border-gray-150 dark:border-studio-800 pt-1.5 font-sans">
+            Legal notice: Mockup rendered for preview purposes only. All uploaded trademarks belong to their respective owners.
+          </p>
+        </div>
       </div>
 
       {/* Footer Status Indicator */}

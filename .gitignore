@@ -40,3 +40,6 @@ test-*.html
 test-*.png
 diagnose-*.png
 verified-*.png
+*.py
+verify_*.mjs
+

@@ -171,6 +171,21 @@ export function PositionGuide({
     const file = e.target.files?.[0];
     if (!file || !designManager) return;
 
+    // Security Check 1 (SEC-01): Enforce 15MB file size ceiling (Client DoS defense)
+    if (file.size > 15 * 1024 * 1024) {
+      showFeedback('File too large (Max 15MB allowed)');
+      e.target.value = '';
+      return;
+    }
+
+    // Security Check 2 (SEC-02): Restrict MIME types to safe raster formats (SVG/XSS defense)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showFeedback('Invalid format. Please upload PNG, JPG, or WebP');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -219,18 +234,19 @@ export function PositionGuide({
         rotation: l.rotation,
         opacity: l.opacity,
         printType: l.printType,
-        imgSrc: l.image?.src || null
+        imgSrc: typeof l.image === 'string' ? l.image : (l.image?.src || null)
       }));
 
       localStorage.setItem('virtualthreads_saved_layout', JSON.stringify(serialized));
       showFeedback('Layout saved to studio');
     } catch (err) {
       console.warn('Could not save layout:', err);
-      showFeedback('Saved locally');
+      const isQuota = err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014;
+      showFeedback(isQuota ? 'Storage quota exceeded (image too large)' : 'Failed to save layout locally');
     }
   };
 
-  // Load Layout from localStorage
+  // Load Layout from localStorage with Schema Validation & Bounds-Checking (SEC-05)
   const handleLoadLayout = () => {
     if (!designManager) return;
 
@@ -241,36 +257,78 @@ export function PositionGuide({
         return;
       }
 
-      const layersData = JSON.parse(saved);
+      let layersData;
+      try {
+        layersData = JSON.parse(saved);
+      } catch (parseErr) {
+        showFeedback('Corrupt saved layout data');
+        return;
+      }
+
+      if (!Array.isArray(layersData)) {
+        showFeedback('Invalid layout format');
+        return;
+      }
+
+      // Security Schema Validation & Bounds-Checking (SEC-05)
+      const validLayers = layersData.filter((item) => {
+        if (!item || typeof item !== 'object') return false;
+        if (item.type !== 'text' && item.type !== 'image') return false;
+        const validSide = item.side === 'front' || item.side === 'back';
+        if (!validSide) return false;
+        if (typeof item.x === 'number' && !Number.isFinite(item.x)) return false;
+        if (typeof item.y === 'number' && !Number.isFinite(item.y)) return false;
+        if (typeof item.scale === 'number' && (item.scale < 0.05 || item.scale > 10 || !Number.isFinite(item.scale))) return false;
+        if (typeof item.rotation === 'number' && !Number.isFinite(item.rotation)) return false;
+        if (item.type === 'text' && (typeof item.text !== 'string' || item.text.length > 500)) return false;
+        if (item.type === 'image' && item.imgSrc && typeof item.imgSrc === 'string') {
+          if (!item.imgSrc.startsWith('data:image/') && !item.imgSrc.startsWith('blob:') && !item.imgSrc.startsWith('http://') && !item.imgSrc.startsWith('https://') && !item.imgSrc.startsWith('/')) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      if (validLayers.length === 0 && layersData.length > 0) {
+        showFeedback('Layout failed security validation');
+        return;
+      }
+
       designManager.clearLayers();
 
-      layersData.forEach((layerItem) => {
+      validLayers.forEach((layerItem) => {
+        const side = layerItem.side || 'front';
+        const x = Number.isFinite(layerItem.x) ? Math.max(0, Math.min(2048, layerItem.x)) : (side === 'back' ? 1520 : 530);
+        const y = Number.isFinite(layerItem.y) ? Math.max(0, Math.min(2048, layerItem.y)) : 800;
+        const scale = Number.isFinite(layerItem.scale) ? Math.max(0.1, Math.min(5.0, layerItem.scale)) : 1.0;
+        const rotation = Number.isFinite(layerItem.rotation) ? layerItem.rotation % 360 : 0;
+
         if (layerItem.type === 'text') {
           designManager.addLayer({
             type: 'text',
-            side: layerItem.side || 'front',
-            text: layerItem.text,
-            textColor: layerItem.textColor,
-            fontSize: layerItem.fontSize,
-            fontFamily: layerItem.fontFamily,
-            x: layerItem.x,
-            y: layerItem.y,
-            scale: layerItem.scale,
-            rotation: layerItem.rotation,
-            printType: layerItem.printType
+            side: side,
+            text: String(layerItem.text || 'VIRTUAL THREADS').slice(0, 100),
+            textColor: String(layerItem.textColor || '#000000').slice(0, 30),
+            fontSize: Math.max(1, Math.min(120, parseInt(layerItem.fontSize, 10) || 12)),
+            fontFamily: String(layerItem.fontFamily || 'Roboto').slice(0, 50),
+            x: x,
+            y: y,
+            scale: scale,
+            rotation: rotation,
+            printType: layerItem.printType === 'puff' ? 'puff' : 'screen'
           });
         } else if (layerItem.type === 'image' && layerItem.imgSrc) {
           const img = new Image();
           img.onload = () => {
             designManager.addLayer({
               type: 'image',
-              side: layerItem.side || 'front',
+              side: side,
               image: img,
-              x: layerItem.x,
-              y: layerItem.y,
-              scale: layerItem.scale,
-              rotation: layerItem.rotation,
-              printType: layerItem.printType
+              x: x,
+              y: y,
+              scale: scale,
+              rotation: rotation,
+              printType: layerItem.printType === 'puff' ? 'puff' : 'screen'
             });
           };
           img.src = layerItem.imgSrc;
@@ -444,17 +502,18 @@ export function PositionGuide({
 
   return (
     <aside 
-      className={`absolute right-3 sm:right-6 top-16 sm:top-20 bottom-3 sm:bottom-6 ${
-        isExpanded ? 'w-[480px] sm:w-[520px]' : 'w-[330px] sm:w-[350px]'
-      } max-w-[calc(100vw-24px)] bg-white rounded-3xl shadow-2xl border border-gray-200/90 flex flex-col overflow-hidden select-none z-30 transition-all duration-300 animate-fadeIn`}
-      style={{ maxHeight: 'calc(100vh - 84px)' }}
+      className={`fixed bottom-0 left-0 right-0 sm:absolute sm:right-6 sm:top-20 sm:bottom-6 sm:left-auto ${
+        isExpanded ? 'w-full sm:w-[480px] md:w-[520px]' : 'w-full sm:w-[330px] md:w-[350px]'
+      } max-w-[calc(100vw-24px)] max-h-[82vh] sm:max-h-[calc(100vh-84px)] bg-white dark:bg-studio-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-40 sm:z-30 transition-all duration-300 animate-fadeIn`}
     >
+      {/* Mobile Swipe / Drag Handle Bar */}
+      <div className="w-12 h-1 bg-gray-300 dark:bg-studio-600 rounded-full mx-auto my-1.5 sm:hidden shrink-0" />
       
-      {/* Hidden File Input for Design Upload */}
+      {/* Hidden File Input for Design Upload (SEC-02: Restricted to safe raster images) */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg,image/webp"
         onChange={handleFileUpload}
         className="hidden"
       />
@@ -478,7 +537,7 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* ROW 1: Orange Pill | Pen Icon | Color Swatch | Number Input | Close (x)  */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-3.5 pt-3 pb-2 bg-[#f8f9fa] border-b border-gray-100">
+      <div className="flex items-center justify-between px-3.5 pt-3 pb-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750">
         <div className="flex items-center gap-2">
           {/* Orange Vertical Accent Pill */}
           <div className="w-1.5 h-5 rounded-full bg-[#f97316] shrink-0" />
@@ -486,7 +545,7 @@ export function PositionGuide({
           {/* Pen / Stylus Tool Icon */}
           <button 
             type="button" 
-            className="text-gray-800 hover:text-black transition-colors p-0.5"
+            className="text-gray-800 dark:text-gray-200 hover:text-black dark:hover:text-white transition-colors p-0.5"
             title="Garment & Drawing Tools"
           >
             <Pencil className="size-3.5 stroke-[2.2]" />
@@ -496,7 +555,7 @@ export function PositionGuide({
           <button
             type="button"
             onClick={() => garmentColorInputRef.current?.click()}
-            className="size-5.5 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
+            className="size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
             style={{ backgroundColor: garmentColor }}
             title="Change Garment Color"
           />
@@ -508,7 +567,7 @@ export function PositionGuide({
             onChange={(e) => setPenStrokeWidth(parseInt(e.target.value) || 1)}
             min="1"
             max="10"
-            className="w-9 h-6.5 px-1 text-[11px] font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
+            className="w-9 h-6.5 px-1 text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
             title="Stroke Width / Layer Index"
           />
         </div>
@@ -530,7 +589,7 @@ export function PositionGuide({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200/60"
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800"
             title={isExpanded ? "Collapse to Standard Width" : "Expand to Wide Canvas"}
           >
             {isExpanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
@@ -540,7 +599,7 @@ export function PositionGuide({
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-200/60"
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800"
             title="Close Position Guide"
           >
             <X className="size-3.5 stroke-[2.5]" />
@@ -551,12 +610,12 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* ROW 2: Add Text Button | Text Input Box | Text Color Swatch | Font Size | Font Family Dropdown */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f8f9fa] border-b border-gray-100 flex-nowrap">
+      <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750 flex-nowrap">
         {/* Add Text Pill Button */}
         <button
           type="button"
           onClick={handleAddText}
-          className="px-2.5 py-1 text-[11px] font-bold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs hover:bg-gray-50 active:scale-95 transition-all shrink-0"
+          className="px-2.5 py-1 text-[11px] font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs hover:bg-gray-50 dark:hover:bg-studio-750 active:scale-95 transition-all shrink-0"
         >
           Add Text
         </button>
@@ -571,7 +630,7 @@ export function PositionGuide({
             if (e.key === 'Enter') handleAddText();
           }}
           placeholder="Enter text..."
-          className="flex-1 min-w-[65px] h-6.5 px-2 text-[11px] font-medium text-gray-900 bg-white border border-gray-300 rounded shadow-2xs placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
+          className="flex-1 min-w-[65px] h-6.5 px-2 text-[11px] font-medium text-gray-900 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs placeholder:text-gray-400 dark:placeholder:text-studio-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
           title="Type text to add or edit"
         />
 
@@ -579,7 +638,7 @@ export function PositionGuide({
         <button
           type="button"
           onClick={() => textColorInputRef.current?.click()}
-          className="size-5.5 rounded-full border border-gray-300 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
+          className="size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
           style={{ backgroundColor: textColor }}
           title="Change Text Color"
         />
@@ -591,7 +650,7 @@ export function PositionGuide({
           onChange={handleFontSizeChange}
           min="1"
           max="120"
-          className="w-9 h-6.5 px-0.5 text-[11px] font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
+          className="w-9 h-6.5 px-0.5 text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
           title="Font Size"
         />
 
@@ -599,7 +658,7 @@ export function PositionGuide({
         <select
           value={fontFamily}
           onChange={handleFontFamilyChange}
-          className="h-6.5 px-1 text-[11px] font-medium text-gray-800 bg-white border border-gray-300 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-20 shrink-0"
+          className="h-6.5 px-1 text-[11px] font-medium text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-20 shrink-0"
           title="Font Family"
         >
           <option value="Roboto">Roboto</option>
@@ -614,7 +673,7 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* ROW 3: Upload Design Button | Save Layout | Load Layout | Reset            */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] border-b border-gray-200">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750">
         {/* Solid Dark Navy Pill Upload Button */}
         <button
           type="button"
@@ -625,17 +684,44 @@ export function PositionGuide({
               fileInputRef.current?.click();
             }
           }}
-          className="px-3 py-1 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] text-white text-[11px] font-bold shadow transition-all active:scale-95 shrink-0"
+          className="px-3 py-1 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-[11px] font-bold shadow transition-all active:scale-95 shrink-0"
         >
           Upload Design
         </button>
 
-        {/* Action Text Links */}
-        <div className="flex items-center gap-2 text-[11px] font-medium text-gray-600">
+        {/* Action Text Links & History Controls */}
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-studio-400">
+          <button
+            type="button"
+            disabled={!designManager?.canUndo?.()}
+            onClick={() => {
+              if (designManager?.undo?.()) {
+                showFeedback('Undone (Ctrl+Z)');
+              }
+            }}
+            className="hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold"
+            title="Undo last change (Ctrl+Z)"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            disabled={!designManager?.canRedo?.()}
+            onClick={() => {
+              if (designManager?.redo?.()) {
+                showFeedback('Redone (Ctrl+Shift+Z)');
+              }
+            }}
+            className="hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold"
+            title="Redo change (Ctrl+Shift+Z)"
+          >
+            Redo
+          </button>
+          <span className="text-gray-300 dark:text-studio-700">|</span>
           <button
             type="button"
             onClick={handleSaveLayout}
-            className="hover:text-black transition-colors px-0.5 py-0.5"
+            className="hover:text-black dark:hover:text-white transition-colors px-0.5 py-0.5"
             title="Save layout layers"
           >
             Save
@@ -643,7 +729,7 @@ export function PositionGuide({
           <button
             type="button"
             onClick={handleLoadLayout}
-            className="hover:text-black transition-colors px-0.5 py-0.5"
+            className="hover:text-black dark:hover:text-white transition-colors px-0.5 py-0.5"
             title="Restore saved layout"
           >
             Load
@@ -651,7 +737,7 @@ export function PositionGuide({
           <button
             type="button"
             onClick={handleResetLayout}
-            className="hover:text-red-600 transition-colors px-0.5 py-0.5"
+            className="hover:text-red-600 dark:hover:text-red-400 transition-colors px-0.5 py-0.5"
             title="Clear all graphics"
           >
             Reset
@@ -661,7 +747,7 @@ export function PositionGuide({
 
       {/* Transient Feedback Message Banner */}
       {feedbackMessage && (
-        <div className="bg-emerald-50 text-emerald-700 border-b border-emerald-100 px-4 py-1.5 text-center text-xs font-semibold flex items-center justify-center gap-1.5 animate-fadeIn">
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-b border-emerald-100 dark:border-emerald-800/40 px-4 py-1.5 text-center text-xs font-semibold flex items-center justify-center gap-1.5 animate-fadeIn">
           <Check className="size-3.5" />
           <span>{feedbackMessage}</span>
         </div>
@@ -670,10 +756,10 @@ export function PositionGuide({
       {/* ========================================================================= */}
       {/* MAIN BODY: Centered Header + Authentic Flat Garment Schematic Canvas      */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col bg-white overflow-hidden p-3 sm:p-4">
+      <div className="flex-1 flex flex-col bg-white dark:bg-studio-900 overflow-hidden p-3 sm:p-4">
         
         {/* Light Gray Uppercase Title */}
-        <div className="text-center font-extrabold text-xs sm:text-sm tracking-widest text-[#b8b8c2] uppercase py-1">
+        <div className="text-center font-extrabold text-xs sm:text-sm tracking-widest text-[#b8b8c2] dark:text-studio-500 uppercase py-1">
           POSITION GUIDE
         </div>
 
@@ -683,7 +769,7 @@ export function PositionGuide({
           onClick={handleCanvasClick}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          className="relative flex-1 w-full bg-white rounded-2xl overflow-hidden flex items-center justify-center cursor-crosshair border border-gray-100 touch-none select-none"
+          className="relative flex-1 w-full bg-white dark:bg-studio-850 rounded-2xl overflow-hidden flex items-center justify-center cursor-crosshair border border-gray-100 dark:border-studio-750 touch-none select-none"
         >
           
           {/* Base Vector Pattern SVG (Collar Rib, Front Silhouette, Back Silhouette, Sleeves) */}

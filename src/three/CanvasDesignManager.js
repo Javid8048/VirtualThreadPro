@@ -47,8 +47,14 @@ export class CanvasDesignManager {
     this.decalTexture.generateMipmaps = false;
     this.decalTexture.anisotropy = 16;
 
+    // Command Pattern Undo / Redo history engine (Ctrl+Z / Ctrl+Shift+Z)
+    this.history = [];
+    this.historyIndex = -1;
+    this._isUndoRedoing = false;
+
     // Initial render
     this.render();
+    this.saveHistory();
   }
 
   subscribe(cb) {
@@ -126,6 +132,7 @@ export class CanvasDesignManager {
     this.layers.push(newLayer);
     this.activeLayerId = newLayer.id;
     this.render();
+    this.saveHistory();
     this.notify();
     return newLayer;
   }
@@ -143,6 +150,7 @@ export class CanvasDesignManager {
     if (idx !== -1) {
       this.layers[idx] = { ...this.layers[idx], ...updates };
       if (immediate) {
+        this.saveHistory();
         this.flush();
       } else {
         this.scheduleRender();
@@ -173,6 +181,7 @@ export class CanvasDesignManager {
     if (this.activeLayerId === id) {
       this.activeLayerId = this.layers[0]?.id || null;
     }
+    this.saveHistory();
     this.flush();
   }
 
@@ -181,13 +190,66 @@ export class CanvasDesignManager {
     if (!this.layers.find((l) => l.id === this.activeLayerId)) {
       this.activeLayerId = this.layers[0]?.id || null;
     }
+    this.saveHistory();
     this.flush();
   }
 
   clearLayers() {
     this.layers = [];
     this.activeLayerId = null;
+    this.saveHistory();
     this.flush();
+  }
+
+  saveHistory() {
+    if (this._isUndoRedoing) return;
+    if (this.historyIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+    }
+    const snapshot = {
+      layers: this.layers.map((l) => ({ ...l })),
+      activeLayerId: this.activeLayerId,
+      garmentColor: this.garmentColor
+    };
+    this.history.push(snapshot);
+    if (this.history.length > 40) {
+      this.history.shift();
+    }
+    this.historyIndex = this.history.length - 1;
+  }
+
+  canUndo() {
+    return this.historyIndex > 0;
+  }
+
+  canRedo() {
+    return this.historyIndex < this.history.length - 1;
+  }
+
+  undo() {
+    if (!this.canUndo()) return false;
+    this.historyIndex--;
+    this._restoreHistory(this.history[this.historyIndex]);
+    return true;
+  }
+
+  redo() {
+    if (!this.canRedo()) return false;
+    this.historyIndex++;
+    this._restoreHistory(this.history[this.historyIndex]);
+    return true;
+  }
+
+  _restoreHistory(snapshot) {
+    if (!snapshot) return;
+    this._isUndoRedoing = true;
+    this.layers = snapshot.layers.map((l) => ({ ...l }));
+    this.activeLayerId = snapshot.activeLayerId;
+    if (snapshot.garmentColor && snapshot.garmentColor !== this.garmentColor) {
+      this.garmentColor = snapshot.garmentColor;
+    }
+    this.flush();
+    this._isUndoRedoing = false;
   }
 
   render() {
@@ -213,6 +275,7 @@ export class CanvasDesignManager {
       this.garmentType === 'zip_hoodie' ||
       this.garmentType === 'hanging_hoodie' ||
       this.garmentType === 'sweatpants' ||
+      this.garmentType === 'pants' ||
       this.garmentType === 'cap'
     );
 
