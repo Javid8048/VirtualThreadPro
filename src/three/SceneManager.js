@@ -152,9 +152,22 @@ export class SceneManager {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.minDistance = 5;
+    const isMobilePortrait = typeof window !== 'undefined' && window.innerWidth < 768;
+    this.controls.minDistance = isMobilePortrait ? 6.5 : 5.0;
     this.controls.maxDistance = 38;
     this.controls.target.set(0, 0.75, 0);
+
+    // Auto-pause turntable spin on canvas touch/pointer interaction to eliminate rotation fight
+    this.onTurntableAutoPause = null;
+    this.handleCanvasPointerDown = () => {
+      if (this.animationMode === 'turntable') {
+        this.setAnimationMode('static');
+        if (this.onTurntableAutoPause) {
+          this.onTurntableAutoPause();
+        }
+      }
+    };
+    this.renderer.domElement.addEventListener('pointerdown', this.handleCanvasPointerDown, { passive: true });
 
     // Zoom state (independent toggle: default wide/unzoomed per user request)
     this.isZoomed = false;
@@ -1751,7 +1764,7 @@ export class SceneManager {
     }
 
     return new Promise((resolve) => {
-      const duration = 0.5;
+      const duration = 0.3;
       const startTime = performance.now();
       const startPos = this.camera.position.clone();
       let targetPos = new THREE.Vector3();
@@ -1891,9 +1904,15 @@ export class SceneManager {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.width, this.height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+    const isMobilePortrait = window.innerWidth < 768;
+    if (this.controls) {
+      this.controls.minDistance = isMobilePortrait ? 6.5 : 5.0;
+    }
   }
 
   pause() {
+    if (this.isRecordingVideo) return; // Prevent background pause during video export
     this.isPaused = true;
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
@@ -1916,6 +1935,11 @@ export class SceneManager {
       return;
     }
     this.animFrameId = requestAnimationFrame(this.animate);
+
+    // Throttle animation frame evaluation when tab is inactive to preserve thermal budget
+    if (typeof document !== 'undefined' && document.hidden && !this.isRecordingVideo) {
+      return;
+    }
 
     // High-precision clock delta: maintains live animation speed and smoothness during video recording
     const rawDelta = this.clock.getDelta();
@@ -2339,6 +2363,9 @@ export class SceneManager {
       this.animFrameId = null;
     }
     window.removeEventListener('resize', this.handleResize);
+    if (this.renderer && this.renderer.domElement && this.handleCanvasPointerDown) {
+      this.renderer.domElement.removeEventListener('pointerdown', this.handleCanvasPointerDown);
+    }
     if (this.renderer && this.renderer.domElement && this.renderer.domElement.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }

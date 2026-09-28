@@ -113,8 +113,20 @@ export class CanvasVideoRecorder {
           });
         }
 
+        // Keep mobile display active during recording to prevent corruption or throttling
+        let screenWakeLock = null;
+        if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+          navigator.wakeLock.request('screen')
+            .then((lock) => { screenWakeLock = lock; })
+            .catch(() => {});
+        }
+
         const cleanup = () => {
           this.isRecording = false;
+          if (screenWakeLock) {
+            screenWakeLock.release().catch(() => {});
+            screenWakeLock = null;
+          }
           if (this.progressTimer) {
             clearInterval(this.progressTimer);
             this.progressTimer = null;

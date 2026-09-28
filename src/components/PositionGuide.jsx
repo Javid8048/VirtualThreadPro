@@ -32,6 +32,57 @@ export function PositionGuide({
   const [resizeStart, setResizeStart] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Mobile 3-Stage Draggable Bottom Sheet: 'peek' (18vh), 'half' (46vh default), 'full' (85vh)
+  const [sheetStage, setSheetStage] = useState('half');
+  window.__SET_SHEET_STAGE__ = setSheetStage;
+  const touchStartYRef = useRef(null);
+  const touchCurrentYRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSheetStage('half');
+    }
+  }, [isOpen]);
+
+  const handleTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartYRef.current = e.touches[0].clientY;
+      touchCurrentYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchCurrentYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartYRef.current === null || touchCurrentYRef.current === null) return;
+    const deltaY = touchCurrentYRef.current - touchStartYRef.current;
+    const threshold = 35;
+
+    if (deltaY > threshold) {
+      // Swiped downward
+      if (sheetStage === 'full') {
+        setSheetStage('half');
+      } else if (sheetStage === 'half') {
+        setSheetStage('peek');
+      } else if (sheetStage === 'peek') {
+        onClose();
+      }
+    } else if (deltaY < -threshold) {
+      // Swiped upward
+      if (sheetStage === 'peek') {
+        setSheetStage('half');
+      } else if (sheetStage === 'half') {
+        setSheetStage('full');
+      }
+    }
+    touchStartYRef.current = null;
+    touchCurrentYRef.current = null;
+  };
+
   // Synchronize with external propSide changes
   useEffect(() => {
     if (propSide && propSide !== selectedSide) {
@@ -502,12 +553,63 @@ export function PositionGuide({
 
   return (
     <aside 
-      className={`fixed bottom-0 left-0 right-0 sm:absolute sm:right-6 sm:top-20 sm:bottom-6 sm:left-auto ${
+      id="position-guide-sheet"
+      className={`fixed bottom-20 left-0 right-0 sm:absolute sm:right-6 sm:top-20 sm:bottom-6 sm:left-auto ${
         isExpanded ? 'w-full sm:w-[480px] md:w-[520px]' : 'w-full sm:w-[330px] md:w-[350px]'
-      } max-w-[calc(100vw-24px)] max-h-[82vh] sm:max-h-[calc(100vh-84px)] bg-white dark:bg-studio-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 flex flex-col overflow-hidden select-none z-40 sm:z-30 transition-all duration-300 animate-fadeIn`}
+      } max-w-full sm:max-w-[calc(100vw-24px)] ${
+        sheetStage === 'peek'
+          ? 'h-[16vh] max-h-[16vh]'
+          : sheetStage === 'half'
+          ? 'h-[44vh] max-h-[44vh]'
+          : 'h-[calc(100vh-140px)] max-h-[calc(100vh-140px)]'
+      } sm:h-auto sm:max-h-[calc(100vh-84px)] bg-white dark:bg-studio-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/90 dark:border-studio-700/80 mx-2 sm:mx-0 flex flex-col overflow-hidden select-none z-30 transition-all duration-300 animate-fadeIn`}
     >
-      {/* Mobile Swipe / Drag Handle Bar */}
-      <div className="w-12 h-1 bg-gray-300 dark:bg-studio-600 rounded-full mx-auto my-1.5 sm:hidden shrink-0" />
+      {/* Mobile Draggable Gesture Target Handle */}
+      <div 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="w-full pt-2 pb-1.5 px-4 sm:hidden flex flex-col items-center justify-center shrink-0 cursor-grab active:cursor-grabbing bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-800 touch-none select-none"
+      >
+        <div className="w-12 h-1.5 bg-gray-300 dark:bg-studio-600 rounded-full mx-auto mb-1.5" />
+        <div className="flex items-center justify-between w-full text-[10px] font-bold text-gray-400 dark:text-studio-400">
+          <span className="flex items-center gap-1.5 text-gray-700 dark:text-studio-200 font-extrabold uppercase">
+            <span>Design Studio</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-500/15 text-brand-500 font-mono">
+              {sheetStage.toUpperCase()}
+            </span>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSheetStage('peek')}
+              className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${
+                sheetStage === 'peek' ? 'bg-brand-500 text-white' : 'bg-gray-200/80 dark:bg-studio-750 text-gray-600 dark:text-studio-300'
+              }`}
+            >
+              Peek 18%
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheetStage('half')}
+              className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${
+                sheetStage === 'half' ? 'bg-brand-500 text-white' : 'bg-gray-200/80 dark:bg-studio-750 text-gray-600 dark:text-studio-300'
+              }`}
+            >
+              Half 45%
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheetStage('full')}
+              className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${
+                sheetStage === 'full' ? 'bg-brand-500 text-white' : 'bg-gray-200/80 dark:bg-studio-750 text-gray-600 dark:text-studio-300'
+              }`}
+            >
+              Full 85%
+            </button>
+          </div>
+        </div>
+      </div>
       
       {/* Hidden File Input for Design Upload (SEC-02: Restricted to safe raster images) */}
       <input
@@ -534,229 +636,404 @@ export function PositionGuide({
         className="hidden"
       />
 
-      {/* ========================================================================= */}
-      {/* ROW 1: Orange Pill | Pen Icon | Color Swatch | Number Input | Close (x)  */}
-      {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-3.5 pt-3 pb-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750">
-        <div className="flex items-center gap-2">
-          {/* Orange Vertical Accent Pill */}
-          <div className="w-1.5 h-5 rounded-full bg-[#f97316] shrink-0" />
-
-          {/* Pen / Stylus Tool Icon */}
-          <button 
-            type="button" 
-            className="text-gray-800 dark:text-gray-200 hover:text-black dark:hover:text-white transition-colors p-0.5"
-            title="Garment & Drawing Tools"
-          >
-            <Pencil className="size-3.5 stroke-[2.2]" />
-          </button>
-
-          {/* Garment / Draw Color Swatch Circle */}
-          <button
-            type="button"
-            onClick={() => garmentColorInputRef.current?.click()}
-            className="size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
-            style={{ backgroundColor: garmentColor }}
-            title="Change Garment Color"
-          />
-
-          {/* Numeric Input Display (Layer / Stroke) */}
-          <input
-            type="number"
-            value={penStrokeWidth}
-            onChange={(e) => setPenStrokeWidth(parseInt(e.target.value) || 1)}
-            min="1"
-            max="10"
-            className="w-9 h-6.5 px-1 text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
-            title="Stroke Width / Layer Index"
-          />
-        </div>
-
-        <div className="flex items-center gap-1">
-          {onOpenExport && (
+      {/* Stage 1 Peek View (18% height on mobile): Quick layer switch & garment color while seeing 82% of 3D model */}
+      {sheetStage === 'peek' && (
+        <div className="flex-1 flex items-center justify-between px-3.5 py-1 overflow-x-auto gap-2 sm:hidden">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onOpenExport}
-              className="px-2 py-0.5 rounded-md text-[11px] font-bold text-indigo-600 dark:text-brand-400 hover:bg-indigo-50 dark:hover:bg-brand-500/20 border border-indigo-200 dark:border-brand-500/30 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
-              title="Switch to Export Studio (Video & 4K Snapshots)"
+              onClick={() => garmentColorInputRef.current?.click()}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
+              title="Change Garment Color"
             >
-              <Download className="size-2.5" />
-              <span>Export</span>
+              <div
+                className="size-7 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm"
+                style={{ backgroundColor: garmentColor }}
+              />
             </button>
+            <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+              {layers.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => {
+                    setActiveLayerId(l.id);
+                    if (designManager) designManager.setActiveLayer(l.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    l.id === activeLayerId
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300'
+                  }`}
+                >
+                  {l.type === 'text' ? (l.text || 'Text') : 'Graphic'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSheetStage('half')}
+              className="px-3 py-2 rounded-xl bg-brand-500 text-white text-xs font-bold shadow-sm"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Primary Toolbar Rows (Always rendered in Half and Full stages, and on desktop) */}
+      <div className={`flex flex-col shrink-0 ${sheetStage === 'peek' ? 'hidden sm:flex' : 'flex'}`}>
+        {/* ROW 1: Orange Pill | Pen Icon | Color Swatch (44px target) | Number Input (44px target) | Close (x) */}
+        <div className="flex items-center justify-between px-3.5 pt-2.5 pb-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750">
+          <div className="flex items-center gap-2">
+            {/* Orange Vertical Accent Pill */}
+            <div className="w-1.5 h-6 rounded-full bg-[#f97316] shrink-0" />
+
+            {/* Stylus Tool Icon (Min 44px hit target on mobile) */}
+            <button 
+              type="button" 
+              className="min-w-[36px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-0.5 text-gray-800 dark:text-gray-200 hover:text-black dark:hover:text-white transition-colors flex items-center justify-center"
+              title="Garment & Drawing Tools"
+            >
+              <Pencil className="size-4 sm:size-3.5 stroke-[2.2]" />
+            </button>
+
+            {/* Garment / Draw Color Swatch (Min 44px x 44px tap zone per Apple/Google guidelines) */}
+            <button
+              type="button"
+              onClick={() => garmentColorInputRef.current?.click()}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer shrink-0 group"
+              title="Change Garment Color"
+            >
+              <div
+                className="size-6 sm:size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm overflow-hidden group-hover:scale-110 transition-transform"
+                style={{ backgroundColor: garmentColor }}
+              />
+            </button>
+
+            {/* Numeric Input Display (Layer / Stroke - Min 44px height tap target on mobile) */}
+            <input
+              type="number"
+              value={penStrokeWidth}
+              onChange={(e) => setPenStrokeWidth(parseInt(e.target.value) || 1)}
+              min="1"
+              max="10"
+              className="w-11 h-11 sm:w-9 sm:h-6.5 px-1 text-xs sm:text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded-lg sm:rounded shadow-2xs text-center focus:outline-none focus:border-gray-500"
+              title="Stroke Width / Layer Index"
+            />
+          </div>
+
+          <div className="flex items-center gap-1">
+            {onOpenExport && (
+              <button
+                type="button"
+                onClick={onOpenExport}
+                className="min-h-[44px] sm:min-h-0 sm:h-6 px-2.5 py-1 sm:py-0.5 rounded-xl sm:rounded-md text-xs sm:text-[11px] font-bold text-indigo-600 dark:text-brand-400 hover:bg-indigo-50 dark:hover:bg-brand-500/20 border border-indigo-200 dark:border-brand-500/30 transition-all flex items-center gap-1 shadow-2xs active:scale-95"
+                title="Switch to Export Studio (Video & 4K Snapshots)"
+              >
+                <Download className="size-3 sm:size-2.5" />
+                <span>Export</span>
+              </button>
+            )}
+
+            {/* Expand / Minimize Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="min-w-[40px] min-h-[44px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg sm:rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800 flex items-center justify-center"
+              title={isExpanded ? "Collapse to Standard Width" : "Expand to Wide Canvas"}
+            >
+              {isExpanded ? <Minimize2 className="size-4 sm:size-3.5" /> : <Maximize2 className="size-4 sm:size-3.5" />}
+            </button>
+
+            {/* Close Button (x) (Min 44px tap zone on mobile) */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg sm:rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800 flex items-center justify-center"
+              title="Close Position Guide"
+            >
+              <X className="size-4 sm:size-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+        </div>
+
+        {/* ROW 2: Add Text Button | Text Input Box | Text Color Swatch | Font Size | Font Family Dropdown */}
+        <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750 flex-nowrap">
+          {/* Add Text Pill Button */}
+          <button
+            type="button"
+            onClick={handleAddText}
+            className="min-h-[44px] sm:min-h-0 sm:h-6.5 px-3 sm:px-2.5 py-1 text-xs sm:text-[11px] font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded-xl sm:rounded shadow-2xs hover:bg-gray-50 dark:hover:bg-studio-750 active:scale-95 transition-all shrink-0 flex items-center justify-center"
+          >
+            Add Text
+          </button>
+
+          {/* Input box for typing custom text */}
+          <input
+            ref={textInputRef}
+            type="text"
+            value={textInput}
+            onChange={handleTextChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddText();
+            }}
+            placeholder="Enter text..."
+            className="flex-1 min-w-[70px] min-h-[44px] sm:min-h-0 sm:h-6.5 px-2.5 sm:px-2 text-xs sm:text-[11px] font-medium text-gray-900 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded-xl sm:rounded shadow-2xs placeholder:text-gray-400 dark:placeholder:text-studio-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
+            title="Type text to add or edit"
+          />
+
+          {/* Circular Text Color Swatch (Min 44px tap target) */}
+          <button
+            type="button"
+            onClick={() => textColorInputRef.current?.click()}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer shrink-0 group"
+            title="Change Text Color"
+          >
+            <div
+              className="size-6 sm:size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm overflow-hidden group-hover:scale-110 transition-transform"
+              style={{ backgroundColor: textColor }}
+            />
+          </button>
+
+          {/* Numeric Font Size Input */}
+          <input
+            type="number"
+            value={fontSize}
+            onChange={handleFontSizeChange}
+            min="1"
+            max="120"
+            className="w-11 h-11 sm:w-9 sm:h-6.5 px-0.5 text-xs sm:text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded-lg sm:rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
+            title="Font Size"
+          />
+
+          {/* Font Family Select Dropdown */}
+          <select
+            value={fontFamily}
+            onChange={handleFontFamilyChange}
+            className="h-11 sm:h-6.5 px-2 sm:px-1 text-xs sm:text-[11px] font-medium text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded-lg sm:rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-22 sm:w-20 shrink-0"
+            title="Font Family"
+          >
+            <option value="Roboto">Roboto</option>
+            <option value="Inter">Inter</option>
+            <option value="Bebas Neue">Bebas</option>
+            <option value="Impact">Impact</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Courier New">Courier</option>
+          </select>
+        </div>
+
+        {/* ROW 3: Upload Design Button | Save Layout | Load Layout | Reset */}
+        <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750">
+          {/* Solid Dark Navy Pill Upload Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onTriggerUpload) {
+                onTriggerUpload();
+              } else {
+                fileInputRef.current?.click();
+              }
+            }}
+            className="min-h-[44px] sm:min-h-0 sm:h-7 px-4 sm:px-3 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-xs sm:text-[11px] font-bold shadow transition-all active:scale-95 shrink-0 flex items-center justify-center"
+          >
+            Upload Design
+          </button>
+
+          {/* Action Text Links & History Controls */}
+          <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-[11px] font-medium text-gray-600 dark:text-studio-400">
+            <button
+              type="button"
+              disabled={!designManager?.canUndo?.()}
+              onClick={() => {
+                if (designManager?.undo?.()) {
+                  showFeedback('Undone (Ctrl+Z)');
+                }
+              }}
+              className="min-w-[36px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
+              title="Undo last change (Ctrl+Z)"
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              disabled={!designManager?.canRedo?.()}
+              onClick={() => {
+                if (designManager?.redo?.()) {
+                  showFeedback('Redone (Ctrl+Shift+Z)');
+                }
+              }}
+              className="min-w-[36px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
+              title="Redo change (Ctrl+Shift+Z)"
+            >
+              Redo
+            </button>
+            <span className="text-gray-300 dark:text-studio-700">|</span>
+            <button
+              type="button"
+              onClick={handleSaveLayout}
+              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
+              title="Save layout layers"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleLoadLayout}
+              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
+              title="Restore saved layout"
+            >
+              Load
+            </button>
+            <button
+              type="button"
+              onClick={handleResetLayout}
+              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-red-600 dark:hover:text-red-400 transition-colors px-1 py-0.5 flex items-center justify-center"
+              title="Clear all graphics"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        {/* Transient Feedback Message Banner */}
+        {feedbackMessage && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-b border-emerald-100 dark:border-emerald-800/40 px-4 py-1.5 text-center text-xs font-semibold flex items-center justify-center gap-1.5 animate-fadeIn">
+            <Check className="size-3.5" />
+            <span>{feedbackMessage}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Stage 2 (Half - 45%): Live 3D Decal Adjustment Panel on mobile */}
+      {sheetStage === 'half' && (
+        <div className="flex-1 flex flex-col p-3 overflow-y-auto sm:hidden gap-2 bg-gray-50/70 dark:bg-studio-900/50">
+          {/* Active Layer Quick Selector */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 shrink-0">Layer:</span>
+            {layers.length === 0 ? (
+              <span className="text-xs text-gray-400 italic">No decals added yet. Tap Add Text or Upload.</span>
+            ) : (
+              layers.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => {
+                    setActiveLayerId(l.id);
+                    if (designManager) designManager.setActiveLayer(l.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    l.id === activeLayerId
+                      ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-400/40'
+                      : 'bg-white dark:bg-studio-800 text-gray-700 dark:text-studio-300 border border-gray-200 dark:border-studio-700'
+                  }`}
+                >
+                  {l.type === 'text' ? (l.text || 'Text') : 'Graphic'} ({l.side || 'front'})
+                </button>
+              ))
+            )}
+          </div>
+
+          {activeLayer && (
+            <div className="bg-white dark:bg-studio-800 p-2.5 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-sm space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-gray-700 dark:text-gray-300">Live Coordinate & Scale:</span>
+                <span className="text-brand-600 dark:text-brand-400 font-mono text-[11px]">
+                  X: {activeLayer.x} | Y: {activeLayer.y} | {Math.round((activeLayer.scale || 1.0) * 100)}%
+                </span>
+              </div>
+
+              {/* Nudge & Scale Buttons with full 44px tap targets */}
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (designManager && activeLayerId) {
+                      const newX = (activeLayer.x || 1024) - 25;
+                      designManager.updateLayer(activeLayerId, { x: newX });
+                    }
+                  }}
+                  className="h-11 rounded-xl bg-gray-100 dark:bg-studio-700 hover:bg-gray-200 dark:hover:bg-studio-600 flex items-center justify-center font-bold text-xs"
+                >
+                  ← Left
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (designManager && activeLayerId) {
+                      const newX = (activeLayer.x || 1024) + 25;
+                      designManager.updateLayer(activeLayerId, { x: newX });
+                    }
+                  }}
+                  className="h-11 rounded-xl bg-gray-100 dark:bg-studio-700 hover:bg-gray-200 dark:hover:bg-studio-600 flex items-center justify-center font-bold text-xs"
+                >
+                  Right →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (designManager && activeLayerId) {
+                      const newY = (activeLayer.y || 1024) - 25;
+                      designManager.updateLayer(activeLayerId, { y: newY });
+                    }
+                  }}
+                  className="h-11 rounded-xl bg-gray-100 dark:bg-studio-700 hover:bg-gray-200 dark:hover:bg-studio-600 flex items-center justify-center font-bold text-xs"
+                >
+                  ↑ Up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (designManager && activeLayerId) {
+                      const newY = (activeLayer.y || 1024) + 25;
+                      designManager.updateLayer(activeLayerId, { y: newY });
+                    }
+                  }}
+                  className="h-11 rounded-xl bg-gray-100 dark:bg-studio-700 hover:bg-gray-200 dark:hover:bg-studio-600 flex items-center justify-center font-bold text-xs"
+                >
+                  Down ↓
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetSide = activeLayer.side === 'front' ? 'back' : 'front';
+                    if (designManager && activeLayerId) {
+                      designManager.updateLayer(activeLayerId, { side: targetSide });
+                    }
+                    setSelectedSide(targetSide);
+                    if (onCameraChange) onCameraChange(targetSide);
+                  }}
+                  className="h-10 px-3 rounded-xl bg-gray-100 dark:bg-studio-700 text-xs font-bold text-gray-700 dark:text-studio-200 hover:bg-gray-200 dark:hover:bg-studio-600 flex items-center justify-center"
+                >
+                  Flip to {activeLayer.side === 'front' ? 'Back' : 'Front'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSheetStage('full')}
+                  className="h-10 px-3 rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400 text-xs font-bold hover:bg-brand-500/25 flex items-center justify-center"
+                >
+                  Open 2D Schematic ↗
+                </button>
+              </div>
+            </div>
           )}
-
-          {/* Expand / Minimize Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800"
-            title={isExpanded ? "Collapse to Standard Width" : "Expand to Wide Canvas"}
-          >
-            {isExpanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-          </button>
-
-          {/* Close Button (x) */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-md hover:bg-gray-200/60 dark:hover:bg-studio-800"
-            title="Close Position Guide"
-          >
-            <X className="size-3.5 stroke-[2.5]" />
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* ROW 2: Add Text Button | Text Input Box | Text Color Swatch | Font Size | Font Family Dropdown */}
-      {/* ========================================================================= */}
-      <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750 flex-nowrap">
-        {/* Add Text Pill Button */}
-        <button
-          type="button"
-          onClick={handleAddText}
-          className="px-2.5 py-1 text-[11px] font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs hover:bg-gray-50 dark:hover:bg-studio-750 active:scale-95 transition-all shrink-0"
-        >
-          Add Text
-        </button>
-
-        {/* Input box for typing custom text */}
-        <input
-          ref={textInputRef}
-          type="text"
-          value={textInput}
-          onChange={handleTextChange}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleAddText();
-          }}
-          placeholder="Enter text..."
-          className="flex-1 min-w-[65px] h-6.5 px-2 text-[11px] font-medium text-gray-900 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs placeholder:text-gray-400 dark:placeholder:text-studio-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20"
-          title="Type text to add or edit"
-        />
-
-        {/* Circular Text Color Swatch */}
-        <button
-          type="button"
-          onClick={() => textColorInputRef.current?.click()}
-          className="size-5.5 rounded-full border border-gray-300 dark:border-studio-600 shadow-sm cursor-pointer overflow-hidden shrink-0 hover:scale-105 transition-transform"
-          style={{ backgroundColor: textColor }}
-          title="Change Text Color"
-        />
-
-        {/* Numeric Font Size Input */}
-        <input
-          type="number"
-          value={fontSize}
-          onChange={handleFontSizeChange}
-          min="1"
-          max="120"
-          className="w-9 h-6.5 px-0.5 text-[11px] font-semibold text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs text-center focus:outline-none focus:border-gray-500 shrink-0"
-          title="Font Size"
-        />
-
-        {/* Font Family Select Dropdown */}
-        <select
-          value={fontFamily}
-          onChange={handleFontFamilyChange}
-          className="h-6.5 px-1 text-[11px] font-medium text-gray-800 dark:text-white bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded shadow-2xs focus:outline-none focus:border-gray-500 cursor-pointer w-20 shrink-0"
-          title="Font Family"
-        >
-          <option value="Roboto">Roboto</option>
-          <option value="Inter">Inter</option>
-          <option value="Bebas Neue">Bebas</option>
-          <option value="Impact">Impact</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Courier New">Courier</option>
-        </select>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* ROW 3: Upload Design Button | Save Layout | Load Layout | Reset            */}
-      {/* ========================================================================= */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750">
-        {/* Solid Dark Navy Pill Upload Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onTriggerUpload) {
-              onTriggerUpload();
-            } else {
-              fileInputRef.current?.click();
-            }
-          }}
-          className="px-3 py-1 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-[11px] font-bold shadow transition-all active:scale-95 shrink-0"
-        >
-          Upload Design
-        </button>
-
-        {/* Action Text Links & History Controls */}
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-studio-400">
-          <button
-            type="button"
-            disabled={!designManager?.canUndo?.()}
-            onClick={() => {
-              if (designManager?.undo?.()) {
-                showFeedback('Undone (Ctrl+Z)');
-              }
-            }}
-            className="hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold"
-            title="Undo last change (Ctrl+Z)"
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            disabled={!designManager?.canRedo?.()}
-            onClick={() => {
-              if (designManager?.redo?.()) {
-                showFeedback('Redone (Ctrl+Shift+Z)');
-              }
-            }}
-            className="hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold"
-            title="Redo change (Ctrl+Shift+Z)"
-          >
-            Redo
-          </button>
-          <span className="text-gray-300 dark:text-studio-700">|</span>
-          <button
-            type="button"
-            onClick={handleSaveLayout}
-            className="hover:text-black dark:hover:text-white transition-colors px-0.5 py-0.5"
-            title="Save layout layers"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={handleLoadLayout}
-            className="hover:text-black dark:hover:text-white transition-colors px-0.5 py-0.5"
-            title="Restore saved layout"
-          >
-            Load
-          </button>
-          <button
-            type="button"
-            onClick={handleResetLayout}
-            className="hover:text-red-600 dark:hover:text-red-400 transition-colors px-0.5 py-0.5"
-            title="Clear all graphics"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-
-      {/* Transient Feedback Message Banner */}
-      {feedbackMessage && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-b border-emerald-100 dark:border-emerald-800/40 px-4 py-1.5 text-center text-xs font-semibold flex items-center justify-center gap-1.5 animate-fadeIn">
-          <Check className="size-3.5" />
-          <span>{feedbackMessage}</span>
         </div>
       )}
 
       {/* ========================================================================= */}
       {/* MAIN BODY: Centered Header + Authentic Flat Garment Schematic Canvas      */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-studio-900 overflow-hidden p-3 sm:p-4">
+      <div className={`flex-1 flex-col bg-white dark:bg-studio-900 overflow-hidden p-3 sm:p-4 ${sheetStage === 'full' ? 'flex' : 'hidden sm:flex'}`}>
         
         {/* Light Gray Uppercase Title */}
         <div className="text-center font-extrabold text-xs sm:text-sm tracking-widest text-[#b8b8c2] dark:text-studio-500 uppercase py-1">

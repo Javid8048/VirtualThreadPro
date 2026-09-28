@@ -40,7 +40,8 @@ export function Viewport3D({
       <div className="absolute top-4 left-6 pointer-events-none select-none">
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-studio-900/60 backdrop-blur-md border border-studio-800 text-[11px] text-studio-400">
           <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>Interactive 3D • Left click to rotate, scroll to zoom</span>
+          <span className="hidden sm:inline">Interactive 3D • Left click to rotate, scroll to zoom</span>
+          <span className="inline sm:hidden">Swipe to rotate • Pinch to zoom</span>
         </div>
       </div>
     </div>

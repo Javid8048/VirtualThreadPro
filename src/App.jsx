@@ -104,6 +104,7 @@ export default function App() {
     setRightDrawerMode('export');
   };
   window.__HANDLE_OPEN_EXPORT__ = handleOpenExport;
+  window.__SET_RIGHT_DRAWER_MODE__ = setRightDrawerMode;
   const [mobileFrameGuide, setMobileFrameGuide] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -148,6 +149,10 @@ export default function App() {
       setIsGarmentLoading(loading);
       if (type) setPendingGarmentType(type);
       if (!loading) setPendingGarmentType(null);
+    };
+
+    sm.onTurntableAutoPause = () => {
+      setAnimationMode('static');
     };
 
     sceneManagerRef.current = sm;
@@ -302,12 +307,14 @@ export default function App() {
   const handleSelectGarmentFromLanding = (type) => {
     handleGarmentTypeChange(type);
     setPositionGuideOpen(true);
+    setRightDrawerMode('design');
     setCurrentCamera('front');
     setIsZoomed(false);
     setCurrentPage('studio');
   };
   window.__SELECT_GARMENT_FROM_LANDING__ = handleSelectGarmentFromLanding;
   window.__SET_CURRENT_PAGE__ = setCurrentPage;
+  window.__SET_RIGHT_DRAWER_MODE__ = setRightDrawerMode;
 
   const handleBackToLanding = () => {
     // Non-destructive: retain custom designs in session so returning to studio keeps work intact
@@ -577,6 +584,16 @@ export default function App() {
         }`}
       />
 
+      {/* 3D Viewport Mobile Touch Hint Pill (Swipe to rotate • Pinch to zoom) */}
+      {currentPage === 'studio' && viewMode === '3d' && (
+        <div className="md:hidden absolute top-18 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 animate-fadeIn">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-studio-900/70 backdrop-blur-md border border-studio-800 text-[10px] font-semibold text-studio-300 shadow-lg">
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>Swipe to rotate • Pinch to zoom</span>
+          </div>
+        </div>
+      )}
+
       {/* Flat Studio View (Active when user chooses 2D mode in Studio) */}
       {currentPage === 'studio' && viewMode === '2d' && (
         <StaticGarmentView
@@ -778,8 +795,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Dedicated Mobile Bottom Action Dock (Shown on screens < 768px in 3D Studio) */}
-      {viewMode === '3d' && (
+      {/* Dedicated Mobile Bottom Action Dock (Persistent across 3D and 2D Studio modes) */}
+      {currentPage === 'studio' && (
         <MobileBottomNav
           interactionMode={interactionMode}
           onInteractionModeChange={handleInteractionModeChange}
@@ -793,12 +810,16 @@ export default function App() {
           onToggleDesignGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
           onOpenExport={handleOpenExport}
           garmentType={garmentType}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          selectedSide={activeSide}
+          onSideChange={handleSideChange}
         />
       )}
 
-      {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio) */}
+      {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio; placed at top on mobile to avoid bottom HUD collision) */}
       {viewMode === '3d' && interactionMode === 'dragDesign' && designManager && (
-        <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
+        <div className="fixed top-20 md:top-auto md:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
           <span className="font-bold text-gray-700 dark:text-gray-200">Graphic Size:</span>
           
           <button
