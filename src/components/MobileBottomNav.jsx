@@ -14,9 +14,9 @@ import {
 
 /**
  * MobileBottomNav
- * Ergonomic 4-primary-action glassmorphic mobile dock for VirtualThreads 3D Studio.
- * Complies with Apple HIG & Google Material standards (min 48px width per target; >80px actual width).
- * Features smooth sub-drawers for camera angles and animations.
+ * Ergonomic 6-action glassmorphic mobile dock for VirtualThreads 3D Studio.
+ * Complies with Apple HIG & Google Material standards.
+ * Features dedicated Rotate Animation & Walk buttons directly in the bottom nav bar for mobile view.
  */
 export function MobileBottomNav({
   interactionMode = 'orbit',
@@ -30,7 +30,7 @@ export function MobileBottomNav({
   rightDrawerMode = 'design',
   onToggleDesignGuide,
   onOpenExport,
-  garmentType = 'oversized_tee',
+  garmentType = 'regular_tee',
   viewMode = '3d',
   onViewModeChange,
   selectedSide = 'front',
@@ -38,9 +38,11 @@ export function MobileBottomNav({
 }) {
   const [showCameraFlyout, setShowCameraFlyout] = useState(false);
 
-  const isCap = garmentType === 'cap';
-  const isWalking = animationMode === 'walking';
+  const isWalkable = garmentType !== 'polo';
+  const isRotating = animationMode === 'turntable' || animationMode === 'rotate_walk';
+  const isWalking = (animationMode === 'walking' || animationMode === 'rotate_walk') && isWalkable;
   const isTurntable = animationMode === 'turntable';
+  const isRotateWalking = animationMode === 'rotate_walk' && isWalkable;
   const isDesignOpen = rightDrawerMode === 'design';
   const isExportOpen = rightDrawerMode === 'export';
 
@@ -51,8 +53,39 @@ export function MobileBottomNav({
     { id: 'hero', label: 'Hero' }
   ];
 
+  const handleToggleRotate = () => {
+    if (viewMode === '2d' && onViewModeChange) {
+      onViewModeChange('3d');
+    }
+    if (animationMode === 'turntable') {
+      onAnimationModeChange('static');
+    } else if (animationMode === 'rotate_walk') {
+      onAnimationModeChange('walking');
+    } else if (animationMode === 'walking') {
+      onAnimationModeChange('rotate_walk');
+    } else {
+      onAnimationModeChange('turntable');
+    }
+  };
+
+  const handleToggleWalk = () => {
+    if (!isWalkable) return;
+    if (viewMode === '2d' && onViewModeChange) {
+      onViewModeChange('3d');
+    }
+    if (animationMode === 'walking') {
+      onAnimationModeChange('static');
+    } else if (animationMode === 'rotate_walk') {
+      onAnimationModeChange('turntable');
+    } else if (animationMode === 'turntable') {
+      onAnimationModeChange('rotate_walk');
+    } else {
+      onAnimationModeChange('walking');
+    }
+  };
+
   return (
-    <div className="md:hidden fixed bottom-3 left-3 right-3 z-30 select-none animate-fadeIn">
+    <div className="md:hidden fixed bottom-2.5 left-2 right-2 z-30 select-none animate-fadeIn">
       {/* Tap backdrop to close camera flyout */}
       {showCameraFlyout && (
         <div
@@ -101,11 +134,11 @@ export function MobileBottomNav({
             ))}
           </div>
 
-          {/* Section 2: Motion, Animations & Controls */}
+          {/* Section 2: Animations & Motions */}
           <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-studio-500 mb-1.5">
-            Animation & Controls
+            Animations & Catwalk
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5 mb-3">
             {/* 360° Turntable */}
             <button
               onClick={() => {
@@ -119,33 +152,84 @@ export function MobileBottomNav({
               title="Toggle 360° Turntable Spin"
             >
               <RefreshCw className={`size-4 ${isTurntable ? 'animate-spin' : ''}`} />
-              <span>360° Spin</span>
+              <span>360°</span>
+            </button>
+
+            {/* Knit Animation */}
+            <button
+              onClick={() => {
+                onAnimationModeChange(animationMode === 'knit' ? 'static' : 'knit');
+              }}
+              className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold transition-all ${
+                animationMode === 'knit'
+                  ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40'
+                  : 'bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-750'
+              }`}
+              title="Toggle Knit Weaving Animation"
+            >
+              <div className="relative">
+                <Sparkles className="size-4" />
+                {animationMode === 'knit' && (
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-amber-300 animate-pulse" />
+                )}
+              </div>
+              <span>Knit</span>
             </button>
 
             {/* Runway Catwalk Walk */}
             <button
-              disabled={isCap}
+              disabled={!isWalkable}
               onClick={() => {
-                onAnimationModeChange(isWalking ? 'static' : 'walking');
+                onAnimationModeChange(animationMode === 'walking' ? 'static' : 'walking');
               }}
               className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold transition-all ${
-                isCap
+                !isWalkable
                   ? 'opacity-35 cursor-not-allowed bg-gray-100 dark:bg-studio-800 text-gray-400'
-                  : isWalking
-                  ? 'bg-brand-500 text-white shadow-sm ring-2 ring-brand-400/40'
+                  : animationMode === 'walking'
+                  ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/40'
                   : 'bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-750'
               }`}
-              title={isCap ? 'Walking animation disabled for headwear' : 'Toggle Catwalk Runway Motion'}
+              title={!isWalkable ? `Walking animation not supported on this blank` : 'Toggle Catwalk Runway Motion'}
             >
               <div className="relative">
                 <Footprints className="size-4" />
-                {!isCap && isWalking && (
-                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {isWalkable && animationMode === 'walking' && (
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 )}
               </div>
-              <span>{isCap ? 'N/A' : 'Catwalk'}</span>
+              <span>Catwalk</span>
             </button>
 
+            {/* Rotate & Walk (Catwalk + 360° Spin) */}
+            <button
+              disabled={!isWalkable}
+              onClick={() => {
+                onAnimationModeChange(isRotateWalking ? 'static' : 'rotate_walk');
+              }}
+              className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold transition-all ${
+                !isWalkable
+                  ? 'opacity-35 cursor-not-allowed bg-gray-100 dark:bg-studio-800 text-gray-400'
+                  : isRotateWalking
+                  ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-400/40'
+                  : 'bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-750'
+              }`}
+              title={!isWalkable ? `Rotate & walk not supported on this blank` : 'Walk runway stride while continuously rotating 360°'}
+            >
+              <div className="relative">
+                <RotateCw className={`size-4 ${isRotateWalking ? 'animate-spin' : ''}`} style={isRotateWalking ? { animationDuration: '4s' } : undefined} />
+                {isWalkable && isRotateWalking && (
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-purple-300 animate-pulse" />
+                )}
+              </div>
+              <span>Rot & Walk</span>
+            </button>
+          </div>
+
+          {/* Section 3: Viewport & Display Controls */}
+          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-studio-500 mb-1.5">
+            Viewport & Studio Mode
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
             {/* Zoom Toggle */}
             <button
               onClick={onToggleZoom}
@@ -187,9 +271,9 @@ export function MobileBottomNav({
         </div>
       )}
 
-      {/* Main Glassmorphic 4-Action Dock (Comfortable 80px+ Touch Zones) */}
-      <nav className="h-14 px-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-2xl rounded-2xl border border-gray-200/90 dark:border-studio-700/80 shadow-2xl grid grid-cols-4 gap-1.5 text-gray-900 dark:text-white items-center">
-        {/* 1. Mode / 3D Orbit Action */}
+      {/* Main Glassmorphic Dock with Direct Rotate & Walk in Bottom Bar */}
+      <nav className="h-14 px-1 bg-white/95 dark:bg-studio-900/95 backdrop-blur-2xl rounded-2xl border border-gray-200/90 dark:border-studio-700/80 shadow-2xl grid grid-cols-6 gap-0.5 text-gray-900 dark:text-white items-center">
+        {/* 1. Mode / 3D Orbit Action (or 3D Studio switch in 2D mode) */}
         {viewMode === '3d' ? (
           <button
             onClick={() => onInteractionModeChange(interactionMode === 'orbit' ? 'dragDesign' : 'orbit')}
@@ -198,10 +282,10 @@ export function MobileBottomNav({
                 ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-400/40'
                 : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800'
             }`}
-            title={interactionMode === 'orbit' ? 'Switch to Drag Design' : 'Switch to 3D Orbit'}
+            title={interactionMode === 'orbit' ? 'Switch to Move/Resize Design' : 'Switch to 3D Orbit'}
           >
-            {interactionMode === 'orbit' ? <RotateCw className="size-4" /> : <Move className="size-4" />}
-            <span className="text-[10px] font-bold leading-none">{interactionMode === 'orbit' ? '3D Orbit' : 'Drag'}</span>
+            {interactionMode === 'orbit' ? <RotateCw className="size-3.5" /> : <Move className="size-3.5" />}
+            <span className="text-[9px] font-bold leading-none">{interactionMode === 'orbit' ? 'Orbit' : 'Move'}</span>
           </button>
         ) : (
           <button
@@ -209,26 +293,69 @@ export function MobileBottomNav({
             className="h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all bg-brand-500/15 text-brand-500 hover:bg-brand-500/25 border border-brand-500/30"
             title="Switch to 3D Studio"
           >
-            <Box className="size-4" />
-            <span className="text-[10px] font-bold leading-none">3D Studio</span>
+            <Box className="size-3.5" />
+            <span className="text-[9px] font-bold leading-none">3D View</span>
           </button>
         )}
 
-        {/* 2. Camera / Angles / Motion Sub-Drawer (or 2D Side toggle) */}
+        {/* 2. Rotate Animation (360° Turntable Spin directly in bottom dock) */}
+        <button
+          onClick={handleToggleRotate}
+          className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
+            isRotating
+              ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/40'
+              : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800'
+          }`}
+          title="Toggle 360° Rotate Animation"
+        >
+          <div className="relative">
+            <RefreshCw className={`size-3.5 ${isRotating ? 'animate-spin' : ''}`} style={isRotating ? { animationDuration: '4s' } : undefined} />
+            {isRotating && (
+              <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-cyan-300 animate-pulse" />
+            )}
+          </div>
+          <span className="text-[9px] font-bold leading-none truncate max-w-full px-0.5">
+            Rotate
+          </span>
+        </button>
+
+        {/* 3. Walk Animation (Catwalk Runway Stride directly in bottom dock) */}
+        <button
+          disabled={!isWalkable}
+          onClick={handleToggleWalk}
+          className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
+            !isWalkable
+              ? 'opacity-30 cursor-not-allowed text-gray-400'
+              : isWalking
+              ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/40'
+              : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800'
+          }`}
+          title={!isWalkable ? `Walk animation not supported on this blank` : 'Toggle Catwalk Walk Animation'}
+        >
+          <div className="relative">
+            <Footprints className="size-3.5" />
+            {isWalkable && isWalking && (
+              <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            )}
+          </div>
+          <span className="text-[9px] font-bold leading-none truncate max-w-full px-0.5">
+            {!isWalkable ? 'N/A' : 'Walk'}
+          </span>
+        </button>
+
+        {/* 4. Perspective / Camera Angles Sub-Drawer (or Front/Back in 2D mode) */}
         {viewMode === '3d' ? (
           <button
             onClick={() => setShowCameraFlyout(!showCameraFlyout)}
             className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
               showCameraFlyout
                 ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-400/40'
-                : isTurntable || isWalking
-                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40'
                 : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800'
             }`}
-            title="Camera Angles & Studio Animations"
+            title="Camera Angles & Perspectives"
           >
-            <Compass className={`size-4 ${isTurntable ? 'animate-spin' : ''}`} />
-            <span className="text-[10px] font-bold capitalize leading-none">
+            <Compass className="size-3.5" />
+            <span className="text-[9px] font-bold capitalize leading-none">
               {showCameraFlyout ? 'Close' : currentCamera}
             </span>
           </button>
@@ -236,14 +363,14 @@ export function MobileBottomNav({
           <button
             onClick={() => onSideChange && onSideChange(selectedSide === 'front' ? 'back' : 'front')}
             className="h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-200 hover:bg-gray-200 dark:hover:bg-studio-750"
-            title="Toggle Front / Back 2D View"
+            title="Toggle Front / Back Side"
           >
-            <RotateCw className="size-4" />
-            <span className="text-[10px] font-bold capitalize leading-none">{selectedSide}</span>
+            <RotateCw className="size-3.5" />
+            <span className="text-[9px] font-bold capitalize leading-none">{selectedSide}</span>
           </button>
         )}
 
-        {/* 3. Design Sheet Trigger */}
+        {/* 5. Design Sheet Trigger */}
         <button
           onClick={onToggleDesignGuide}
           className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
@@ -253,11 +380,11 @@ export function MobileBottomNav({
           }`}
           title="Open Design & Graphics Sheet"
         >
-          <Layers className="size-4" />
-          <span className="text-[10px] font-bold leading-none">Design</span>
+          <Layers className="size-3.5" />
+          <span className="text-[9px] font-bold leading-none">Design</span>
         </button>
 
-        {/* 4. Export Studio Trigger */}
+        {/* 6. Export Studio Trigger */}
         <button
           onClick={onOpenExport}
           className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
@@ -267,8 +394,8 @@ export function MobileBottomNav({
           }`}
           title="Open 60 FPS Video & 4K Export Studio"
         >
-          <Sparkles className="size-4" />
-          <span className="text-[10px] font-bold leading-none">Export</span>
+          <Sparkles className="size-3.5" />
+          <span className="text-[9px] font-bold leading-none">Export</span>
         </button>
       </nav>
     </div>

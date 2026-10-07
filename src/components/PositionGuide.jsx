@@ -150,7 +150,7 @@ export function PositionGuide({
   // Text layer handler
   const handleAddText = () => {
     if (!designManager) return;
-    const centerX = selectedSide === 'back' ? 1520 : 530;
+    const centerX = selectedSide === 'back' ? 1528 : 480;
     const textToAdd = textInput.trim() || 'CUSTOM TEXT';
     const newLayer = designManager.addLayer({
       type: 'text',
@@ -167,7 +167,7 @@ export function PositionGuide({
     });
     if (newLayer) {
       setActiveLayerId(newLayer.id);
-      showFeedback('Text decal added');
+      showFeedback('Text decal added • Double click design on garment to move/resize');
       setTimeout(() => textInputRef.current?.focus(), 50);
     }
   };
@@ -241,7 +241,7 @@ export function PositionGuide({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const centerX = selectedSide === 'back' ? 1520 : 530;
+        const centerX = selectedSide === 'back' ? 1528 : 480;
         const newLayer = designManager.addLayer({
           type: 'image',
           side: selectedSide,
@@ -254,7 +254,7 @@ export function PositionGuide({
         });
         if (newLayer) {
           setActiveLayerId(newLayer.id);
-          showFeedback('Design uploaded');
+          showFeedback('Design uploaded • Double click design on garment to move/resize');
         }
       };
       img.src = event.target.result;
@@ -349,7 +349,7 @@ export function PositionGuide({
 
       validLayers.forEach((layerItem) => {
         const side = layerItem.side || 'front';
-        const x = Number.isFinite(layerItem.x) ? Math.max(0, Math.min(2048, layerItem.x)) : (side === 'back' ? 1520 : 530);
+        const x = Number.isFinite(layerItem.x) ? Math.max(0, Math.min(2048, layerItem.x)) : (side === 'back' ? 1528 : 480);
         const y = Number.isFinite(layerItem.y) ? Math.max(0, Math.min(2048, layerItem.y)) : 800;
         const scale = Number.isFinite(layerItem.scale) ? Math.max(0.1, Math.min(5.0, layerItem.scale)) : 1.0;
         const rotation = Number.isFinite(layerItem.rotation) ? layerItem.rotation % 360 : 0;
@@ -1040,82 +1040,82 @@ export function PositionGuide({
           POSITION GUIDE
         </div>
 
-        {/* Interactive Responsive Pattern SVG Viewport */}
-        <div 
-          ref={containerRef}
-          onClick={handleCanvasClick}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          className="relative flex-1 w-full bg-white dark:bg-studio-850 rounded-2xl overflow-hidden flex items-center justify-center cursor-crosshair border border-gray-100 dark:border-studio-750 touch-none select-none"
-        >
-          
-          {/* Base Vector Pattern SVG (Collar Rib, Front Silhouette, Back Silhouette, Sleeves) */}
-          <svg
-            viewBox="0 0 2048 2048"
-            className="w-full h-full object-contain pointer-events-none"
-            xmlns="http://www.w3.org/2000/svg"
+        {/* Responsive Pattern Viewport Outer Frame */}
+        <div className="relative flex-1 w-full min-h-0 bg-white dark:bg-studio-850 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-100 dark:border-studio-750 p-1">
+          <div 
+            ref={containerRef}
+            onClick={handleCanvasClick}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="relative aspect-square w-full h-full max-w-full max-h-full flex items-center justify-center cursor-crosshair touch-none select-none"
           >
-            <defs>
-              <style>{`
-                .pattern-panel { fill: #f5f5f7; stroke: #e0e0e6; stroke-width: 3.5; }
-                .pattern-label { fill: #b8b8c2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 54px; font-weight: 800; letter-spacing: 5px; text-anchor: middle; dominant-baseline: middle; }
-                .pattern-sub { fill: #d0d0d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 26px; font-weight: 600; letter-spacing: 3px; text-anchor: middle; dominant-baseline: middle; }
-                .pattern-center-dash { stroke: #dcdce2; stroke-width: 2.5; stroke-dasharray: 10,10; }
-              `}</style>
-            </defs>
+            {/* Base Vector Pattern SVG (Collar Rib, Front Silhouette, Back Silhouette, Sleeves) */}
+            <svg
+              viewBox="0 0 2048 2048"
+              className="w-full h-full block pointer-events-none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <style>{`
+                  .pattern-panel { fill: #f5f5f7; stroke: #e0e0e6; stroke-width: 3.5; }
+                  .pattern-label { fill: #b8b8c2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 54px; font-weight: 800; letter-spacing: 5px; text-anchor: middle; dominant-baseline: middle; }
+                  .pattern-sub { fill: #d0d0d8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 26px; font-weight: 600; letter-spacing: 3px; text-anchor: middle; dominant-baseline: middle; }
+                  .pattern-center-dash { stroke: #dcdce2; stroke-width: 2.5; stroke-dasharray: 10,10; }
+                `}</style>
+              </defs>
 
-            {/* Top Collar Rib Pieces */}
-            <path className="pattern-panel" d="M 370 420 C 370 540, 690 540, 690 420 C 690 465, 370 465, 370 420 Z" />
-            <path className="pattern-panel" d="M 1360 420 C 1360 480, 1680 480, 1680 420 C 1680 450, 1360 450, 1360 420 Z" />
+              {/* Top Collar Rib Pieces (Calibrated: Front 480, Back 1528) */}
+              <path className="pattern-panel" d="M 320 420 C 320 540, 640 540, 640 420 C 640 465, 320 465, 320 420 Z" />
+              <path className="pattern-panel" d="M 1368 420 C 1368 480, 1688 480, 1688 420 C 1688 450, 1368 450, 1368 420 Z" />
 
-            {/* FRONT PANEL (Left Silhouette) */}
-            <path 
-              className="pattern-panel" 
-              d="
-                M 375 585
-                C 450 670, 610 670, 685 585
-                L 940 700
-                L 870 1020
-                L 815 1020
-                L 815 1580
-                L 245 1580
-                L 245 1020
-                L 190 1020
-                L 120 700
-                Z
-              " 
-            />
+              {/* FRONT PANEL (Calibrated 3D Seam Centerline at x=480) */}
+              <path 
+                className="pattern-panel" 
+                d="
+                  M 325 585
+                  C 400 670, 560 670, 635 585
+                  L 890 700
+                  L 820 1020
+                  L 765 1020
+                  L 765 1580
+                  L 195 1580
+                  L 195 1020
+                  L 140 1020
+                  L 70 700
+                  Z
+                " 
+              />
 
-            {/* Front Center Line & Safe Area */}
-            <line x1="530" y1="730" x2="530" y2="1240" className="pattern-center-dash" />
-            <text x="530" y="960" className="pattern-label">FRONT</text>
+              {/* Front Center Line & Safe Area */}
+              <line x1="480" y1="730" x2="480" y2="1240" className="pattern-center-dash" />
+              <text x="480" y="960" className="pattern-label">FRONT</text>
 
-            {/* BACK PANEL (Right Silhouette) */}
-            <path 
-              className="pattern-panel" 
-              d="
-                M 1365 605
-                C 1440 645, 1600 645, 1675 605
-                L 1930 700
-                L 1860 1020
-                L 1805 1020
-                L 1805 1580
-                L 1235 1580
-                L 1235 1020
-                L 1180 1020
-                L 1110 700
-                Z
-              " 
-            />
+              {/* BACK PANEL (Calibrated 3D Seam Centerline at x=1528) */}
+              <path 
+                className="pattern-panel" 
+                d="
+                  M 1373 605
+                  C 1448 645, 1608 645, 1683 605
+                  L 1938 700
+                  L 1868 1020
+                  L 1813 1020
+                  L 1813 1580
+                  L 1243 1580
+                  L 1243 1020
+                  L 1188 1020
+                  L 1118 700
+                  Z
+                " 
+              />
 
-            {/* Back Center Line & Safe Area */}
-            <line x1="1520" y1="730" x2="1520" y2="1240" className="pattern-center-dash" />
-            <text x="1520" y="960" className="pattern-label">BACK</text>
+              {/* Back Center Line & Safe Area */}
+              <line x1="1528" y1="730" x2="1528" y2="1240" className="pattern-center-dash" />
+              <text x="1528" y="960" className="pattern-label">BACK</text>
 
-            {/* Sleeves at Bottom */}
-            <path className="pattern-panel" d="M 230 1710 L 830 1710 L 800 1960 L 260 1960 Z" />
-            <path className="pattern-panel" d="M 1220 1710 L 1820 1710 L 1790 1960 L 1250 1960 Z" />
-          </svg>
+              {/* Sleeves at Bottom (Calibrated Centers) */}
+              <path className="pattern-panel" d="M 180 1710 L 780 1710 L 750 1960 L 210 1960 Z" />
+              <path className="pattern-panel" d="M 1228 1710 L 1828 1710 L 1798 1960 L 1258 1960 Z" />
+            </svg>
 
           {/* Interactive Decal Layers Rendered on top of 2048x2048 schematic */}
           <div className="absolute inset-0 pointer-events-none">
@@ -1209,6 +1209,7 @@ export function PositionGuide({
             })}
           </div>
         </div>
+      </div>
 
         {/* Responsive Help Footer */}
         <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400 px-1">

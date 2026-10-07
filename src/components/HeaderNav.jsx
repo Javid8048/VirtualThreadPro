@@ -4,14 +4,14 @@ import {
   Move,
   Maximize2,
   Minimize2,
-  Pause,
   Sun,
   Moon,
   ZoomIn,
   ZoomOut,
   Shirt,
   Undo2,
-  Redo2
+  Redo2,
+  Pause
 } from 'lucide-react';
 
 export function HeaderNav({
@@ -51,15 +51,13 @@ export function HeaderNav({
   ];
 
   const garmentNameMap = {
+    regular_tee: 'Normal T-Shirt',
     oversized_tee: 'Oversized Tee',
-    regular_tee: 'Regular Tee',
     cropped_tee: 'Cropped Tee',
-    polo: 'Polo Shirt',
+    polo: 'Athletic Polo',
     sweatshirt: 'Sweatshirt',
     hoodie: 'Hoodie',
-    zip_hoodie: 'Zip Hoodie',
-    sweatpants: 'Sweatpants',
-    cap: 'Streetwear Cap'
+    zip_hoodie: 'Zip Hoodie'
   };
 
   return (
@@ -245,11 +243,11 @@ export function HeaderNav({
           <button
             disabled={isCameraAnimating}
             onClick={() => onAnimationModeChange ? onAnimationModeChange('static') : null}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
               isCameraAnimating
                 ? 'opacity-40 cursor-not-allowed pointer-events-none text-gray-400 dark:text-studio-500'
                 : animationMode === 'static'
-                ? 'bg-brand-500 text-white font-bold shadow-md shadow-brand-500/25'
+                ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
                 : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-studio-700/60'
             }`}
             title={isCameraAnimating ? "Static is disabled during camera animation" : "Static Animation Mode: Pause all motions and view garment in fixed rest pose"}
@@ -258,6 +256,7 @@ export function HeaderNav({
             <span>Static</span>
           </button>
         </div>
+
       </div>
 
       {/* 3. Right: Quick Actions (Export Button, Theme & Fullscreen) */}

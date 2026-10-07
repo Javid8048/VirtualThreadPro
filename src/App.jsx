@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Maximize2, Minimize2, CheckCircle, Shirt, Video } from 'lucide-react';
+import { Maximize2, Minimize2, CheckCircle, Shirt, Video, Move, Hand, ZoomIn, ZoomOut } from 'lucide-react';
 import { SidebarLeft } from './components/SidebarLeft';
 import { PositionGuide } from './components/PositionGuide';
 import { ExportPanel } from './components/ExportPanel';
@@ -12,15 +12,13 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { SceneManager } from './three/SceneManager';
 
 const garmentNameMap = {
+  regular_tee: 'Normal T-Shirt',
   oversized_tee: 'Oversized Tee',
-  regular_tee: 'Classic Tee',
   cropped_tee: 'Cropped Tee',
   polo: 'Polo Shirt',
   sweatshirt: 'Sweatshirt',
   hoodie: 'Hoodie',
-  zip_hoodie: 'Zip Hoodie',
-  sweatpants: 'Sweatpants',
-  cap: 'Streetwear Cap'
+  zip_hoodie: 'Zip Hoodie'
 };
 
 export default function App() {
@@ -32,13 +30,13 @@ export default function App() {
 
   // URL search params support (e.g. ?garment=hoodie or ?page=studio)
   const initialParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const initialGarment = initialParams.get('garment') || 'oversized_tee';
+  const initialGarment = initialParams.get('garment') || 'regular_tee';
   const initialPage = initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing');
 
   // App Page Route State ('landing' | 'studio')
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Garment Blank Type State (9 Streetwear Blanks)
+  // Garment Blank Type State (7 Streetwear Blanks)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [currentCamera, setCurrentCamera] = useState('front');
@@ -112,6 +110,14 @@ export default function App() {
   const [isGarmentLoading, setIsGarmentLoading] = useState(false);
   const [pendingGarmentType, setPendingGarmentType] = useState(null);
   const [designManager, setDesignManager] = useState(null);
+  const [designGestureMode, setDesignGestureMode] = useState('move'); // 'move' | 'resize'
+
+  const handleSetDesignGestureMode = (mode) => {
+    setDesignGestureMode(mode);
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setDesignGestureMode(mode);
+    }
+  };
 
   // Global Asynchronous Video Export State (Persists across panel open/close)
   const [asyncExportState, setAsyncExportState] = useState({
@@ -153,6 +159,14 @@ export default function App() {
 
     sm.onTurntableAutoPause = () => {
       setAnimationMode('static');
+    };
+
+    sm.onDesignGestureModeChange = (mode) => {
+      setDesignGestureMode(mode);
+    };
+
+    sm.onInteractionModeChange = (mode) => {
+      setInteractionMode(mode);
     };
 
     sceneManagerRef.current = sm;
@@ -817,63 +831,108 @@ export default function App() {
         />
       )}
 
-      {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio; placed at top on mobile to avoid bottom HUD collision) */}
-      {viewMode === '3d' && interactionMode === 'dragDesign' && designManager && (
-        <div className="fixed top-20 md:top-auto md:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn">
-          <span className="font-bold text-gray-700 dark:text-gray-200">Graphic Size:</span>
-          
-          <button
-            onClick={() => {
-              const active = designManager.getActiveLayer() || designManager.layers[0];
-              if (active) {
-                const newScale = Math.max(0.2, (active.scale || 1.0) - 0.1);
-                designManager.updateLayer(active.id, { scale: parseFloat(newScale.toFixed(2)) });
-              }
-            }}
-            className="size-6 rounded-lg bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 flex items-center justify-center font-bold text-gray-800 dark:text-white transition-colors"
-            title="Decrease Size"
-          >
-            -
-          </button>
+      {/* On-Canvas Graphic Transform HUD (Active when in Drag Design mode in 3D Studio) */}
+      {viewMode === '3d' && interactionMode === 'dragDesign' && designManager && (() => {
+        const activeLayer = designManager.getActiveLayer() || designManager.layers[0];
+        const currentScale = activeLayer ? (activeLayer.scale || 1.0) : 1.0;
+        const currentScalePct = Math.round(currentScale * 100);
 
-          <input
-            type="range"
-            min="20"
-            max="300"
-            value={Math.round(((designManager.getActiveLayer() || designManager.layers[0])?.scale || 1.0) * 100)}
-            onChange={(e) => {
-              const active = designManager.getActiveLayer() || designManager.layers[0];
-              if (active) {
-                const newScale = parseInt(e.target.value) / 100;
-                designManager.updateLayer(active.id, { scale: newScale });
-              }
-            }}
-            className="w-24 sm:w-32 accent-brand-500 cursor-pointer"
-          />
+        return (
+          <div id="graphic-transform-hud" className={`fixed ${rightDrawerMode === 'design' ? 'top-16 md:top-auto md:bottom-6' : 'bottom-[4.75rem] md:bottom-6'} left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1.5 bg-white/95 dark:bg-studio-900/95 backdrop-blur-xl px-3.5 py-2.5 rounded-2xl border border-gray-200/90 dark:border-studio-700 shadow-2xl text-xs select-none animate-fadeIn max-w-[95vw]`}>
+            <div className="flex items-center gap-2">
+              {/* Mode Switch: Move vs Resize */}
+              <div className="flex items-center p-0.5 bg-gray-100 dark:bg-studio-800 rounded-xl border border-gray-200 dark:border-studio-700/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSetDesignGestureMode('move')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    designGestureMode === 'move'
+                      ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-400/40'
+                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
+                  }`}
+                  title="Move Mode: Drag graphic directly on garment"
+                >
+                  <Move className="size-3.5" />
+                  <span>Move</span>
+                </button>
 
-          <button
-            onClick={() => {
-              const active = designManager.getActiveLayer() || designManager.layers[0];
-              if (active) {
-                const newScale = Math.min(3.5, (active.scale || 1.0) + 0.1);
-                designManager.updateLayer(active.id, { scale: parseFloat(newScale.toFixed(2)) });
-              }
-            }}
-            className="size-6 rounded-lg bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 flex items-center justify-center font-bold text-gray-800 dark:text-white transition-colors"
-            title="Increase Size"
-          >
-            +
-          </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetDesignGestureMode('resize')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    designGestureMode === 'resize'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/40'
+                      : 'text-gray-600 dark:text-studio-300 hover:text-black dark:hover:text-white'
+                  }`}
+                  title="Resize Mode: Drag up/down on canvas or pinch to scale"
+                >
+                  <ZoomIn className="size-3.5" />
+                  <span>Resize</span>
+                </button>
+              </div>
 
-          <span className="text-[11px] font-mono font-bold text-brand-600 dark:text-brand-400 min-w-[38px] text-right">
-            {Math.round(((designManager.getActiveLayer() || designManager.layers[0])?.scale || 1.0) * 100)}%
-          </span>
+              {/* Graphic Size Steppers & Slider */}
+              <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-gray-200 dark:border-studio-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeLayer) {
+                      const newScale = Math.max(0.15, currentScale - 0.1);
+                      designManager.updateLayer(activeLayer.id, { scale: parseFloat(newScale.toFixed(2)) }, true);
+                    }
+                  }}
+                  className="size-8 rounded-xl bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 active:scale-95 flex items-center justify-center font-bold text-base text-gray-800 dark:text-white transition-all shadow-sm"
+                  title="Decrease Graphic Size (-10%)"
+                >
+                  -
+                </button>
 
-          <span className="text-[10px] text-gray-400 border-l border-gray-200 dark:border-studio-700 pl-2 hidden md:inline">
-            Tip: Drag directly on shirt • Alt+Drag or Mouse Wheel to resize
-          </span>
-        </div>
-      )}
+                <input
+                  type="range"
+                  min="15"
+                  max="300"
+                  value={currentScalePct}
+                  onChange={(e) => {
+                    if (activeLayer) {
+                      const newScale = parseInt(e.target.value) / 100;
+                      designManager.updateLayer(activeLayer.id, { scale: newScale }, true);
+                    }
+                  }}
+                  className="w-20 sm:w-28 accent-brand-500 cursor-pointer h-2 bg-gray-200 dark:bg-studio-700 rounded-lg"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeLayer) {
+                      const newScale = Math.min(3.5, currentScale + 0.1);
+                      designManager.updateLayer(activeLayer.id, { scale: parseFloat(newScale.toFixed(2)) }, true);
+                    }
+                  }}
+                  className="size-8 rounded-xl bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 active:scale-95 flex items-center justify-center font-bold text-base text-gray-800 dark:text-white transition-all shadow-sm"
+                  title="Increase Graphic Size (+10%)"
+                >
+                  +
+                </button>
+
+                <span className="text-xs font-mono font-bold text-brand-600 dark:text-brand-400 min-w-[42px] text-right">
+                  {currentScalePct}%
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Gesture Hint Pill */}
+            <div className="text-[10px] text-gray-500 dark:text-studio-400 flex items-center gap-1.5 font-medium">
+              <span className="inline-block size-1.5 rounded-full bg-brand-500 animate-pulse" />
+              <span>
+                {designGestureMode === 'resize'
+                  ? 'Resize Mode: Drag up/down or pinch to scale • Double-tap to Move'
+                  : 'Move Mode: Drag graphic to reposition • Double-tap to Resize'}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
       </>
       )}
 

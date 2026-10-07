@@ -120,7 +120,7 @@ export class CanvasDesignManager {
       textColor: '#000000',
       fontSize: 12,
       fontFamily: 'Roboto',
-      x: side === 'back' ? 1520 : 530,
+      x: side === 'back' ? 1528 : 480,
       y: 800,
       scale: 1.0,
       rotation: 0, // degrees

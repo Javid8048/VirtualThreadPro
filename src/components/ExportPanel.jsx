@@ -17,7 +17,8 @@ import {
   Minus,
   Plus,
   RotateCw,
-  Box
+  Box,
+  Gauge
 } from 'lucide-react';
 import { CanvasVideoRecorder } from '../utils/videoRecorder';
 
@@ -41,6 +42,7 @@ export function ExportPanel({
   }, [defaultTab]);
 
   // Video recording state
+  const [videoFps, setVideoFps] = useState(24); // 24 | 30 | 60 - Default is 24
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
   const [videoMotion, setVideoMotion] = useState('current'); // 'current' | 'showcase360'
   const [preferredFormat, setPreferredFormat] = useState('webm'); // 'webm' | 'mp4'
@@ -136,6 +138,7 @@ export function ExportPanel({
 
       const result = await recorder.startRecording(
         {
+          fps: Number(videoFps) || 24,
           durationSeconds: numDuration,
           format: videoFormat,
           motion: videoMotion,
@@ -233,7 +236,7 @@ export function ExportPanel({
           </div>
           <div>
             <h3 className="text-xs font-extrabold text-gray-900 dark:text-white leading-tight">Export Studio</h3>
-            <p className="text-[9px] text-gray-500 dark:text-studio-400">60 FPS video, 4K & 3D models</p>
+            <p className="text-[9px] text-gray-500 dark:text-studio-400">HD Video (24/30/60 FPS), 4K & 3D models</p>
           </div>
         </div>
 
@@ -306,7 +309,7 @@ export function ExportPanel({
                 </label>
                 <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  60 FPS Smooth
+                  {videoFps} FPS Video
                 </span>
               </div>
 
@@ -379,6 +382,41 @@ export function ExportPanel({
               </div>
             </div>
 
+            {/* Frame Rate (FPS) Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1">
+                  <Gauge className="size-3 text-brand-500" />
+                  <span>Frame Rate (FPS)</span>
+                </label>
+                <span className="text-[10px] text-gray-500 dark:text-studio-400 font-semibold">
+                  {videoFps === 24 ? 'Cinematic (Default)' : videoFps === 30 ? 'Smooth Standard' : 'Ultra Smooth'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { value: 24, label: '24 FPS', desc: 'Default / Cinematic' },
+                  { value: 30, label: '30 FPS', desc: 'Standard Video' },
+                  { value: 60, label: '60 FPS', desc: 'High Motion' }
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    disabled={isRecording}
+                    onClick={() => setVideoFps(item.value)}
+                    className={`py-2 px-2 rounded-xl border text-center transition-all ${
+                      videoFps === item.value
+                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm text-brand-600 dark:text-brand-400 font-extrabold'
+                        : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-700 dark:text-studio-300 font-medium'
+                    }`}
+                  >
+                    <div className="text-xs font-black">{item.label}</div>
+                    <div className="text-[9px] opacity-75">{item.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Showcase Motion Mode */}
             <div>
               <label className="text-xs font-bold text-gray-700 dark:text-studio-200 mb-2 flex items-center gap-1.5">
@@ -448,7 +486,7 @@ export function ExportPanel({
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">Recommended</span>
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-studio-400 mt-0.5">
-                    Ultra-smooth 60 FPS, fast browser encoding
+                    Hardware GPU capture, fast browser encoding
                   </div>
                 </button>
 
@@ -576,7 +614,7 @@ export function ExportPanel({
                 <div className="flex items-center justify-between text-xs font-bold text-brand-700 dark:text-brand-300">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="size-3.5 animate-spin" />
-                    Recording Smooth 60 FPS ({recordingProgress}%)
+                    Recording {videoFps} FPS Video ({recordingProgress}%)
                   </span>
                   <span>{elapsedSeconds.toFixed(1)}s / {videoDuration}s</span>
                 </div>
@@ -630,7 +668,7 @@ export function ExportPanel({
               ) : (
                 <>
                   <Download className="size-4" />
-                  <span>Start 60 FPS Video Recording ({videoDuration}s)</span>
+                  <span>Start {videoFps} FPS Video Recording ({videoDuration}s)</span>
                 </>
               )}
             </button>

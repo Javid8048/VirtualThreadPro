@@ -4,10 +4,21 @@ import { getAssetUrl } from '../utils/assets';
 
 export const GARMENT_PRODUCTS = [
   {
-    id: 'oversized_tee',
-    title: 'OVERSIZED T-SHIRT STUDIO',
+    id: 'regular_tee',
+    title: 'NORMAL T-SHIRT STUDIO',
     badge: 'DEFAULT BLANK',
     badgeType: 'default',
+    category: 'Tops',
+    description: 'Classic fitted everyday crewneck normal t-shirt with standard sleeve length, tailored chest proportions, and clean silhouette.',
+    features: ['Classic Everyday Fit', 'Clean Double Stitch', 'Dual-side Print'],
+    imageBg: 'from-sky-900/30 to-slate-950/40',
+    popular: true
+  },
+  {
+    id: 'oversized_tee',
+    title: 'OVERSIZED T-SHIRT STUDIO',
+    badge: 'STUDIO READY',
+    badgeType: 'studio',
     category: 'Tops',
     description: 'Heavyweight streetwear oversized drop-shoulder t-shirt with authentic cloth drape and wrinkles.',
     features: ['Walk & Wind Animations', 'Front & Back Decals', 'Puff Print & Acid Wash'],
@@ -48,17 +59,6 @@ export const GARMENT_PRODUCTS = [
     popular: false
   },
   {
-    id: 'regular_tee',
-    title: 'REGULAR T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: 'Classic fitted everyday crewneck t-shirt with standard sleeve length and tailored chest proportions.',
-    features: ['Classic Everyday Fit', 'Clean Double Stitch', 'Dual-side Print'],
-    imageBg: 'from-sky-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
     id: 'zip_hoodie',
     title: 'ZIP HOODIE STUDIO',
     badge: 'STUDIO READY',
@@ -71,35 +71,13 @@ export const GARMENT_PRODUCTS = [
   },
   {
     id: 'polo',
-    title: 'OVERSIZED POLO SHIRT STUDIO',
+    title: 'TAILORED ATHLETIC POLO STUDIO',
     badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Collared',
-    description: 'Relaxed streetwear polo shirt with turned-down ribbed collar and front button placket.',
-    features: ['Turned-down Collar', '2-Button Placket', 'Left Chest Pocket Decal'],
+    description: 'Tailored athletic polo crafted from 220 GSM honeycomb piqué cotton with flat-knit collar, 3-button placket, and ribbed cuffs.',
+    features: ['Flat-Knit Turned Collar', '3-Button Placket Welt', 'Ribbed Arm Cuffs'],
     imageBg: 'from-teal-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
-    id: 'sweatpants',
-    title: 'SWEATPANTS STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Bottoms',
-    description: 'Heavyweight fleece sweatpants with gathered elastic cuffs, waistband, and side leg print zone.',
-    features: ['Elastic Waistband', 'Gathered Ankle Cuffs', 'Leg Graphics'],
-    imageBg: 'from-indigo-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
-    id: 'cap',
-    title: 'CAP STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Headwear',
-    description: 'Classic 6-panel unstructured dad cap and snapback with curved visor and front embroidery relief.',
-    features: ['6-Panel Crown', 'Curved Visor', 'Front Embroidery Decal'],
-    imageBg: 'from-stone-900/30 to-slate-950/40',
     popular: false
   }
 ];
@@ -107,7 +85,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 9 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 7 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
@@ -115,7 +93,7 @@ const FAQS = [
   },
   {
     q: 'Can I create unlimited mockups?',
-    a: 'Yes, you can generate unlimited 3D clothing mockups, video loops (10s, 20s, 30s), and high-resolution snapshots without caps or limits.'
+    a: 'Yes, you can generate unlimited 3D clothing mockups, video loops (10s, 20s, 30s), and high-resolution snapshots without restrictions or limits.'
   },
   {
     q: 'Do you store my designs on a server?',
@@ -148,7 +126,7 @@ export function ProductsCatalogModal({
 
   if (!isOpen) return null;
 
-  const categories = ['All', 'Tops', 'Outerwear', 'Sweatshirts', 'Bottoms', 'Headwear'];
+  const categories = ['All', 'Tops', 'Outerwear', 'Sweatshirts', 'Collared'];
   const filteredProducts = selectedCategory === 'All'
     ? GARMENT_PRODUCTS
     : GARMENT_PRODUCTS.filter(p => p.category === selectedCategory);
@@ -219,7 +197,7 @@ export function ProductsCatalogModal({
               </p>
               <p className="text-xs text-brand-accent mt-1 flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="size-3.5" />
-                All 9 garment types unlocked with exterior-only graphic reflection.
+                All 7 garment types unlocked with exterior-only graphic reflection.
               </p>
             </div>
 

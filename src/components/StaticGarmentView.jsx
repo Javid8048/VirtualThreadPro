@@ -129,19 +129,11 @@ export function StaticGarmentView({
 
         {/* Dynamic Decals / Graphic Layer Placement Overlay */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <div
-            className={`relative flex items-center justify-center ${
-              garmentType === 'sweatpants'
-                ? (activeSide === 'back' ? 'w-28 h-32 ml-24 -mt-16' : 'w-32 h-36 -ml-20 mt-4')
-                : garmentType === 'cap'
-                ? 'w-36 h-28 -mt-14'
-                : 'w-48 h-56 -mt-8'
-            }`}
-          >
+          <div className="relative flex items-center justify-center w-48 h-56 -mt-8">
             {currentLayers.map((layer) => {
               const scale = layer.scale || 1.0;
               const rotation = layer.rotation || 0;
-              const centerX = layer.side === 'back' ? 1520 : 530;
+              const centerX = layer.side === 'back' ? 1528 : 480;
               const centerY = layer.side === 'back' ? 960 : 800;
               const offsetX = ((layer.x - centerX) / 400) * 80;
               const offsetY = ((layer.y - centerY) / 400) * 80;

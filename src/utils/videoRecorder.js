@@ -70,6 +70,7 @@ export class CanvasVideoRecorder {
    */
   startRecording(
     {
+      fps = 24,
       durationSeconds = 5,
       format = 'desktop',
       motion = 'current',
@@ -85,10 +86,29 @@ export class CanvasVideoRecorder {
           return;
         }
 
-        // Direct hardware-accelerated 60 FPS stream from WebGL canvas
-        // Eliminates CPU readback stalls and maintains screen animation smoothness
-        const stream = this.canvas.captureStream ? this.canvas.captureStream(60) : null;
+        const targetFps = Number(fps) || 24;
+
+        // Instruct SceneManager to initialize video recording session and setup offscreen canvas
+        if (this.sceneManager && this.sceneManager.startVideoRecording) {
+          this.sceneManager.startVideoRecording({
+            fps: targetFps,
+            durationSeconds,
+            format,
+            motion,
+            backgroundColor
+          });
+        }
+
+        // Direct hardware-accelerated video stream from formatted recording canvas (1080x1920 for mobile, 1080x1080 for square, 1920x1080 for desktop)
+        const captureCanvas = (this.sceneManager && this.sceneManager.recordingCanvas)
+          ? this.sceneManager.recordingCanvas
+          : this.canvas;
+
+        const stream = captureCanvas.captureStream ? captureCanvas.captureStream(targetFps) : null;
         if (!stream) {
+          if (this.sceneManager && this.sceneManager.stopVideoRecording) {
+            this.sceneManager.stopVideoRecording();
+          }
           reject(new Error('Browser does not support canvas video capture (captureStream).'));
           return;
         }
@@ -101,17 +121,6 @@ export class CanvasVideoRecorder {
 
         this.recordedChunks = [];
         this.mediaRecorder = new MediaRecorder(stream, options);
-
-        // Instruct SceneManager to initialize video recording session
-        if (this.sceneManager && this.sceneManager.startVideoRecording) {
-          this.sceneManager.startVideoRecording({
-            fps: 60,
-            durationSeconds,
-            format,
-            motion,
-            backgroundColor
-          });
-        }
 
         // Keep mobile display active during recording to prevent corruption or throttling
         let screenWakeLock = null;
@@ -223,10 +232,6 @@ export class CanvasVideoRecorder {
         clearTimeout(this.stopTimeout);
         this.stopTimeout = null;
       }
-      if (this.sceneManager && this.sceneManager.stopVideoRecording) {
-        this.sceneManager.stopVideoRecording();
-      }
-
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
         try {
           this.mediaRecorder.requestData();

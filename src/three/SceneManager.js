@@ -115,11 +115,12 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
 
 
 
+
 /**
  * Photorealistic 3D Scene Manager using the official VirtualThreads 3D T-shirt model.
  */
 export class SceneManager {
-  constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'oversized_tee') {
+  constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'regular_tee') {
     this.container = canvasContainer;
     this.width = Math.max(canvasContainer.clientWidth || 0, (typeof window !== 'undefined' ? window.innerWidth : 800) || 800);
     this.height = Math.max(canvasContainer.clientHeight || 0, (typeof window !== 'undefined' ? window.innerHeight : 600) || 600);
@@ -137,8 +138,8 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
-    this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.domElement.style.touchAction = 'none';
     this.container.appendChild(this.renderer.domElement);
 
     // 2. Scene
@@ -314,6 +315,7 @@ export class SceneManager {
       normalScale: new THREE.Vector2(0.25, 0.25),
       side: THREE.DoubleSide
     });
+    applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor);
 
     // Vibrant, rich satin ink finish on decals (no dullness, max crispness, sharp anisotropic filtering)
     this.decalMaterial = new THREE.MeshStandardMaterial({
@@ -342,7 +344,6 @@ export class SceneManager {
       if (this.onLoaded) {
         this.onLoaded();
       }
-      this.scheduleBackgroundPreloading();
     }
   }
 
@@ -394,26 +395,7 @@ export class SceneManager {
   }
 
   scheduleBackgroundPreloading() {
-    if (this.hasScheduledPreload) return;
-    this.hasScheduledPreload = true;
-
-    // Use delayed sequential preloading during browser idle time
-    // Guarantees zero freezing on initial load, while ensuring all 3D garments load instantly (0ms)
-    setTimeout(() => {
-      const queue = ['hoodie', 'pants', 'cap'];
-      const processNext = (idx) => {
-        if (idx >= queue.length || this.isDisposed) return;
-        const fam = queue[idx];
-        if (!this.modelsLoaded[fam] && !this.modelsLoading[fam]) {
-          this.ensureGarmentModelLoaded(fam, () => {
-            setTimeout(() => processNext(idx + 1), 600);
-          });
-        } else {
-          processNext(idx + 1);
-        }
-      };
-      processNext(0);
-    }, 1800);
+    // Heavy models load strictly on-demand when selected to avoid network and CPU strain
   }
 
   preloadAllGarmentModels() {
@@ -592,12 +574,36 @@ export class SceneManager {
       if (this.renderer) this.renderer.domElement.style.cursor = 'grab';
     } else {
       this.controls.enabled = false;
-      if (this.renderer) this.renderer.domElement.style.cursor = 'move';
+      if (this.renderer) this.renderer.domElement.style.cursor = (this.designGestureMode === 'resize') ? 'nwse-resize' : 'move';
+    }
+    if (this.onInteractionModeChange) {
+      this.onInteractionModeChange(mode);
+    }
+  }
+
+  setDesignGestureMode(mode) {
+    this.designGestureMode = mode; // 'move' | 'resize'
+    if (this.renderer && this.renderer.domElement && this.interactionMode === 'dragDesign') {
+      this.renderer.domElement.style.cursor = (mode === 'resize') ? 'nwse-resize' : 'move';
+    }
+    if (this.onDesignGestureModeChange) {
+      this.onDesignGestureModeChange(mode);
     }
   }
 
   setupInteractions() {
     this.interactionMode = 'orbit'; // 'orbit' | 'dragDesign'
+    this.designGestureMode = 'move'; // 'move' | 'resize'
+    this.onDesignGestureModeChange = null;
+    this.onInteractionModeChange = null;
+    this.longPressTimeout = null;
+    this.isLongPressed = false;
+    this.pointerDownTime = 0;
+    this.pointerDownPos = { x: 0, y: 0 };
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.is3DDragging = false;
@@ -605,7 +611,163 @@ export class SceneManager {
 
     const dom = this.renderer.domElement;
 
+    // Double-click / double-tap handler: activates moving and resizing of designs upon garments
+    const handleDesignDoubleClick = (clientX, clientY) => {
+      if (!this.designManager || !this.designManager.layers || this.designManager.layers.length === 0) {
+        return;
+      }
+
+      const rect = dom.getBoundingClientRect();
+      this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+
+      const mesh = this.getActiveMesh();
+      let matchedLayer = null;
+
+      if (mesh) {
+        const intersects = this.raycaster.intersectObject(mesh, false);
+        if (intersects.length > 0 && intersects[0].uv) {
+          const uv = intersects[0].uv;
+          const hitX = Math.round(uv.x * 2048);
+          const hitY = Math.round(uv.y * 2048);
+          const hitSide = hitX < 1024 ? 'front' : 'back';
+
+          const sideLayers = this.designManager.layers.filter(l => (l.side || 'front') === hitSide);
+          if (sideLayers.length > 0) {
+            let closestDist = Infinity;
+            for (const layer of sideLayers) {
+              const d = Math.hypot(hitX - layer.x, hitY - layer.y);
+              const halfDim = Math.max(((layer.width || 400) * (layer.scale || 1.0)) / 2, 220);
+              if (d < halfDim && d < closestDist) {
+                closestDist = d;
+                matchedLayer = layer;
+              }
+            }
+            if (!matchedLayer) {
+              matchedLayer = sideLayers.reduce((prev, curr) => {
+                const dPrev = Math.hypot(hitX - prev.x, hitY - prev.y);
+                const dCurr = Math.hypot(hitX - curr.x, hitY - curr.y);
+                return dCurr < dPrev ? curr : prev;
+              });
+            }
+          }
+        }
+      }
+
+      if (!matchedLayer) {
+        matchedLayer = this.designManager.getActiveLayer() || this.designManager.layers[this.designManager.layers.length - 1];
+      }
+
+      if (matchedLayer) {
+        this.designManager.setActiveLayer(matchedLayer.id);
+
+        if (this.interactionMode === 'dragDesign') {
+          // If already in drag mode, double click toggles between Move and Resize
+          const nextGesture = (this.designGestureMode === 'resize') ? 'move' : 'resize';
+          this.setDesignGestureMode(nextGesture);
+        } else {
+          // Enable design move & resize upon garments
+          this.setInteractionMode('dragDesign');
+          this.setDesignGestureMode('move');
+          if (this.onInteractionModeChange) {
+            this.onInteractionModeChange('dragDesign');
+          }
+        }
+
+        // Initialize immediate drag so user can drag right away
+        this.controls.enabled = false;
+        this.is3DDragging = true;
+        this.pointerDownTime = performance.now();
+        this.pointerDownPos = { x: clientX, y: clientY };
+        this.dragStart = {
+          clientX,
+          clientY,
+          startX: matchedLayer.x,
+          startY: matchedLayer.y,
+          startScale: matchedLayer.scale || 1.0,
+          layerId: matchedLayer.id,
+          side: matchedLayer.side || 'front',
+          isResizing: this.designGestureMode === 'resize'
+        };
+
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate([30, 40, 30]); } catch (err) {}
+        }
+      }
+    };
+
+    // Desktop double-click
+    dom.addEventListener('dblclick', (e) => {
+      handleDesignDoubleClick(e.clientX, e.clientY);
+    });
+
+    // Mobile 2-finger pinch-to-resize gesture on garments & touchstart double-tap
+    let pinchStartDist = 0;
+    let pinchStartScale = 1.0;
+    let lastTouchStartTime = 0;
+    let lastTouchStartX = 0;
+    let lastTouchStartY = 0;
+
+    dom.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const now = performance.now();
+        const dist = Math.hypot(touch.clientX - lastTouchStartX, touch.clientY - lastTouchStartY);
+        if (now - lastTouchStartTime < 450 && dist < 50) {
+          lastTouchStartTime = 0;
+          handleDesignDoubleClick(touch.clientX, touch.clientY);
+          return;
+        }
+        lastTouchStartTime = now;
+        lastTouchStartX = touch.clientX;
+        lastTouchStartY = touch.clientY;
+      }
+
+      if (this.interactionMode === 'dragDesign' && e.touches && e.touches.length === 2) {
+        pinchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const activeLayer = this.designManager?.getActiveLayer() || this.designManager?.layers[0];
+        pinchStartScale = activeLayer ? (activeLayer.scale || 1.0) : 1.0;
+      }
+    }, { passive: true });
+
+    dom.addEventListener('touchmove', (e) => {
+      if (this.interactionMode === 'dragDesign') {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        if (e.touches && e.touches.length === 2 && pinchStartDist > 0) {
+          const currentDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const scaleChange = (currentDist - pinchStartDist) * 0.004;
+          const activeLayer = this.designManager?.getActiveLayer() || this.designManager?.layers[0];
+          if (activeLayer) {
+            const newScale = Math.max(0.15, Math.min(3.5, pinchStartScale + scaleChange));
+            this.designManager.updateLayer(activeLayer.id, { scale: parseFloat(newScale.toFixed(2)) }, true);
+          }
+        }
+      }
+    }, { passive: false });
+
     dom.addEventListener('pointerdown', (e) => {
+      // Mobile / Touch double-tap detection (<450ms, <50px)
+      const now = performance.now();
+      const distFromLastTap = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY);
+      if (now - lastTapTime < 450 && distFromLastTap < 50) {
+        lastTapTime = 0;
+        handleDesignDoubleClick(e.clientX, e.clientY);
+        try { dom.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
+      lastTapTime = now;
+      lastTapX = e.clientX;
+      lastTapY = e.clientY;
+
       // Direct 3D dragging when interactionMode is 'dragDesign' or when holding Shift
       if (this.interactionMode === 'dragDesign' || e.shiftKey) {
         const activeLayer = this.designManager?.getActiveLayer() || this.designManager?.layers[0];
@@ -617,6 +779,9 @@ export class SceneManager {
 
         this.controls.enabled = false;
         this.is3DDragging = true;
+        this.pointerDownTime = performance.now();
+        this.pointerDownPos = { x: e.clientX, y: e.clientY };
+        this.isLongPressed = false;
         try { dom.setPointerCapture(e.pointerId); } catch (err) {}
 
         this.dragStart = {
@@ -627,8 +792,27 @@ export class SceneManager {
           startScale: activeLayer.scale || 1.0,
           layerId: activeLayer.id,
           side: activeLayer.side || 'front',
-          isResizing: e.altKey || false
+          isResizing: this.designGestureMode === 'resize' || e.altKey || false
         };
+
+        // Long-press detection (380ms) enables Move Mode
+        if (this.longPressTimeout) clearTimeout(this.longPressTimeout);
+        this.longPressTimeout = setTimeout(() => {
+          this.isLongPressed = true;
+          this.designGestureMode = 'move';
+          if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.style.cursor = 'move';
+          }
+          if (this.dragStart) {
+            this.dragStart.isResizing = false;
+          }
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate(35); } catch (err) {}
+          }
+          if (this.onDesignGestureModeChange) {
+            this.onDesignGestureModeChange('move');
+          }
+        }, 380);
 
         // If direct UV hit on mesh, also snap to raycast position
         const rect = dom.getBoundingClientRect();
@@ -636,7 +820,7 @@ export class SceneManager {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const mesh = this.getActiveMesh();
-        if (mesh && !e.altKey) {
+        if (mesh && !e.altKey && this.designGestureMode === 'move') {
           const intersects = this.raycaster.intersectObject(mesh, false);
           if (intersects.length > 0 && intersects[0].uv) {
             const uv = intersects[0].uv;
@@ -646,7 +830,7 @@ export class SceneManager {
             this.dragStart.startX = x;
             this.dragStart.startY = y;
             this.dragStart.side = side;
-            this.designManager.updateLayer(activeLayer.id, { x, y, side });
+            this.designManager.updateLayer(activeLayer.id, { x, y, side }, true);
           }
         }
       }
@@ -654,18 +838,26 @@ export class SceneManager {
 
     dom.addEventListener('pointermove', (e) => {
       if (this.is3DDragging && this.dragStart) {
+        if (e.cancelable) e.preventDefault();
         const deltaX = (e.clientX - this.dragStart.clientX);
         const deltaY = (e.clientY - this.dragStart.clientY);
+        const distFromStart = Math.hypot(e.clientX - this.pointerDownPos.x, e.clientY - this.pointerDownPos.y);
 
-        // Resize mode (via Alt+Drag or isResizing flag)
-        if (this.dragStart.isResizing || e.altKey) {
-          const scaleFactor = (deltaX - deltaY) * 0.006;
-          const newScale = Math.max(0.2, Math.min(3.5, (this.dragStart.startScale || 1.0) + scaleFactor));
-          this.designManager.updateLayer(this.dragStart.layerId, { scale: parseFloat(newScale.toFixed(2)) });
+        if (distFromStart > 8 && !this.isLongPressed && this.longPressTimeout) {
+          clearTimeout(this.longPressTimeout);
+          this.longPressTimeout = null;
+        }
+
+        // Resize mode (via Mode toggle, or Alt+Drag, or designGestureMode === 'resize')
+        if (this.dragStart.isResizing || this.designGestureMode === 'resize' || e.altKey) {
+          // Dragging right/up increases size; dragging left/down decreases size
+          const scaleFactor = (deltaX - deltaY) * 0.005;
+          const newScale = Math.max(0.15, Math.min(3.5, (this.dragStart.startScale || 1.0) + scaleFactor));
+          this.designManager.updateLayer(this.dragStart.layerId, { scale: parseFloat(newScale.toFixed(2)) }, true);
           return;
         }
 
-        // Check if viewing front or back of model
+        // Move mode: translate coordinates across front or back UV layout
         const isBackView = this.camera.position.z < 0;
         const factorX = isBackView ? -2.2 : 2.2;
         const factorY = 2.2;
@@ -680,11 +872,16 @@ export class SceneManager {
         }
         newY = Math.max(200, Math.min(1848, newY));
 
-        this.designManager.updateLayer(this.dragStart.layerId, { x: newX, y: newY });
+        this.designManager.updateLayer(this.dragStart.layerId, { x: newX, y: newY }, true);
       }
     });
 
     const stop3DDrag = (e) => {
+      if (this.longPressTimeout) {
+        clearTimeout(this.longPressTimeout);
+        this.longPressTimeout = null;
+      }
+
       if (this.is3DDragging) {
         this.is3DDragging = false;
         this.dragStart = null;
@@ -706,7 +903,7 @@ export class SceneManager {
         if (activeLayer) {
           e.preventDefault();
           const zoomDelta = -Math.sign(e.deltaY) * 0.05;
-          const newScale = Math.max(0.2, Math.min(3.5, (activeLayer.scale || 1.0) + zoomDelta));
+          const newScale = Math.max(0.15, Math.min(3.5, (activeLayer.scale || 1.0) + zoomDelta));
           this.designManager.updateLayer(activeLayer.id, { scale: parseFloat(newScale.toFixed(2)) });
         }
       }
@@ -724,6 +921,7 @@ export class SceneManager {
   }
 
   setupLighting(preset = 'studio') {
+    this.backdropMode = preset;
     Object.values(this.lights).forEach((l) => this.scene.remove(l));
     this.lights = {};
 
@@ -816,15 +1014,9 @@ export class SceneManager {
   }
 
   getActiveGarmentRoot() {
-    const t = this.garmentType || 'oversized_tee';
+    const t = this.garmentType || 'regular_tee';
     if (t === 'hoodie' || t === 'zip_hoodie') {
       return this.realHoodieRoot;
-    }
-    if (t === 'sweatpants') {
-      return this.realPantsRoot;
-    }
-    if (t === 'cap') {
-      return this.realCapRoot;
     }
     return this.tshirtPivot;
   }
@@ -834,7 +1026,7 @@ export class SceneManager {
     this.knitTime = 0;
     this.knitProgress = 0.0;
     const updateShaderKnit = (p) => {
-      [this.shirtMaterial, this.hoodieFabricMaterial, this.fabricMaterial].forEach((mat) => {
+      [this.shirtMaterial, this.hoodieFabricMaterial, this.fabricMaterial, this.decalMaterial].forEach((mat) => {
         if (mat?.userData?.shader?.uniforms?.uKnitProgress) {
           mat.userData.shader.uniforms.uKnitProgress.value = p;
         }
@@ -894,6 +1086,8 @@ export class SceneManager {
       }
     };
     updateInsideColor(this.shirtMaterial);
+    updateInsideColor(this.fabricMaterial);
+    updateInsideColor(this.hoodieFabricMaterial);
     if (this.tshirtWaves) updateInsideColor(this.tshirtWaves.material);
     if (this.tshirtWalking) updateInsideColor(this.tshirtWalking.material);
 
@@ -925,7 +1119,7 @@ export class SceneManager {
     }
 
     const family = this.getGarmentFamily(this.garmentType);
-    if (this.garmentType === 'cap' && (this.animationMode === 'walking' || this.animationMode === 'waves' || this.animationMode === 'rotate_walk')) {
+    if (this.garmentType === 'polo' && (this.animationMode === 'walking' || this.animationMode === 'waves' || this.animationMode === 'rotate_walk')) {
       this.animationMode = 'static';
     }
     const isAlreadyLoaded = !!this.modelsLoaded[family];
@@ -948,7 +1142,8 @@ export class SceneManager {
     };
 
     if (isAlreadyLoaded) {
-      setTimeout(finish, 220);
+      this.applyGarmentTypeVisibility();
+      setTimeout(finish, 100);
     } else {
       this.ensureGarmentModelLoaded(this.garmentType, () => {
         finish();
@@ -970,7 +1165,7 @@ export class SceneManager {
     this.attachmentsGroup.name = 'garment_attachments';
     this.attachmentsGroup.scale.set(1, 1, 1);
 
-    const fabMat = this.shirtMaterial || this.fabricMaterial;
+    const fabMat = this.fabricMaterial || this.shirtMaterial;
 
     // 1. Sweatshirt: Authentic streetwear long sleeves, ribbed cuffs, waistband, and crewneck collar
     this.sweatshirtGroup = new THREE.Group();
@@ -1061,6 +1256,7 @@ export class SceneManager {
 
     // Pearlescent buttons (3-button authentic polo placket)
     const buttonMat = new THREE.MeshStandardMaterial({
+      name: 'polo_button_material',
       color: 0xf4f4f4,
       roughness: 0.22,
       metalness: 0.12
@@ -1075,6 +1271,16 @@ export class SceneManager {
     const b3 = new THREE.Mesh(buttonGeom, buttonMat);
     b3.position.set(0, 1.74, 0.88);
 
+    this.poloNeckCover = neckCoverMesh;
+    this.poloCollarMesh = poloCollarMesh;
+    this.poloLeftLapel = leftLapel;
+    this.poloRightLapel = rightLapel;
+    this.poloPlacketMesh = placketMesh;
+    this.poloPlacketTabMesh = placketTabMesh;
+    this.poloB1 = b1;
+    this.poloB2 = b2;
+    this.poloB3 = b3;
+
     // Ribbed short-sleeve cuffs (left & right arm bands)
     const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
     const leftPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
@@ -1084,6 +1290,8 @@ export class SceneManager {
     const rightPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
     rightPoloCuff.position.set(3.25, 1.38, 0.06);
     rightPoloCuff.rotation.set(0, 0, 0.58);
+    this.poloLeftCuff = leftPoloCuff;
+    this.poloRightCuff = rightPoloCuff;
 
     this.poloGroup.add(
       neckCoverMesh,
@@ -1138,6 +1346,7 @@ export class SceneManager {
       metalness: 0.02,
       side: THREE.DoubleSide
     });
+    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor);
 
     gltfLoader.load(
       getAssetUrl('/models/virtualthreads_hoodie.glb'),
@@ -1219,12 +1428,12 @@ export class SceneManager {
         }
         frontDecalGeom.computeVertexNormals();
 
-        // Correct UV mapping (upright, readable left-to-right, centered at 530, 800)
+        // Calibrated UV mapping (centered at 480 front, 1528 back)
         const fUvs = frontDecalGeom.attributes.uv;
         for (let i = 0; i < fUvs.count; i++) {
           const u = fUvs.getX(i);
           const v = fUvs.getY(i);
-          fUvs.setXY(i, 0.0588 + u * 0.40, 0.5906 - v * 0.40);
+          fUvs.setXY(i, 0.0344 + u * 0.40, 0.5906 - v * 0.40);
         }
         fUvs.needsUpdate = true;
 
@@ -1242,7 +1451,7 @@ export class SceneManager {
         for (let i = 0; i < bUvs.count; i++) {
           const u = bUvs.getX(i);
           const v = bUvs.getY(i);
-          bUvs.setXY(i, 0.5422 + u * 0.40, 0.5906 - v * 0.40);
+          bUvs.setXY(i, 0.5461 + u * 0.40, 0.5906 - v * 0.40);
         }
         bUvs.needsUpdate = true;
 
@@ -1499,16 +1708,14 @@ export class SceneManager {
 
   loadRealGarmentModels() {
     this.ensureGarmentModelLoaded('hoodie');
-    this.ensureGarmentModelLoaded('sweatpants');
-    this.ensureGarmentModelLoaded('cap');
   }
 
   applyGarmentTypeVisibility() {
-    const t = this.garmentType || 'oversized_tee';
+    const t = this.garmentType || 'regular_tee';
+    const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
+    const isTshirtFamily = !isHoodieFamily;
     const isPants = (t === 'sweatpants');
     const isCap = (t === 'cap');
-    const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
-    const isTshirtFamily = !isPants && !isCap && !isHoodieFamily;
 
     // Show high-res upper body shirt mesh for all t-shirt family garments
     if (this.tshirtStatic) {
@@ -1585,10 +1792,11 @@ export class SceneManager {
     if (mode === 'walk') mode = 'walking';
     if (mode === 'wind') mode = 'waves';
     if (mode === 'none') mode = 'static';
-    if (this.garmentType === 'cap' && (mode === 'walking' || mode === 'waves')) {
+    const isNonWalkable = this.garmentType === 'polo';
+    if (isNonWalkable && (mode === 'walking' || mode === 'waves')) {
       mode = 'static';
     }
-    if (this.garmentType === 'cap' && mode === 'rotate_walk') {
+    if (isNonWalkable && mode === 'rotate_walk') {
       mode = 'turntable';
     }
     this.animationMode = mode;
@@ -1941,9 +2149,11 @@ export class SceneManager {
       return;
     }
 
-    // High-precision clock delta: maintains live animation speed and smoothness during video recording
+    // High-precision clock delta
     const rawDelta = this.clock.getDelta();
-    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
+    // Do not strictly cap delta during video recording to ensure animation doesn't play in slow motion if frame rate drops
+    const maxDelta = this.isRecordingVideo ? 0.33 : 0.05;
+    const delta = Math.min(Math.max(rawDelta, 0.001), maxDelta);
 
     if (this.mixer) {
       this.mixer.update(delta);
@@ -1975,6 +2185,7 @@ export class SceneManager {
       updateKnitTime(this.shirtMaterial);
       updateKnitTime(this.hoodieFabricMaterial);
       updateKnitTime(this.fabricMaterial);
+      updateKnitTime(this.decalMaterial);
 
       const waveX = Math.sin(this.knitTime) * 0.024;
       const waveY = Math.cos(this.knitTime * 0.85) * 0.016;
@@ -2004,6 +2215,26 @@ export class SceneManager {
       resetKnit(this.shirtMaterial);
       resetKnit(this.hoodieFabricMaterial);
       resetKnit(this.fabricMaterial);
+      resetKnit(this.decalMaterial);
+
+      // Restore accessories visibility when exiting knit mode
+      if (this.garmentType === 'polo' && this.poloGroup) {
+        if (this.poloB1) this.poloB1.visible = true;
+        if (this.poloB2) this.poloB2.visible = true;
+        if (this.poloB3) this.poloB3.visible = true;
+        if (this.poloCollarMesh) this.poloCollarMesh.visible = true;
+        if (this.poloNeckCover) this.poloNeckCover.visible = true;
+        if (this.poloLeftLapel) this.poloLeftLapel.visible = true;
+        if (this.poloRightLapel) this.poloRightLapel.visible = true;
+        if (this.poloPlacketMesh) this.poloPlacketMesh.visible = true;
+        if (this.poloPlacketTabMesh) this.poloPlacketTabMesh.visible = true;
+        if (this.poloLeftCuff) this.poloLeftCuff.visible = true;
+        if (this.poloRightCuff) this.poloRightCuff.visible = true;
+      }
+      if (this.pLeftStr && this.pRightStr) {
+        this.pLeftStr.visible = true;
+        this.pRightStr.visible = true;
+      }
     }
 
     // Sweatpants walking motion & drawstring physics
@@ -2107,14 +2338,19 @@ export class SceneManager {
 
     this.renderer.render(this.scene, this.camera);
 
+    // We no longer blit to an offscreen 2D canvas due to performance overhead.
+    // The renderer.domElement itself is natively resized for optimal performance.
+    
     // Synchronously blit frame directly after render for exact frame pacing
     if (this.isRecordingVideo && this.onRecordingFrame) {
-      this.onRecordingFrame(this.renderer.domElement);
+      this.onRecordingFrame(this.recordingCanvas || this.renderer.domElement);
     }
   }
 
+
+
   startVideoRecording({
-    fps = 60,
+    fps = 24,
     durationSeconds = 5,
     format = 'desktop',
     motion = 'current',
@@ -2129,15 +2365,24 @@ export class SceneManager {
     this.onRecordingFrame = onFrame;
     this.recordingStartTime = performance.now();
 
-    // Preserve the user's active studio background and lighting
+    // Determine the solid studio background color matching active studio lighting
+    const isLight = this.backdropMode === 'light';
+    const solidBg = (backgroundColor && backgroundColor !== 'transparent')
+      ? backgroundColor
+      : (isLight ? '#f3f4f6' : '#121318');
+
+    this.recordingBgColor = solidBg;
+
+    // Set 3D scene background to solid color during recording to guarantee 100% opaque WebGL pixels
     this.originalSceneBackground = this.scene.background;
-    if (backgroundColor && backgroundColor !== 'transparent' && backgroundColor !== '#121318') {
-      this.scene.background = new THREE.Color(backgroundColor);
-    }
+    this.scene.background = new THREE.Color(solidBg);
 
     // Save controls state and lock orbit interaction during capture to prevent mouse movement
     this.preRecordState = {
-      controlsEnabled: this.controls ? this.controls.enabled : true
+      controlsEnabled: this.controls ? this.controls.enabled : true,
+      width: this.width,
+      height: this.height,
+      pixelRatio: this.renderer.getPixelRatio()
     };
     if (this.controls) {
       this.controls.enabled = false;
@@ -2152,6 +2397,25 @@ export class SceneManager {
       this.attachmentsGroup?.rotation.y ||
       0
     );
+
+    let targetW = 1920;
+    let targetH = 1080;
+    if (format === 'mobile') {
+      targetW = 1080;
+      targetH = 1920;
+    } else if (format === 'square') {
+      targetW = 1080;
+      targetH = 1080;
+    }
+
+    // Resize WebGL rendering context directly for zero-overhead native capture
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(targetW, targetH, false);
+    this.camera.aspect = targetW / targetH;
+    this.camera.updateProjectionMatrix();
+
+    // Use renderer canvas directly for captureStream to avoid 2D canvas drawImage lag
+    this.recordingCanvas = this.renderer.domElement;
   }
 
   stopVideoRecording() {
@@ -2163,14 +2427,31 @@ export class SceneManager {
     // Restore background if modified
     if (this.originalSceneBackground !== undefined) {
       this.scene.background = this.originalSceneBackground;
+      this.originalSceneBackground = undefined;
     }
 
-    // Restore user orbit controls
-    if (this.preRecordState && this.controls) {
-      this.controls.enabled = this.preRecordState.controlsEnabled;
+    if (this.preRecordState) {
+      if (this.controls) {
+        this.controls.enabled = this.preRecordState.controlsEnabled;
+      }
+      this.renderer.setSize(this.preRecordState.width, this.preRecordState.height, false);
+      this.renderer.setPixelRatio(this.preRecordState.pixelRatio);
+      this.camera.aspect = this.preRecordState.width / this.preRecordState.height;
+      this.camera.updateProjectionMatrix();
       this.preRecordState = null;
     }
 
+    // Restore rotation to pre-recording base angle
+    if (this.recordingBaseAngle !== undefined) {
+      if (this.tshirtPivot) this.tshirtPivot.rotation.y = this.recordingBaseAngle;
+      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = this.recordingBaseAngle;
+      if (this.realPantsRoot) this.realPantsRoot.rotation.y = this.recordingBaseAngle;
+      if (this.realCapRoot) this.realCapRoot.rotation.y = this.recordingBaseAngle;
+      if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = this.recordingBaseAngle;
+    }
+
+    this.recordingCanvas = null;
+    this.recordingContext = null;
     this.clock.getDelta(); // Clear delta backlog
   }
 

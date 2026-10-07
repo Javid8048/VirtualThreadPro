@@ -63,7 +63,7 @@ export function SidebarLeft({
 
   const frontLayers = layers.filter((l) => (l.side || 'front') === 'front');
   const backLayers = layers.filter((l) => (l.side || 'front') === 'back');
-  const isCap = currentGarmentType === 'cap';
+  const isWalkable = currentGarmentType !== 'polo';
 
   const toggleSection = (section) => {
     setOpenSection(openSection === section ? null : section);
@@ -217,7 +217,7 @@ export function SidebarLeft({
                   onClick={onOpenProductsCatalog}
                   className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 dark:text-brand-accent hover:bg-indigo-50 dark:hover:bg-brand-500/15 border border-indigo-100 dark:border-brand-500/30 transition-colors"
                 >
-                  View All 9 Blanks & Details →
+                  View All 7 Blanks & Details →
                 </button>
               )}
             </div>
@@ -277,7 +277,7 @@ export function SidebarLeft({
                             side: 'front',
                             text: 'FRONT TEXT',
                             textColor: '#000000',
-                            x: 530,
+                            x: 480,
                             y: 800
                           });
                         }
@@ -560,7 +560,7 @@ export function SidebarLeft({
                   {animationMode === 'static' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
 
-                {!isCap ? (
+                {isWalkable ? (
                   <button
                     onClick={() => onAnimationModeChange('walking')}
                     className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
@@ -574,16 +574,16 @@ export function SidebarLeft({
                     {animationMode === 'walking' && <Check className="size-3 text-black dark:text-white" />}
                   </button>
                 ) : (
-                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title="Walking motion is designed for apparel & bottoms">
+                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title={`Walking motion is not supported on ${currentGarmentType.replace('_', ' ')}`}>
                     <div className="flex items-center gap-1.5">
                       <Play className="size-3 text-gray-400" />
                       <span>Walk</span>
                     </div>
-                    <span className="text-[9px] font-mono">Apparel Only</span>
+                    <span className="text-[9px] font-mono">N/A</span>
                   </div>
                 )}
 
-                {!isCap ? (
+                {isWalkable ? (
                   <button
                     onClick={() => onAnimationModeChange('waves')}
                     className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${
@@ -597,12 +597,12 @@ export function SidebarLeft({
                     {animationMode === 'waves' && <Check className="size-3 text-black dark:text-white" />}
                   </button>
                 ) : (
-                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title="Wind wave flutter is designed for apparel & bottoms">
+                  <div className="w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between opacity-40 cursor-not-allowed bg-gray-50 dark:bg-studio-800/40 text-gray-400 dark:text-studio-500" title={`Wave flutter is not supported on ${currentGarmentType.replace('_', ' ')}`}>
                     <div className="flex items-center gap-1.5">
                       <Wind className="size-3 text-gray-400" />
                       <span>Waves</span>
                     </div>
-                    <span className="text-[9px] font-mono">Apparel Only</span>
+                    <span className="text-[9px] font-mono">N/A</span>
                   </div>
                 )}
 
@@ -654,7 +654,7 @@ export function SidebarLeft({
                   {animationMode === 'turntable' && <Check className="size-3 text-black dark:text-white" />}
                 </button>
 
-                {!isCap ? (
+                {isWalkable ? (
                   <button
                     onClick={() => onAnimationModeChange('rotate_walk')}
                     className={`w-full py-1.5 px-2.5 rounded-xl text-left font-medium text-[11px] flex items-center justify-between ${

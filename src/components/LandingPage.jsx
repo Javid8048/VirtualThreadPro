@@ -8,25 +8,22 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 9 },
-  { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['oversized_tee', 'cropped_tee', 'regular_tee'] },
+  { id: 'all', label: 'All Blanks', count: 7 },
+  { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['regular_tee', 'oversized_tee', 'cropped_tee'] },
   { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] },
   { id: 'sweatshirts', label: 'Sweatshirts', count: 1, ids: ['sweatshirt'] },
   { id: 'polo', label: 'Polo Shirts', count: 1, ids: ['polo'] },
-  { id: 'bottoms', label: 'Bottoms & Caps', count: 2, ids: ['sweatpants', 'cap'] },
 ];
 
 // Curated blank specifications
 const BLANK_SPECS = {
+  regular_tee: { gsm: '220 GSM', subtitle: 'Ringspun Cotton · Classic Normal Fit' },
   oversized_tee: { gsm: '280 GSM', subtitle: 'Heavyweight Combed Cotton · Drop-Shoulder' },
   hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
   sweatshirt: { gsm: '380 GSM', subtitle: 'French Terry Cotton · Ribbed Crewneck' },
   cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
-  regular_tee: { gsm: '220 GSM', subtitle: 'Ringspun Cotton · Classic Tailored Fit' },
   zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' },
-  polo: { gsm: '260 GSM', subtitle: 'Pique Knit Cotton · Turned-Down Collar' },
-  sweatpants: { gsm: '360 GSM', subtitle: 'Cotton Fleece Blend · Elastic Ankle Cuffs' },
-  cap: { gsm: '320 GSM', subtitle: '100% Cotton Twill · 6-Panel Curved Visor' }
+  polo: { gsm: '220 GSM', subtitle: 'Honeycomb Piqué Cotton · Tailored Athletic Fit' }
 };
 
 // Studio Capabilities (Feature breakdown matching clone prompt)
@@ -61,14 +58,14 @@ const PRICING_TIERS = [
     frequency: 'Instant Access',
     desc: 'Launch the interactive 3D studio and customize all blanks immediately with no sign-up wall.',
     features: [
-      'Access to all 9 streetwear 3D blanks',
+      'Access to all 7 streetwear 3D blanks',
       'Front & back artwork positioning',
       'Real-time color customization',
       '360° turntable & walk animations',
       'Standard resolution exports'
     ],
     buttonText: 'Try Starter Studio',
-    garmentId: 'oversized_tee',
+    garmentId: 'regular_tee',
     featured: false
   },
   {
@@ -243,7 +240,7 @@ export function LandingPage({
 
             <div className="flex flex-wrap items-center gap-3">
               <button
-                onClick={() => onSelectGarment('oversized_tee')}
+                onClick={() => onSelectGarment('regular_tee')}
                 className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
               >
                 <span>Launch 3D Studio</span>
@@ -254,7 +251,7 @@ export function LandingPage({
                 href="#studio-blanks-grid"
                 className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
               >
-                <span>Explore 9 Blanks</span>
+                <span>Explore 7 Blanks</span>
               </a>
             </div>
           </div>
@@ -412,8 +409,8 @@ export function LandingPage({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {CAPABILITIES.map((cap, i) => {
-              const Icon = cap.icon;
+            {CAPABILITIES.map((item, i) => {
+              const Icon = item.icon;
               return (
                 <div 
                   key={i}
@@ -424,10 +421,10 @@ export function LandingPage({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-950 dark:text-white mb-1">
-                      {cap.title}
+                      {item.title}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                      {cap.desc}
+                      {item.desc}
                     </p>
                   </div>
                 </div>
@@ -445,7 +442,7 @@ export function LandingPage({
               Transparent Studio Access
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Start immediately with full access to all 9 streetwear blanks.
+              Start immediately with full access to all 7 streetwear blanks.
             </p>
           </div>
 
