@@ -2101,7 +2101,7 @@ export class SceneManager {
   }
 
   handleResize() {
-    if (!this.container || this.isDisposed) return;
+    if (!this.container || this.isDisposed || this.isRecordingVideo) return;
     const w = this.container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
     const h = this.container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
     if (w <= 0 || h <= 0) return;
