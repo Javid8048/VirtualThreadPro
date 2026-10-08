@@ -16,19 +16,27 @@ if (typeof window !== 'undefined') {
  * while the interior of the shirt is always solid, clean garment fabric color.
  * Eliminates see-through bleed and mirrored reflections inside the collar/hem.
  */
-function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity) {
-  material.customProgramCacheKey = () => 'inside-fabric-shader-v9';
+function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity, fabricMicroNormalMap = null) {
+  material.customProgramCacheKey = () => 'inside-fabric-shader-v11';
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uInsideColor = { value: new THREE.Color(getInsideColor()) };
     shader.uniforms.uAcidWash = { value: 0.0 };
     shader.uniforms.uKnitProgress = { value: 1.0 };
     shader.uniforms.uKnitTime = { value: 0.0 };
+    shader.uniforms.uFabricMicroNormalMap = { value: fabricMicroNormalMap };
+    shader.uniforms.uFabricMicroRepeat = { value: new THREE.Vector2(36.0, 36.0) };
+    shader.uniforms.uFabricMicroScale = { value: 0.60 };
+    shader.uniforms.uHasFabricMicroNormal = { value: fabricMicroNormalMap ? 1.0 : 0.0 };
 
     shader.fragmentShader = `
       uniform vec3 uInsideColor;
       uniform float uAcidWash;
       uniform float uKnitProgress;
       uniform float uKnitTime;
+      uniform sampler2D uFabricMicroNormalMap;
+      uniform vec2 uFabricMicroRepeat;
+      uniform float uFabricMicroScale;
+      uniform float uHasFabricMicroNormal;
     ` + shader.fragmentShader;
 
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -96,6 +104,23 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity)
         }
       #endif
       `
+    );
+
+    const normalChunk = THREE.ShaderChunk.normal_fragment_maps;
+    const modifiedNormalChunk = normalChunk.replace(
+      'normal = normalize( tbn * mapN );',
+      `
+      if (uHasFabricMicroNormal > 0.5) {
+        vec3 microN = texture2D( uFabricMicroNormalMap, vNormalMapUv * uFabricMicroRepeat ).xyz * 2.0 - 1.0;
+        microN.xy *= uFabricMicroScale;
+        mapN = normalize(vec3(mapN.xy + microN.xy, mapN.z * microN.z));
+      }
+      normal = normalize( tbn * mapN );
+      `
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_maps>',
+      modifiedNormalChunk
     );
 
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -291,39 +316,58 @@ export class SceneManager {
     normalMap.wrapT = THREE.ClampToEdgeWrapping;
     normalMap.flipY = false;
 
+    // Authentic woven cotton micro-normal map for realistic textile drape & specular response
+    const fabricMicroNormalMap = textureLoader.load(getAssetUrl('/models/NormalFabric.png'));
+    fabricMicroNormalMap.wrapS = THREE.RepeatWrapping;
+    fabricMicroNormalMap.wrapT = THREE.RepeatWrapping;
+    fabricMicroNormalMap.repeat.set(36, 36);
+
+    const aoTexture = textureLoader.load(getAssetUrl('/models/ao_tshirt_outside.jpg'));
+    aoTexture.flipY = false;
+
     const maxAniso = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 16;
     normalMap.anisotropy = maxAniso;
+    fabricMicroNormalMap.anisotropy = maxAniso;
+    aoTexture.anisotropy = maxAniso;
     if (this.designManager.texture) this.designManager.texture.anisotropy = maxAniso;
     if (this.designManager.decalTexture) this.designManager.decalTexture.anisotropy = maxAniso;
 
-    // Clean, 100% photorealistic heavy-weight cotton cloth material with dynamic 4096x4096 canvas
-    this.shirtMaterial = new THREE.MeshStandardMaterial({
+    this.fabricMicroNormalMap = fabricMicroNormalMap;
+
+    // Clean, 100% photorealistic matte cotton cloth material with dynamic canvas
+    this.shirtMaterial = new THREE.MeshPhysicalMaterial({
       map: this.designManager.texture,
-      roughness: 0.68,
-      metalness: 0.01,
+      roughness: 1.0,
+      metalness: 0.0,
+      sheen: 0.0,
+      clearcoat: 0.0,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.24, 0.24),
+      normalScale: new THREE.Vector2(0.32, 0.32),
+      aoMap: aoTexture,
+      aoMapIntensity: 0.65,
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor);
+    applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor, null, fabricMicroNormalMap);
 
-    this.fabricMaterial = new THREE.MeshStandardMaterial({
+    this.fabricMaterial = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(this.garmentColor),
-      roughness: 0.70,
-      metalness: 0.01,
+      roughness: 1.0,
+      metalness: 0.0,
+      sheen: 0.0,
+      clearcoat: 0.0,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.25, 0.25),
+      normalScale: new THREE.Vector2(0.32, 0.32),
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor);
+    applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor, null, fabricMicroNormalMap);
 
-    // Vibrant, rich satin ink finish on decals (no dullness, max crispness, sharp anisotropic filtering)
+    // Matte screen-print ink finish on decals (zero gloss/shine)
     this.decalMaterial = new THREE.MeshStandardMaterial({
       map: this.designManager.decalTexture,
-      roughness: 0.58,
-      metalness: 0.02,
+      roughness: 0.95,
+      metalness: 0.0,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.25, 0.25),
+      normalScale: new THREE.Vector2(0.20, 0.20),
       side: THREE.FrontSide,
       transparent: true,
       opacity: 1.0,
@@ -454,6 +498,9 @@ export class SceneManager {
 
         // 1. Static T-shirt model (millimeter coords, rotated 90deg X, scale 0.01)
         if (this.tshirtStatic) {
+          if (this.tshirtStatic.geometry && this.tshirtStatic.geometry.attributes.uv && !this.tshirtStatic.geometry.attributes.uv2) {
+            this.tshirtStatic.geometry.attributes.uv2 = this.tshirtStatic.geometry.attributes.uv;
+          }
           this.tshirtStatic.material = this.shirtMaterial;
           this.tshirtStatic.castShadow = true;
           this.tshirtStatic.receiveShadow = true;
@@ -465,6 +512,9 @@ export class SceneManager {
 
         // 2. Wind Waves animated model (native meter coords centered at origin)
         if (this.tshirtWaves) {
+          if (this.tshirtWaves.geometry && this.tshirtWaves.geometry.attributes.uv && !this.tshirtWaves.geometry.attributes.uv2) {
+            this.tshirtWaves.geometry.attributes.uv2 = this.tshirtWaves.geometry.attributes.uv;
+          }
           this.tshirtWaves.material = this.shirtMaterial;
           this.tshirtWaves.castShadow = true;
           this.tshirtWaves.receiveShadow = true;
@@ -476,6 +526,9 @@ export class SceneManager {
 
         // 3. Walking Model animated runway stride (native meter coords centered at origin)
         if (this.tshirtWalking) {
+          if (this.tshirtWalking.geometry && this.tshirtWalking.geometry.attributes.uv && !this.tshirtWalking.geometry.attributes.uv2) {
+            this.tshirtWalking.geometry.attributes.uv2 = this.tshirtWalking.geometry.attributes.uv;
+          }
           this.tshirtWalking.material = this.shirtMaterial;
           this.tshirtWalking.castShadow = true;
           this.tshirtWalking.receiveShadow = true;
@@ -958,13 +1011,13 @@ export class SceneManager {
     this.lights.backKey = backKeyLight;
 
     // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
-    const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 0.9);
     frontGraphicLight.position.set(0, 1.5, 14);
     this.scene.add(frontGraphicLight);
     this.lights.frontGraphic = frontGraphicLight;
 
     // Dedicated Back Graphic Light - keeps back prints bright and clear when rotated
-    const backGraphicLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const backGraphicLight = new THREE.DirectionalLight(0xffffff, 0.9);
     backGraphicLight.position.set(0, 1.5, -14);
     this.scene.add(backGraphicLight);
     this.lights.backGraphic = backGraphicLight;
@@ -1078,6 +1131,15 @@ export class SceneManager {
     if (this.hoodieFabricMaterial) {
       this.hoodieFabricMaterial.color.set(hex);
       this.hoodieFabricMaterial.needsUpdate = true;
+    }
+    if (this.shirtMaterial && this.shirtMaterial.sheenColor) {
+      this.shirtMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
+    }
+    if (this.fabricMaterial && this.fabricMaterial.sheenColor) {
+      this.fabricMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
+    }
+    if (this.hoodieFabricMaterial && this.hoodieFabricMaterial.sheenColor) {
+      this.hoodieFabricMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
     }
     const colorObj = new THREE.Color(hex);
     const updateInsideColor = (mat) => {
@@ -1338,15 +1400,17 @@ export class SceneManager {
     hoodieNormal.anisotropy = maxAniso;
     hoodieRoughness.anisotropy = maxAniso;
 
-    this.hoodieFabricMaterial = new THREE.MeshStandardMaterial({
+    this.hoodieFabricMaterial = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(this.garmentColor || '#ffffff'),
       normalMap: hoodieNormal,
-      normalScale: new THREE.Vector2(0.28, 0.28),
-      roughness: 0.82,
-      metalness: 0.02,
+      normalScale: new THREE.Vector2(0.32, 0.32),
+      roughness: 1.0,
+      metalness: 0.0,
+      sheen: 0.0,
+      clearcoat: 0.0,
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor);
+    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor, null, this.fabricMicroNormalMap);
 
     gltfLoader.load(
       getAssetUrl('/models/virtualthreads_hoodie.glb'),

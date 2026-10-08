@@ -252,6 +252,45 @@ export class CanvasDesignManager {
     this._isUndoRedoing = false;
   }
 
+  initFabricPattern() {
+    if (typeof document === 'undefined') return;
+    const P = 128;
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = P;
+    pCanvas.height = P;
+    const pCtx = pCanvas.getContext('2d');
+    if (!pCtx) return;
+
+    pCtx.fillStyle = '#808080';
+    pCtx.fillRect(0, 0, P, P);
+
+    const imgData = pCtx.getImageData(0, 0, P, P);
+    const data = imgData.data;
+
+    // Realistic fine woven cotton yarn structure
+    const freq = 0.45;
+    for (let y = 0; y < P; y++) {
+      for (let x = 0; x < P; x++) {
+        const idx = (y * P + x) * 4;
+        const threadX = Math.sin(x * freq) * 0.5 + 0.5;
+        const threadY = Math.cos(y * freq) * 0.5 + 0.5;
+        const diag = Math.sin((x + y) * freq * 0.75) * 0.2;
+        const noise = (Math.random() - 0.5) * 0.1;
+        const yarn = threadX * 0.45 + threadY * 0.45 + diag + noise;
+        const val = Math.min(255, Math.max(0, Math.round(128 + (yarn - 0.5) * 55)));
+
+        data[idx] = val;
+        data[idx + 1] = val;
+        data[idx + 2] = val;
+        data[idx + 3] = 255;
+      }
+    }
+    pCtx.putImageData(imgData, 0, 0);
+
+    this.fabricPatternCanvas = pCanvas;
+    this.fabricPattern = this.ctx.createPattern(pCanvas, 'repeat');
+  }
+
   render() {
     const ctx = this.ctx;
     const dCtx = this.decalCtx;
@@ -268,6 +307,26 @@ export class CanvasDesignManager {
     // 1. Fill base garment color (pure, plain and clean) for t-shirt full UV map
     ctx.fillStyle = this.garmentColor;
     ctx.fillRect(0, 0, S, S);
+
+    // 2. Micro textile weave texture overlay for authentic tactile cotton feel
+    if (!this.fabricPattern) {
+      this.initFabricPattern();
+    }
+    if (this.fabricPattern) {
+      ctx.save();
+      // Subtle weave shading for matte woven cotton depth
+      ctx.globalAlpha = 0.06;
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = this.fabricPattern;
+      ctx.fillRect(0, 0, S, S);
+
+      // Soft light diffuse fiber blend (matte, zero shiny highlights)
+      ctx.globalAlpha = 0.03;
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.fillStyle = this.fabricPattern;
+      ctx.fillRect(0, 0, S, S);
+      ctx.restore();
+    }
 
     // 2. Only render to decalCanvas if the active garment actually uses 3D floating decals (hoodie, pants, cap)
     const isDecalGarment = this.garmentType && (
