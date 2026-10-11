@@ -19,7 +19,7 @@ export class ApparelMeshBuilder {
     const normals = [];
     const indices = [];
 
-    const isBoxy = fit === 'oversized';
+    const isBoxy = fit === 'oversized' || fit === 'oversized_tee';
     const shoulderWidth = isBoxy ? 2.3 : 1.95;
     const chestWidth = isBoxy ? 2.1 : 1.8;
     const hemWidth = isBoxy ? 2.05 : 1.75;

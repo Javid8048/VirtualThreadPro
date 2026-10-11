@@ -315,7 +315,7 @@ export class CanvasDesignManager {
     if (this.fabricPattern) {
       ctx.save();
       // Subtle weave shading for matte woven cotton depth
-      ctx.globalAlpha = 0.06;
+      ctx.globalAlpha = this.fabricFinish === 'heavy_terry' ? 0.12 : 0.06;
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = this.fabricPattern;
       ctx.fillRect(0, 0, S, S);
@@ -325,6 +325,19 @@ export class CanvasDesignManager {
       ctx.globalCompositeOperation = 'soft-light';
       ctx.fillStyle = this.fabricPattern;
       ctx.fillRect(0, 0, S, S);
+
+      // Procedural mineral wash / sun fade distress if enabled
+      if (this.fabricFinish === 'mineral_wash') {
+        ctx.globalAlpha = 0.18;
+        ctx.globalCompositeOperation = 'overlay';
+        const grad = ctx.createRadialGradient(S * 0.5, S * 0.4, 50, S * 0.5, S * 0.5, S * 0.7);
+        grad.addColorStop(0, 'rgba(255,255,255,0.4)');
+        grad.addColorStop(0.5, 'rgba(180,180,180,0.1)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.25)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, S, S);
+      }
+
       ctx.restore();
     }
 
@@ -342,7 +355,7 @@ export class CanvasDesignManager {
       dCtx.clearRect(0, 0, S, S);
     }
 
-    // 3. Render all design layers to target canvases
+    // 3. Render all design layers to target canvases with authentic print finishes
     const targets = (isDecalGarment && dCtx) ? [ctx, dCtx] : [ctx];
 
     this.layers.forEach((layer) => {
@@ -356,6 +369,8 @@ export class CanvasDesignManager {
           targetCtx.rotate((layer.rotation * Math.PI) / 180);
         }
 
+        const pType = layer.printType || 'screen'; // 'screen' | 'puff' | 'embroidery' | 'metallic' | 'gloss'
+
         if (layer.type === 'image' && layer.image) {
           const img = layer.image;
           const baseW = 420;
@@ -363,14 +378,65 @@ export class CanvasDesignManager {
           const w = baseW * (layer.scale || 1.0);
           const h = w / aspect;
 
-          // Puff print: apply subtle tactile 3D embossed depth without blurring or box border
-          if (layer.printType === 'puff') {
+          if (pType === 'puff') {
+            // Tactile 3D raised silicone/rubber puff print: bevel highlight and soft shadow
             targetCtx.save();
-            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-            targetCtx.shadowBlur = 4;
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            targetCtx.shadowBlur = 6;
             targetCtx.shadowOffsetX = 0;
+            targetCtx.shadowOffsetY = 3;
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            // Top rim highlight for 3D raised dome relief
+            targetCtx.shadowColor = 'rgba(255, 255, 255, 0.35)';
+            targetCtx.shadowBlur = 2;
+            targetCtx.shadowOffsetY = -1.5;
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            targetCtx.restore();
+          } else if (pType === 'embroidery') {
+            // Tactile threaded embroidery: thread stitch relief + satin thread micro-bevel
+            targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.38)';
+            targetCtx.shadowBlur = 3;
+            targetCtx.shadowOffsetY = 1.5;
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            // Embroidered thread micro-stitch overlay
+            targetCtx.globalCompositeOperation = 'source-atop';
+            targetCtx.globalAlpha = 0.22;
+            targetCtx.fillStyle = '#ffffff';
+            const stitchStep = Math.max(3, Math.round(4 * (layer.scale || 1.0)));
+            for (let sy = -h / 2; sy < h / 2; sy += stitchStep * 2) {
+              targetCtx.fillRect(-w / 2, sy, w, stitchStep);
+            }
+            targetCtx.restore();
+          } else if (pType === 'metallic') {
+            // Shimmering metallic gold/silver leaf foil finish
+            targetCtx.save();
+            targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            targetCtx.globalCompositeOperation = 'source-atop';
+            targetCtx.globalAlpha = 0.42;
+            const foilGrad = targetCtx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+            foilGrad.addColorStop(0, '#ffd700');
+            foilGrad.addColorStop(0.3, '#ffffff');
+            foilGrad.addColorStop(0.6, '#d4af37');
+            foilGrad.addColorStop(1, '#fff8dc');
+            targetCtx.fillStyle = foilGrad;
+            targetCtx.fillRect(-w / 2, -h / 2, w, h);
+            targetCtx.restore();
+          } else if (pType === 'gloss') {
+            // High-gloss wet silicone gel print with specular sheen
+            targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+            targetCtx.shadowBlur = 4;
             targetCtx.shadowOffsetY = 2;
             targetCtx.drawImage(img, -w / 2, -h / 2, w, h);
+            targetCtx.globalCompositeOperation = 'source-atop';
+            targetCtx.globalAlpha = 0.28;
+            const glossGrad = targetCtx.createLinearGradient(0, -h / 2, 0, h / 2);
+            glossGrad.addColorStop(0, 'rgba(255,255,255,0.7)');
+            glossGrad.addColorStop(0.4, 'rgba(255,255,255,0.1)');
+            glossGrad.addColorStop(0.7, 'transparent');
+            targetCtx.fillStyle = glossGrad;
+            targetCtx.fillRect(-w / 2, -h / 2, w, h);
             targetCtx.restore();
           } else {
             // Screen print / direct ink: ultra-crisp render
@@ -382,15 +448,59 @@ export class CanvasDesignManager {
           targetCtx.textAlign = 'center';
           targetCtx.textBaseline = 'middle';
 
-          if (layer.printType === 'puff') {
-            // Crisp tactile puff print drop shadow
+          if (pType === 'puff') {
+            // Crisp tactile puff print drop shadow + rim highlight
             targetCtx.save();
-            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-            targetCtx.shadowBlur = 4;
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            targetCtx.shadowBlur = 6;
             targetCtx.shadowOffsetX = 0;
+            targetCtx.shadowOffsetY = 3;
+            targetCtx.fillStyle = layer.textColor || '#000000';
+            targetCtx.fillText(layer.text, 0, 0);
+            targetCtx.shadowColor = 'rgba(255, 255, 255, 0.35)';
+            targetCtx.shadowBlur = 2;
+            targetCtx.shadowOffsetY = -1.5;
+            targetCtx.fillText(layer.text, 0, 0);
+            targetCtx.restore();
+          } else if (pType === 'embroidery') {
+            // Embroidered thread lettering with stitch stroke and relief
+            targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.38)';
+            targetCtx.shadowBlur = 3;
+            targetCtx.shadowOffsetY = 1.5;
+            targetCtx.fillStyle = layer.textColor || '#000000';
+            targetCtx.fillText(layer.text, 0, 0);
+            // Satin stitch stroke
+            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            targetCtx.lineWidth = 1.5;
+            targetCtx.strokeText(layer.text, 0, 0);
+            targetCtx.restore();
+          } else if (pType === 'metallic') {
+            // Shimmering metallic gold/silver foil lettering
+            targetCtx.save();
+            const textMetrics = targetCtx.measureText(layer.text);
+            const textW = textMetrics.width || 200;
+            const textGrad = targetCtx.createLinearGradient(-textW / 2, -fontSize / 2, textW / 2, fontSize / 2);
+            textGrad.addColorStop(0, '#ffd700');
+            textGrad.addColorStop(0.3, '#ffffff');
+            textGrad.addColorStop(0.6, '#d4af37');
+            textGrad.addColorStop(1, '#fff8dc');
+            targetCtx.fillStyle = textGrad;
+            targetCtx.shadowColor = 'rgba(212, 175, 55, 0.4)';
+            targetCtx.shadowBlur = 5;
+            targetCtx.fillText(layer.text, 0, 0);
+            targetCtx.restore();
+          } else if (pType === 'gloss') {
+            // High-gloss wet silicone gel lettering
+            targetCtx.save();
+            targetCtx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+            targetCtx.shadowBlur = 4;
             targetCtx.shadowOffsetY = 2;
             targetCtx.fillStyle = layer.textColor || '#000000';
             targetCtx.fillText(layer.text, 0, 0);
+            targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            targetCtx.lineWidth = 1;
+            targetCtx.strokeText(layer.text, 0, -1);
             targetCtx.restore();
           } else {
             targetCtx.fillStyle = layer.textColor || '#000000';

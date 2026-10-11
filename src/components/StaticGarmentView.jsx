@@ -9,6 +9,8 @@ export function StaticGarmentView({
   designManager,
   onSwitchTo3D,
   backdropMode,
+  customBackground = null,
+  backgroundBlur = 0,
   activeSide: propActiveSide = 'front',
   onSideChange,
   theme = 'dark',
@@ -42,16 +44,31 @@ export function StaticGarmentView({
   // Respected front vs back layers
   const currentLayers = layers.filter((l) => (l.side || 'front') === activeSide);
 
-  // Background style (supports dark, grey/light, and transparent)
+  // Background style (supports dark, grey/light, transparent, and custom)
   const bgClasses = {
-    dark: 'bg-[#0e0f14]',
+    dark: 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]',
     light: 'bg-[#e5e7eb]',
     grey: 'bg-[#2b2c34]',
-    transparent: 'bg-transparent'
-  }[backdropMode] || 'bg-[#0e0f14]';
+    transparent: 'bg-transparent',
+    custom: 'bg-[#0f1115]'
+  }[backdropMode] || 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
 
   return (
     <div className={`absolute inset-0 z-10 flex items-center justify-center select-none overflow-hidden ${bgClasses} transition-colors duration-300`}>
+      {/* Custom Device Background Layer */}
+      {backdropMode === 'custom' && customBackground && (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-300"
+          style={{
+            backgroundImage: `url(${customBackground})`,
+            filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : 'none',
+            transform: backgroundBlur > 0 ? 'scale(1.06)' : 'none'
+          }}
+        />
+      )}
+      {backdropMode === 'custom' && (
+        <div className="absolute inset-0 bg-black/15 pointer-events-none" />
+      )}
       
       {/* Top 2D Studio Bar: Title, Switch to 3D, Export, and Theme toggle */}
       <header className="absolute top-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 sm:gap-3 bg-white/95 dark:bg-studio-900/90 backdrop-blur-xl border border-gray-200/90 dark:border-studio-700/60 px-4 py-2 rounded-full shadow-2xl text-xs">

@@ -5,14 +5,17 @@ import {
 } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 import { getAssetUrl } from '../utils/assets';
+import { Hero3DCanvas } from './Hero3DCanvas';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 7 },
+  { id: 'all', label: 'All Blanks', count: 9 },
   { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['regular_tee', 'oversized_tee', 'cropped_tee'] },
   { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] },
   { id: 'sweatshirts', label: 'Sweatshirts', count: 1, ids: ['sweatshirt'] },
   { id: 'polo', label: 'Polo Shirts', count: 1, ids: ['polo'] },
+  { id: 'bottoms', label: 'Bottoms', count: 1, ids: ['sweatpants'] },
+  { id: 'headwear', label: 'Headwear', count: 1, ids: ['cap'] },
 ];
 
 // Curated blank specifications
@@ -23,7 +26,9 @@ const BLANK_SPECS = {
   sweatshirt: { gsm: '380 GSM', subtitle: 'French Terry Cotton · Ribbed Crewneck' },
   cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
   zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' },
-  polo: { gsm: '220 GSM', subtitle: 'Honeycomb Piqué Cotton · Tailored Athletic Fit' }
+  polo: { gsm: '220 GSM', subtitle: 'Honeycomb Piqué Cotton · Tailored Athletic Fit' },
+  sweatpants: { gsm: '380 GSM', subtitle: 'Heavyweight Fleece · Drawstrings & Ribbed Cuffs' },
+  cap: { gsm: '280 GSM', subtitle: 'Structured Cotton Twill · 6-Panel Curved Brim' }
 };
 
 // Studio Capabilities (Feature breakdown matching clone prompt)
@@ -222,38 +227,67 @@ export function LandingPage({
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
         
-        {/* Editorial Hero Section */}
-        <section className="pt-10 sm:pt-14 pb-8 border-b border-gray-200 dark:border-white/10">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-500 text-xs font-semibold mb-4 border border-brand-500/20">
-              <Sparkles className="size-3.5" />
-              <span>Real-Time 3D Apparel Engine</span>
-            </div>
+        {/* Editorial Hero Section with Live Interactive 3D Canvas */}
+        <section className="pt-8 sm:pt-12 pb-10 border-b border-gray-200 dark:border-white/10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-950 dark:text-white mb-4 leading-tight">
-              Convert 2D Designs into 3D Apparel Mockups
-            </h1>
-            
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed mb-6">
-              Pick a streetwear blank, position your artwork in real-time 3D, and export silky-smooth 60 FPS video loops and 4K print-ready renders in seconds.
-            </p>
+            {/* Left Column: Headlines, Value Props & Actions */}
+            <div className="lg:col-span-7 flex flex-col justify-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-500 text-xs font-semibold mb-4 border border-brand-500/20 w-fit">
+                <Sparkles className="size-3.5" />
+                <span>Real-Time 3D Apparel Engine • WebGL 2.0</span>
+              </div>
+              
+              <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-black tracking-tight text-gray-950 dark:text-white mb-4 leading-[1.12]">
+                Convert 2D Designs into 3D Apparel Mockups
+              </h1>
+              
+              <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed mb-6 max-w-xl">
+                Pick a streetwear blank, position your artwork in real-time 3D with tactile puff print and embroidery finishes, and export silky-smooth 60 FPS video loops and 4K renders in seconds.
+              </p>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => onSelectGarment('regular_tee')}
-                className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
-              >
-                <span>Launch 3D Studio</span>
-                <ArrowRight className="size-4" />
-              </button>
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <button
+                  onClick={() => onSelectGarment('regular_tee')}
+                  className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
+                >
+                  <span>Launch 3D Studio</span>
+                  <ArrowRight className="size-4" />
+                </button>
 
-              <a
-                href="#studio-blanks-grid"
-                className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-              >
-                <span>Explore 7 Blanks</span>
-              </a>
+                <a
+                  href="#studio-blanks-grid"
+                  className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                >
+                  <span>Explore 9 Blanks</span>
+                </a>
+              </div>
+
+              {/* Feature Highlights Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-100 dark:border-white/10 text-xs">
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <div className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="font-semibold">9 Streetwear Blanks</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <div className="size-2 rounded-full bg-brand-500 shrink-0" />
+                  <span className="font-semibold">60 FPS WebGL Video</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <div className="size-2 rounded-full bg-purple-500 shrink-0" />
+                  <span className="font-semibold">Puff &amp; Embroidery</span>
+                </div>
+              </div>
             </div>
+
+            {/* Right Column: Live Interactive 3D Canvas */}
+            <div className="lg:col-span-5 flex items-center justify-center">
+              <Hero3DCanvas
+                onLaunchStudio={(garment, color) => onSelectGarment(garment, color)}
+                theme={theme}
+              />
+            </div>
+
           </div>
         </section>
 

@@ -18,7 +18,9 @@ const garmentNameMap = {
   polo: 'Polo Shirt',
   sweatshirt: 'Sweatshirt',
   hoodie: 'Hoodie',
-  zip_hoodie: 'Zip Hoodie'
+  zip_hoodie: 'Zip Hoodie',
+  sweatpants: 'Jogger Sweatpants',
+  cap: '6-Panel Cap'
 };
 
 export default function App() {
@@ -28,15 +30,27 @@ export default function App() {
   const uploadTargetSideRef = useRef('front');
   const artworkCacheRef = useRef({});
 
-  // URL search params support (e.g. ?garment=hoodie or ?page=studio)
+  // URL search params support (e.g. ?garment=hoodie or ?page=studio or ?design=...)
   const initialParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const initialGarment = initialParams.get('garment') || 'regular_tee';
-  const initialPage = initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing');
+  
+  let initialDesignPayload = null;
+  try {
+    const dParam = initialParams.get('design');
+    if (dParam) {
+      initialDesignPayload = JSON.parse(decodeURIComponent(atob(dParam)));
+    }
+  } catch (err) {
+    console.warn('Could not decode design parameter:', err);
+  }
+
+  const initialGarment = initialDesignPayload?.g || initialParams.get('garment') || 'regular_tee';
+  const initialColor = initialDesignPayload?.c || '#ffffff';
+  const initialPage = initialDesignPayload ? 'studio' : (initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing'));
 
   // App Page Route State ('landing' | 'studio')
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Garment Blank Type State (7 Streetwear Blanks)
+  // Garment Blank Type State (9 Streetwear Blanks)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [currentCamera, setCurrentCamera] = useState('front');
@@ -59,8 +73,10 @@ export default function App() {
   };
 
   // States matching official VirtualThreads UI
-  const [garmentColor, setGarmentColor] = useState('#ffffff'); // default clean white
+  const [garmentColor, setGarmentColor] = useState(initialColor); // default clean white or shared color
   const [backdropMode, setBackdropMode] = useState(theme === 'light' ? 'light' : 'dark');
+  const [customBackground, setCustomBackground] = useState(null);
+  const [backgroundBlur, setBackgroundBlur] = useState(0);
 
   // Sync theme changes with DOM and backdrop
   useEffect(() => {
@@ -68,11 +84,11 @@ export default function App() {
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
-        setBackdropMode('dark');
+        setBackdropMode((prev) => (prev === 'custom' || prev === 'transparent' ? prev : 'dark'));
       } else {
         document.documentElement.classList.add('light');
         document.documentElement.classList.remove('dark');
-        setBackdropMode('light');
+        setBackdropMode((prev) => (prev === 'custom' || prev === 'transparent' ? prev : 'light'));
       }
       localStorage.setItem('vt_theme', theme);
     }
@@ -84,6 +100,39 @@ export default function App() {
       sceneManagerRef.current.setupLighting(backdropMode);
     }
   }, [backdropMode]);
+
+  // Handle uploading custom background from device
+  const handleCustomBackgroundUpload = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      console.warn('Selected file is not an image');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      setCustomBackground(dataUrl);
+      setBackdropMode('custom');
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.setCustomBackground(dataUrl, () => {
+          if (sceneManagerRef.current) {
+            sceneManagerRef.current.setupLighting('custom');
+          }
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCustomBackground = () => {
+    setCustomBackground(null);
+    const fallback = theme === 'light' ? 'light' : 'dark';
+    setBackdropMode(fallback);
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setCustomBackground(null);
+      sceneManagerRef.current.setupLighting(fallback);
+    }
+  };
   const [animationMode, setAnimationMode] = useState('static');
   const [walkSpeed, setWalkSpeed] = useState(1.0);
   const [cameraAnimationMode, setCameraAnimationMode] = useState('none'); // 'none' | 'rotate' | 'rotatezoom'
@@ -174,11 +223,51 @@ export default function App() {
     setDesignManager(sm.designManager);
 
     if (garmentColor) sm.setGarmentColor(garmentColor);
+    if (customBackground) sm.setCustomBackground(customBackground);
     if (backdropMode) sm.setupLighting(backdropMode);
     if (animationMode) sm.setAnimationMode(animationMode);
     if (walkSpeed) sm.setWalkSpeed(walkSpeed);
     if (acidWash) sm.setAcidWash(acidWash);
     if (puffPrint) sm.setPuffPrint(puffPrint);
+
+    // Restore shared design layers if URL contains design payload
+    if (initialDesignPayload?.l && Array.isArray(initialDesignPayload.l)) {
+      initialDesignPayload.l.forEach((item) => {
+        if (item.t === 'text') {
+          sm.designManager.addLayer({
+            type: 'text',
+            side: item.s || 'front',
+            text: item.txt || 'CUSTOM TEXT',
+            textColor: item.tc || '#000000',
+            fontSize: item.fs || 12,
+            fontFamily: item.ff || 'Roboto',
+            x: item.x || (item.s === 'back' ? 1528 : 480),
+            y: item.y || 920,
+            scale: item.sc || 1.0,
+            rotation: item.r || 0,
+            opacity: item.op || 1.0,
+            printType: item.pt || 'screen'
+          });
+        } else if (item.t === 'image' && item.img) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            sm.designManager.addLayer({
+              type: 'image',
+              side: item.s || 'front',
+              image: img,
+              x: item.x || (item.s === 'back' ? 1528 : 480),
+              y: item.y || 920,
+              scale: item.sc || 1.0,
+              rotation: item.r || 0,
+              opacity: item.op || 1.0,
+              printType: item.pt || 'screen'
+            });
+          };
+          img.src = item.img;
+        }
+      });
+    }
 
     if (currentPage === 'landing' || viewMode !== '3d') {
       sm.pause();
@@ -318,8 +407,11 @@ export default function App() {
   window.__SET_GARMENT_TYPE__ = handleGarmentTypeChange;
   window.__SET_VIEW_MODE__ = setViewMode;
 
-  const handleSelectGarmentFromLanding = (type) => {
+  const handleSelectGarmentFromLanding = (type, color) => {
     handleGarmentTypeChange(type);
+    if (color) {
+      handleGarmentColorChange(color);
+    }
     setPositionGuideOpen(true);
     setRightDrawerMode('design');
     setCurrentCamera('front');
@@ -374,6 +466,41 @@ export default function App() {
       sceneManagerRef.current.zoomOut(2.0);
     }
   };
+
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [blackPreset, setBlackPreset] = useState({
+    color: '#24272e',
+    roughness: 0.85,
+    metalness: 0.0,
+    sheen: 1.0,
+    sheenRoughness: 0.4,
+    sheenColor: '#5a5f6e',
+    normalScale: 0.8,
+    rimIntensity: 2.5
+  });
+
+  const handleToggleComparison = (enabled) => {
+    const next = typeof enabled === 'boolean' ? enabled : !isComparisonMode;
+    setIsComparisonMode(next);
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setSideBySideComparison(next);
+    }
+  };
+
+  const handleUpdateBlackPreset = (overrides) => {
+    setBlackPreset((prev) => {
+      const next = { ...prev, ...overrides };
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.updateBlackPreset(next);
+      }
+      return next;
+    });
+  };
+
+  if (typeof window !== 'undefined') {
+    window.__TOGGLE_COMPARISON__ = handleToggleComparison;
+    window.__UPDATE_BLACK_PRESET__ = handleUpdateBlackPreset;
+  }
 
   const handleGarmentColorChange = (hex) => {
     setGarmentColor(hex);
@@ -545,11 +672,13 @@ export default function App() {
   // Viewport background style
   const getBackdropClass = () => {
     if (backdropMode === 'dark') {
-      return 'bg-[#121318]';
+      return 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
     } else if (backdropMode === 'light') {
       return 'bg-[#e5e7eb]';
+    } else if (backdropMode === 'transparent') {
+      return 'bg-[linear-gradient(45deg,#1b202c_25%,transparent_25%),linear-gradient(-45deg,#1b202c_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1b202c_75%),linear-gradient(-45deg,transparent_75%,#1b202c_75%)] bg-[size:24px_24px] bg-[#0f1115]';
     } else {
-      return 'bg-[linear-gradient(45deg,#1b202c_25%,transparent_25%),linear-gradient(-45deg,#1b202c_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1b202c_75%),linear-gradient(-45deg,transparent_75%,#1b202c_75%)] bg-[size:24px_24px] bg-[#121318]';
+      return 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
     }
   };
 
@@ -587,6 +716,30 @@ export default function App() {
         />
       )}
 
+      {/* Studio Viewport Background Layer (Studio Presets & Custom Device Background with Depth-of-Field Blur) */}
+      {currentPage === 'studio' && (
+        <div
+          aria-hidden="true"
+          className={`absolute inset-0 pointer-events-none overflow-hidden transition-all duration-300 z-0 ${
+            backdropMode !== 'custom' ? getBackdropClass() : 'bg-[#0f1115]'
+          }`}
+        >
+          {backdropMode === 'custom' && customBackground && (
+            <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-300"
+              style={{
+                backgroundImage: `url(${customBackground})`,
+                filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : 'none',
+                transform: backgroundBlur > 0 ? 'scale(1.06)' : 'none'
+              }}
+            />
+          )}
+          {backdropMode === 'custom' && (
+            <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+          )}
+        </div>
+      )}
+
       {/* 3D WebGL Canvas Viewport (Active in 3D Mode in Studio - WCAG 2.1 AA Accessible) */}
       <div
         ref={containerRef}
@@ -617,6 +770,8 @@ export default function App() {
           sceneManager={sceneManagerRef.current}
           onSwitchTo3D={() => setViewMode('3d')}
           backdropMode={backdropMode}
+          customBackground={customBackground}
+          backgroundBlur={backgroundBlur}
           activeSide={activeSide}
           onSideChange={handleSideChange}
           theme={theme}
@@ -695,6 +850,13 @@ export default function App() {
               onRedo={() => designManager?.redo?.()}
               canUndo={Boolean(designManager?.canUndo?.())}
               canRedo={Boolean(designManager?.canRedo?.())}
+              backdropMode={backdropMode}
+              onBackdropModeChange={setBackdropMode}
+              customBackground={customBackground}
+              onCustomBackgroundUpload={handleCustomBackgroundUpload}
+              onRemoveCustomBackground={handleRemoveCustomBackground}
+              backgroundBlur={backgroundBlur}
+              onBackgroundBlurChange={setBackgroundBlur}
             />
           )}
 
@@ -703,8 +865,17 @@ export default function App() {
             onBackToLanding={handleBackToLanding}
             garmentColor={garmentColor}
             onGarmentColorChange={handleGarmentColorChange}
+            isComparisonMode={isComparisonMode}
+            onToggleComparison={handleToggleComparison}
+            blackPreset={blackPreset}
+            onUpdateBlackPreset={handleUpdateBlackPreset}
             backdropMode={backdropMode}
             onBackdropModeChange={setBackdropMode}
+            customBackground={customBackground}
+            onCustomBackgroundUpload={handleCustomBackgroundUpload}
+            onRemoveCustomBackground={handleRemoveCustomBackground}
+            backgroundBlur={backgroundBlur}
+            onBackgroundBlurChange={setBackgroundBlur}
             animationMode={animationMode}
             onAnimationModeChange={handleAnimationModeChange}
             walkSpeed={walkSpeed}

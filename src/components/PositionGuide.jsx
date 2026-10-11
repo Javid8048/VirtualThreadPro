@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, Share2, Layers } from 'lucide-react';
+import { PresetGraphicsModal } from './PresetGraphicsModal';
 
 export function PositionGuide({
   isOpen,
@@ -22,6 +23,7 @@ export function PositionGuide({
   const [fontFamily, setFontFamily] = useState('Roboto');
   const [textInput, setTextInput] = useState('VIRTUAL THREADS');
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [presetModalOpen, setPresetModalOpen] = useState(false);
 
   // Layers list and drag/resize state
   const [layers, setLayers] = useState([]);
@@ -261,6 +263,68 @@ export function PositionGuide({
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  // Preset graphic decal handler
+  const handleSelectPresetGraphic = (item) => {
+    if (!designManager) return;
+    const centerX = selectedSide === 'back' ? 1528 : 480;
+    const newLayer = designManager.addLayer({
+      type: 'image',
+      side: selectedSide,
+      image: item.image,
+      x: centerX,
+      y: 920,
+      scale: 1.0,
+      rotation: 0,
+      printType: 'screen'
+    });
+    if (newLayer) {
+      setActiveLayerId(newLayer.id);
+      showFeedback(`Added "${item.name}" sticker to ${selectedSide.toUpperCase()}`);
+    }
+  };
+
+  // Generate shareable design link (encodes garment, color, and layers)
+  const handleShareLink = () => {
+    if (!designManager) return;
+    try {
+      const state = {
+        g: currentGarmentType,
+        c: garmentColor,
+        l: designManager.layers.map((l) => ({
+          t: l.type,
+          s: l.side,
+          txt: l.text,
+          tc: l.textColor,
+          fs: l.fontSize,
+          ff: l.fontFamily,
+          x: l.x,
+          y: l.y,
+          sc: l.scale,
+          r: l.rotation,
+          op: l.opacity,
+          pt: l.printType,
+          img: typeof l.image === 'string' ? l.image : (l.image?.src || null)
+        }))
+      };
+      const json = JSON.stringify(state);
+      const encoded = btoa(encodeURIComponent(json));
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', 'studio');
+      url.searchParams.set('garment', currentGarmentType);
+      url.searchParams.set('design', encoded);
+      
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url.toString());
+        showFeedback('Shareable 3D link copied to clipboard!');
+      } else {
+        prompt('Copy this link to share your design:', url.toString());
+      }
+    } catch (err) {
+      console.error('Share link failed:', err);
+      showFeedback('Could not copy link');
+    }
   };
 
   // Save Layout to localStorage
@@ -831,22 +895,35 @@ export function PositionGuide({
           </select>
         </div>
 
-        {/* ROW 3: Upload Design Button | Save Layout | Load Layout | Reset */}
-        <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750">
-          {/* Solid Dark Navy Pill Upload Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onTriggerUpload) {
-                onTriggerUpload();
-              } else {
-                fileInputRef.current?.click();
-              }
-            }}
-            className="min-h-[44px] sm:min-h-0 sm:h-7 px-4 sm:px-3 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-xs sm:text-[11px] font-bold shadow transition-all active:scale-95 shrink-0 flex items-center justify-center"
-          >
-            Upload Design
-          </button>
+        {/* ROW 3: Upload Design Button | Stickers & Badges | History | Save / Share */}
+        <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750 gap-1.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-1.5">
+            {/* Solid Dark Navy Pill Upload Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onTriggerUpload) {
+                  onTriggerUpload();
+                } else {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className="min-h-[44px] sm:min-h-0 sm:h-7 px-3 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-xs sm:text-[11px] font-bold shadow transition-all active:scale-95 shrink-0 flex items-center justify-center"
+            >
+              Upload
+            </button>
+
+            {/* Streetwear Stickers & Badges Preset Library Button */}
+            <button
+              type="button"
+              onClick={() => setPresetModalOpen(true)}
+              className="min-h-[44px] sm:min-h-0 sm:h-7 px-2.5 rounded-full bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 text-xs sm:text-[11px] font-bold shadow-2xs transition-all active:scale-95 shrink-0 flex items-center gap-1"
+              title="Browse streetwear stickers, barcodes, and badges"
+            >
+              <Sparkles className="size-3 text-amber-500" />
+              <span>Stickers</span>
+            </button>
+          </div>
 
           {/* Action Text Links & History Controls */}
           <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-[11px] font-medium text-gray-600 dark:text-studio-400">
@@ -858,7 +935,7 @@ export function PositionGuide({
                   showFeedback('Undone (Ctrl+Z)');
                 }
               }}
-              className="min-w-[36px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
+              className="min-w-[32px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
               title="Undo last change (Ctrl+Z)"
             >
               Undo
@@ -871,7 +948,7 @@ export function PositionGuide({
                   showFeedback('Redone (Ctrl+Shift+Z)');
                 }
               }}
-              className="min-w-[36px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
+              className="min-w-[32px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors px-1 py-0.5 font-bold flex items-center justify-center"
               title="Redo change (Ctrl+Shift+Z)"
             >
               Redo
@@ -880,7 +957,7 @@ export function PositionGuide({
             <button
               type="button"
               onClick={handleSaveLayout}
-              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
+              className="min-w-[30px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
               title="Save layout layers"
             >
               Save
@@ -888,21 +965,70 @@ export function PositionGuide({
             <button
               type="button"
               onClick={handleLoadLayout}
-              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
+              className="min-w-[30px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-black dark:hover:text-white transition-colors px-1 py-0.5 flex items-center justify-center"
               title="Restore saved layout"
             >
               Load
             </button>
             <button
               type="button"
+              onClick={handleShareLink}
+              className="min-w-[32px] min-h-[44px] sm:min-w-0 sm:min-h-0 text-brand-600 dark:text-brand-400 font-bold hover:underline transition-colors px-1 py-0.5 flex items-center gap-0.5"
+              title="Copy shareable design URL to clipboard"
+            >
+              <Share2 className="size-2.5" />
+              <span>Share</span>
+            </button>
+            <button
+              type="button"
               onClick={handleResetLayout}
-              className="min-w-[34px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-red-600 dark:hover:text-red-400 transition-colors px-1 py-0.5 flex items-center justify-center"
+              className="min-w-[30px] min-h-[44px] sm:min-w-0 sm:min-h-0 hover:text-red-600 dark:hover:text-red-400 transition-colors px-1 py-0.5 flex items-center justify-center"
               title="Clear all graphics"
             >
               Reset
             </button>
           </div>
         </div>
+
+        {/* ROW 4: Print Finishes & Texture Selector (Screen / 3D Puff / Embroidery / Metallic Foil / Gloss) */}
+        {activeLayer && (
+          <div className="flex items-center justify-between px-3.5 py-1.5 bg-gray-50/80 dark:bg-studio-850/80 border-b border-gray-200/80 dark:border-studio-750 text-[10px] gap-1 overflow-x-auto scrollbar-none">
+            <span className="font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+              <Layers className="size-3 text-brand-500" />
+              <span>Finish:</span>
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {[
+                { id: 'screen', label: 'Screen Print' },
+                { id: 'puff', label: '3D Puff' },
+                { id: 'embroidery', label: 'Embroidery' },
+                { id: 'metallic', label: 'Metallic Foil' },
+                { id: 'gloss', label: 'Gloss Silicone' }
+              ].map((f) => {
+                const isActive = (activeLayer.printType || 'screen') === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => {
+                      if (designManager && activeLayerId) {
+                        designManager.updateLayer(activeLayerId, { printType: f.id }, true);
+                        showFeedback(`Applied ${f.label} finish`);
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-md font-bold whitespace-nowrap transition-all ${
+                      isActive
+                        ? 'bg-black dark:bg-brand-500 text-white shadow-xs'
+                        : 'bg-white dark:bg-studio-800 text-gray-600 dark:text-studio-300 border border-gray-200 dark:border-studio-700 hover:bg-gray-100 dark:hover:bg-studio-750'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Transient Feedback Message Banner */}
         {feedbackMessage && (
@@ -1217,6 +1343,14 @@ export function PositionGuide({
           <span className="font-semibold text-gray-500 uppercase">{selectedSide} Panel</span>
         </div>
       </div>
+
+      {/* Preset Streetwear Graphics Modal */}
+      <PresetGraphicsModal
+        isOpen={presetModalOpen}
+        onClose={() => setPresetModalOpen(false)}
+        onSelectGraphic={handleSelectPresetGraphic}
+        selectedSide={selectedSide}
+      />
 
     </aside>
   );

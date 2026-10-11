@@ -18,9 +18,14 @@ import {
   Plus,
   RotateCw,
   Box,
-  Gauge
+  Gauge,
+  FileText,
+  Share2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { CanvasVideoRecorder } from '../utils/videoRecorder';
+import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 
 let activeVideoRecorderInstance = null;
 
@@ -33,9 +38,11 @@ export function ExportPanel({
   asyncExportState,
   setAsyncExportState
 }) {
-  const [activeTab, setActiveTab] = useState(defaultTab); // 'video' | 'image' | 'gltf'
+  const [activeTab, setActiveTab] = useState(defaultTab); // 'video' | 'image' | 'gltf' | 'techpack'
   const [imageRes, setImageRes] = useState('4k');
   const [imageFormat, setImageFormat] = useState('png'); // 'png' | 'jpg'
+  const [isGeneratingTechPack, setIsGeneratingTechPack] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
   useEffect(() => {
     if (defaultTab) setActiveTab(defaultTab);
@@ -211,13 +218,251 @@ export function ExportPanel({
     setVideoDuration(num);
   };
 
-  const handleExportGLTF = () => {
-    if (!sceneManager || !sceneManager.exportGLTF) return;
-    setIsExportingGLTF(true);
-    sceneManager.exportGLTF(
-      () => setIsExportingGLTF(false),
-      () => setIsExportingGLTF(false)
-    );
+  const handleCopyShareLink = () => {
+    if (!sceneManager) return;
+    try {
+      const gType = sceneManager.garmentType || 'oversized_tee';
+      const gColor = sceneManager.garmentColor || '#ffffff';
+      const layers = sceneManager.designManager?.layers || [];
+      const state = {
+        g: gType,
+        c: gColor,
+        l: layers.map((l) => ({
+          t: l.type,
+          s: l.side,
+          txt: l.text,
+          tc: l.textColor,
+          fs: l.fontSize,
+          ff: l.fontFamily,
+          x: l.x,
+          y: l.y,
+          sc: l.scale,
+          r: l.rotation,
+          op: l.opacity,
+          pt: l.printType,
+          img: typeof l.image === 'string' ? l.image : (l.image?.src || null)
+        }))
+      };
+      const json = JSON.stringify(state);
+      const encoded = btoa(encodeURIComponent(json));
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', 'studio');
+      url.searchParams.set('garment', gType);
+      url.searchParams.set('design', encoded);
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url.toString());
+      }
+      setShareLinkCopied(true);
+      setTimeout(() => setShareLinkCopied(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy share link:', err);
+    }
+  };
+
+  const handleDownloadTechPack = async () => {
+    if (!sceneManager) return;
+    setIsGeneratingTechPack(true);
+
+    try {
+      const gType = sceneManager.garmentType || 'oversized_tee';
+      const gColor = sceneManager.garmentColor || '#ffffff';
+      const product = GARMENT_PRODUCTS.find((p) => p.id === gType) || {
+        title: gType.toUpperCase().replace('_', ' '),
+        category: 'Streetwear'
+      };
+      const layers = sceneManager.designManager?.layers || [];
+
+      // Capture dual 3D snapshots
+      const frontDataUrl = sceneManager.captureGarmentSnapshot ? sceneManager.captureGarmentSnapshot('front', 800, 800) : null;
+      const backDataUrl = sceneManager.captureGarmentSnapshot ? sceneManager.captureGarmentSnapshot('back', 800, 800) : null;
+
+      const loadImage = (src) => new Promise((resolve) => {
+        if (!src) return resolve(null);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+
+      const [frontImg, backImg] = await Promise.all([
+        loadImage(frontDataUrl),
+        loadImage(backDataUrl)
+      ]);
+
+      // Create 2400 x 1600 Tech Pack Canvas
+      const cvs = document.createElement('canvas');
+      cvs.width = 2400;
+      cvs.height = 1600;
+      const ctx = cvs.getContext('2d');
+
+      // 1. White Background & Margin
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 2400, 1600);
+
+      // 2. Top Header Banner
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(40, 40, 2320, 140);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('VIRTUALTHREADS STUDIO — APPAREL TECH PACK SPECIFICATION', 70, 105);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 20px monospace';
+      const skuId = `VT-${gType.toUpperCase().substring(0, 4)}-${Date.now().toString().slice(-4)}`;
+      ctx.fillText(`STYLE SKU: ${skuId}   DATE: ${new Date().toISOString().split('T')[0]}   STAGE: READY FOR PRODUCTION`, 70, 145);
+
+      // 3. Garment Information Panel (Left Column)
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(40, 210, 680, 500);
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(40, 210, 680, 500);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('1. GARMENT SILHOUETTE & FABRIC', 65, 255);
+
+      ctx.font = '19px sans-serif';
+      ctx.fillStyle = '#334155';
+      ctx.fillText(`Style Name: ${product.title.replace(' STUDIO', '')}`, 65, 305);
+      ctx.fillText(`Category: ${product.category || 'Streetwear'}`, 65, 345);
+      ctx.fillText(`Fit Specification: Relaxed Streetwear Oversized Silhouette`, 65, 385);
+      ctx.fillText(`Fabric Construction: Heavyweight Ringspun Cotton Fleece`, 65, 425);
+      ctx.fillText(`Weight: 380 - 420 GSM Pre-Shrunk`, 65, 465);
+
+      // Color Swatch Box
+      ctx.fillText('Primary Fabric Dye:', 65, 520);
+      ctx.fillStyle = gColor;
+      ctx.fillRect(65, 545, 90, 50);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(65, 545, 90, 50);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText(`HEX: ${gColor.toUpperCase()}`, 175, 578);
+
+      // 4. Visual Render Displays (Center & Right: Front & Back)
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(750, 210, 1610, 500);
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(750, 210, 1610, 500);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('2. VISUAL SPECIFICATION: DUAL 3D PROJECTION', 780, 255);
+
+      if (frontImg) {
+        ctx.drawImage(frontImg, 860, 280, 400, 400);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('FRONT VIEW', 1060, 695);
+        ctx.textAlign = 'left';
+      }
+
+      if (backImg) {
+        ctx.drawImage(backImg, 1600, 280, 400, 400);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BACK VIEW', 1800, 695);
+        ctx.textAlign = 'left';
+      }
+
+      // 5. Decal & Print Matrix (Bottom Table)
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(40, 740, 2320, 600);
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(40, 740, 2320, 600);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('3. ARTWORK & PRINT FINISH SPECIFICATION MATRIX', 65, 785);
+
+      // Table Header Row
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(65, 810, 2270, 45);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 17px sans-serif';
+      ctx.fillText('#', 80, 840);
+      ctx.fillText('PANEL / SIDE', 130, 840);
+      ctx.fillText('ARTWORK TYPE', 360, 840);
+      ctx.fillText('PRINT FINISH & TEXTURE', 680, 840);
+      ctx.fillText('PRINT COORDINATES (X, Y)', 1180, 840);
+      ctx.fillText('SCALE FACTOR', 1600, 840);
+      ctx.fillText('COLOR / SPEC', 1900, 840);
+
+      // Table Rows
+      if (layers.length === 0) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'italic 18px sans-serif';
+        ctx.fillText('No graphic decals applied — Plain garment manufacturing blank.', 80, 900);
+      } else {
+        layers.slice(0, 7).forEach((l, idx) => {
+          const rowY = 885 + idx * 45;
+          ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f1f5f9';
+          ctx.fillRect(65, rowY - 25, 2270, 40);
+
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 17px monospace';
+          ctx.fillText(`0${idx + 1}`, 80, rowY);
+
+          ctx.font = '16px sans-serif';
+          ctx.fillText((l.side || 'front').toUpperCase() + ' CHEST/TORSO', 130, rowY);
+          ctx.fillText(l.type === 'text' ? `Text: "${l.text}"` : 'Raster / Vector Graphic', 360, rowY);
+
+          const finishNames = {
+            screen: 'Standard Screen Print (Plastisol)',
+            puff: 'Tactile 3D Raised Puff Print (Relief 2mm)',
+            embroidery: 'High-Density Satin Embroidery Thread',
+            metallic: 'Shimmering Metallic Gold/Silver Foil Leaf',
+            gloss: 'High-Gloss Wet Silicone Gel Print'
+          };
+          ctx.fillText(finishNames[l.printType] || 'Direct Screen Print', 680, rowY);
+
+          ctx.font = '16px monospace';
+          ctx.fillText(`X: ${l.x} px  |  Y: ${l.y} px`, 1180, rowY);
+          ctx.fillText(`${Math.round((l.scale || 1.0) * 100)}% (${Math.round((l.scale || 1.0) * 28)} cm width)`, 1600, rowY);
+
+          ctx.fillText(l.type === 'text' ? (l.textColor || '#000000').toUpperCase() : 'Full Color CMYK', 1900, rowY);
+        });
+      }
+
+      // 6. Quality Assurance & Factory Notes Footer
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(40, 1370, 2320, 190);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillText('4. PRODUCTION & QUALITY ASSURANCE NOTES', 70, 1415);
+
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('• Wash Care: Machine wash cold 30°C inside out. Hang dry only. Do not iron directly on decoration.', 70, 1455);
+      ctx.fillText('• Curing Guidelines: Plastisol/Puff inks require heat cure at 160°C (320°F) for 60 seconds.', 70, 1490);
+      ctx.fillText('• Placement Tolerance: Artwork alignment allowable tolerance: ± 0.5 cm from center collar seam line.', 70, 1525);
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = `techpack-${gType}-${skuId}.png`;
+      link.href = cvs.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setIsGeneratingTechPack(false);
+    } catch (err) {
+      console.error('Tech pack generation failed:', err);
+      setIsGeneratingTechPack(false);
+      alert('Error generating Tech Pack: ' + err.message);
+    }
   };
 
   return (
@@ -290,6 +535,19 @@ export function ExportPanel({
         >
           <Box className="size-3" />
           <span>3D Model</span>
+        </button>
+
+        <button
+          disabled={isRecording}
+          onClick={() => setActiveTab('techpack')}
+          className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'techpack'
+              ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/25'
+              : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200/70 dark:hover:bg-studio-750'
+          }`}
+        >
+          <FileText className="size-3" />
+          <span>Tech Pack</span>
         </button>
       </div>
 
@@ -799,6 +1057,102 @@ export function ExportPanel({
                 </>
               )}
             </button>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 4: PRODUCTION TECH PACK & SPEC SHEET */}
+        {/* ========================================================================= */}
+        {activeTab === 'techpack' && (
+          <div className="space-y-3.5">
+            <div className="p-3 bg-gray-50/80 dark:bg-studio-850/80 rounded-2xl border border-gray-200/80 dark:border-studio-750 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-500 border border-indigo-500/25">
+                  <FileText className="size-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
+                    Production Tech Pack &amp; Spec Sheet
+                  </h4>
+                  <p className="text-[10px] text-gray-500 dark:text-studio-400">
+                    Comprehensive factory-ready blueprint with dual 3D views and decal matrix.
+                  </p>
+                </div>
+              </div>
+
+              {/* Design Summary Card */}
+              <div className="p-2.5 rounded-xl bg-white dark:bg-studio-900 border border-gray-200/80 dark:border-studio-700/80 space-y-1.5 text-[11px]">
+                <div className="flex justify-between items-center text-gray-700 dark:text-studio-300">
+                  <span className="font-semibold">Style:</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {(GARMENT_PRODUCTS.find(p => p.id === sceneManager?.garmentType)?.title || 'Blank')
+                      .replace(' STUDIO', '')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-gray-700 dark:text-studio-300">
+                  <span className="font-semibold">Base Dye:</span>
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="size-3.5 rounded-full border border-gray-300 dark:border-studio-600"
+                      style={{ backgroundColor: sceneManager?.garmentColor || '#ffffff' }}
+                    />
+                    <span className="font-mono text-[10px] font-bold">
+                      {(sceneManager?.garmentColor || '#ffffff').toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center text-gray-700 dark:text-studio-300">
+                  <span className="font-semibold">Decal Layers:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {sceneManager?.designManager?.layers?.length || 0} Layers Applied
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action 1: Download Tech Pack Sheet */}
+            <button
+              onClick={handleDownloadTechPack}
+              disabled={isGeneratingTechPack || !hasAcceptedAup}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-brand-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {isGeneratingTechPack ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Generating Spec Sheet (300 DPI)...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="size-4" />
+                  <span>Download Tech Pack Sheet (PNG)</span>
+                </>
+              )}
+            </button>
+
+            {/* Action 2: Shareable 3D Design Link */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                className={`w-full py-2.5 px-4 rounded-2xl border font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                  shareLinkCopied
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-gray-100 dark:bg-studio-800 border-gray-200/90 dark:border-studio-700 text-gray-800 dark:text-white hover:bg-gray-200/70 dark:hover:bg-studio-750'
+                }`}
+              >
+                {shareLinkCopied ? (
+                  <>
+                    <Check className="size-3.5 text-emerald-500" />
+                    <span>Shareable 3D Link Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="size-3.5 text-brand-500" />
+                    <span>Copy Shareable 3D Link</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 

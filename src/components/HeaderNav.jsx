@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   RotateCw,
   Move,
@@ -11,7 +11,11 @@ import {
   Shirt,
   Undo2,
   Redo2,
-  Pause
+  Pause,
+  Image as ImageIcon,
+  UploadCloud,
+  Trash2,
+  Check
 } from 'lucide-react';
 
 export function HeaderNav({
@@ -39,9 +43,31 @@ export function HeaderNav({
   onUndo,
   onRedo,
   canUndo = false,
-  canRedo = false
+  canRedo = false,
+  backdropMode = 'dark',
+  onBackdropModeChange = () => {},
+  customBackground = null,
+  onCustomBackgroundUpload = () => {},
+  onRemoveCustomBackground = () => {},
+  backgroundBlur = 0,
+  onBackgroundBlurChange = () => {}
 }) {
   const isCameraAnimating = cameraAnimationMode && cameraAnimationMode !== 'none';
+  const [isBgMenuOpen, setIsBgMenuOpen] = useState(false);
+  const bgMenuRef = useRef(null);
+  const headerBgFileInputRef = useRef(null);
+
+  // Close background menu when clicking outside
+  useEffect(() => {
+    if (!isBgMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target)) {
+        setIsBgMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [isBgMenuOpen]);
 
   const cameraViews = [
     { id: 'front', label: 'Front' },
@@ -57,7 +83,9 @@ export function HeaderNav({
     polo: 'Athletic Polo',
     sweatshirt: 'Sweatshirt',
     hoodie: 'Hoodie',
-    zip_hoodie: 'Zip Hoodie'
+    zip_hoodie: 'Zip Hoodie',
+    sweatpants: 'Jogger Sweatpants',
+    cap: '6-Panel Cap'
   };
 
   return (
@@ -270,6 +298,169 @@ export function HeaderNav({
             <span>Export</span>
           </button>
         )}
+
+        {/* Background Selector & Device Image Uploader */}
+        <div className="relative" ref={bgMenuRef}>
+          <button
+            onClick={() => setIsBgMenuOpen(!isBgMenuOpen)}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 ${
+              backdropMode === 'custom' || isBgMenuOpen
+                ? 'bg-brand-500 text-white border-transparent shadow-sm'
+                : 'bg-white dark:bg-studio-800 border-gray-200/90 dark:border-studio-700 text-gray-700 dark:text-studio-200 hover:border-brand-500'
+            }`}
+            title="Choose studio background or add custom background from device"
+          >
+            <ImageIcon className="size-3.5" />
+            <span className="hidden sm:inline">Background</span>
+            {customBackground && (
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            )}
+          </button>
+
+          {/* Background Menu Popover */}
+          {isBgMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-72 p-3 rounded-2xl bg-white/95 dark:bg-studio-900/95 border border-gray-200 dark:border-studio-700 shadow-2xl backdrop-blur-xl z-50 animate-fadeIn space-y-3">
+              <div className="flex items-center justify-between pb-1.5 border-b border-gray-100 dark:border-studio-800">
+                <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                  <ImageIcon className="size-3.5 text-brand-500" />
+                  <span>Studio Background</span>
+                </span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-studio-400">
+                  {backdropMode === 'custom' ? 'Custom Device' : backdropMode}
+                </span>
+              </div>
+
+              {/* Presets Grid */}
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBackdropModeChange('dark');
+                    setIsBgMenuOpen(false);
+                  }}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border flex flex-col items-center gap-1 transition-all ${
+                    backdropMode === 'dark'
+                      ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs'
+                      : 'border-gray-200 dark:border-studio-700 text-gray-700 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-3 rounded-full bg-[#1f2229] border border-white/30" />
+                  <span>Dark</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBackdropModeChange('light');
+                    setIsBgMenuOpen(false);
+                  }}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border flex flex-col items-center gap-1 transition-all ${
+                    backdropMode === 'light'
+                      ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs'
+                      : 'border-gray-200 dark:border-studio-700 text-gray-700 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-3 rounded-full bg-[#e5e7eb] border border-gray-400/40" />
+                  <span>Light</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onBackdropModeChange('transparent');
+                    setIsBgMenuOpen(false);
+                  }}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border flex flex-col items-center gap-1 transition-all ${
+                    backdropMode === 'transparent'
+                      ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs'
+                      : 'border-gray-200 dark:border-studio-700 text-gray-700 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-3 rounded-full bg-studio-800 border border-dashed border-gray-400" />
+                  <span>Checker</span>
+                </button>
+              </div>
+
+              {/* Upload CTA or Active Custom Image Card */}
+              <div className="pt-2 border-t border-gray-100 dark:border-studio-800">
+                <input
+                  ref={headerBgFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/avif,image/jpg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && onCustomBackgroundUpload) {
+                      onCustomBackgroundUpload(file);
+                    }
+                    e.target.value = '';
+                  }}
+                  className="hidden"
+                />
+
+                {!customBackground ? (
+                  <button
+                    type="button"
+                    onClick={() => headerBgFileInputRef.current?.click()}
+                    className="w-full py-2.5 px-3 rounded-xl border border-dashed border-brand-500/60 hover:border-brand-500 bg-brand-50/50 dark:bg-brand-500/10 hover:bg-brand-50 dark:hover:bg-brand-500/20 text-brand-600 dark:text-brand-300 transition-all flex items-center justify-center gap-2 group active:scale-[0.99]"
+                  >
+                    <UploadCloud className="size-4 text-brand-500 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="text-xs font-bold">Add Background from Device</span>
+                  </button>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-studio-800 border border-gray-200 dark:border-studio-700 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="size-10 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-studio-700 bg-black/20">
+                          <img src={customBackground} alt="Device Background" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-gray-900 dark:text-white truncate">Device Background</div>
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <Check className="size-2.5" />
+                            <span>Active in Studio</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => headerBgFileInputRef.current?.click()}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-studio-700 hover:bg-gray-100 dark:hover:bg-studio-650 text-gray-700 dark:text-studio-200 border border-gray-200 dark:border-studio-600 transition-all shadow-2xs"
+                          title="Upload a different image from device"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onRemoveCustomBackground}
+                          className="size-6 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          title="Remove custom background"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Depth of Field (Blur) Slider */}
+                    <div className="pt-1.5 border-t border-gray-200/70 dark:border-studio-700">
+                      <div className="flex items-center justify-between text-[10px] font-medium text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Depth of Field (Blur)</span>
+                        <span className="font-mono text-gray-700 dark:text-studio-200 font-bold">{backgroundBlur || 0}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        step="1"
+                        value={backgroundBlur || 0}
+                        onChange={(e) => onBackgroundBlurChange && onBackgroundBlurChange(Number(e.target.value))}
+                        className="w-full h-1 bg-gray-200 dark:bg-studio-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {onToggleTheme && (
           <button

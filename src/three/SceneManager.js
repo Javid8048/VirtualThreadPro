@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { CanvasDesignManager } from './CanvasDesignManager';
 import { getAssetUrl } from '../utils/assets';
 
@@ -89,9 +90,8 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
           diffuseColor.rgb = uInsideColor;
         }
       #else
-        if (gl_FrontFacing) {
-          diffuseColor.rgb = uInsideColor;
-        } else if (uKnitProgress < 0.999) {
+        diffuseColor.rgb = uInsideColor;
+        if (uKnitProgress < 0.999) {
           float distEdge = uKnitProgress - knitCoordY;
           if (distEdge < 0.035) {
             #ifdef USE_UV
@@ -123,17 +123,7 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
       modifiedNormalChunk
     );
 
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <opaque_fragment>',
-      `
-      if (gl_FrontFacing) {
-        // Strictly override outgoing light on interior lining to solid fabric color
-        outgoingLight = uInsideColor * 0.85;
-      }
-      #include <opaque_fragment>
-      `
-    );
-
+    // Full PBR lighting applies naturally to both exterior and interior linings
     material.userData.shader = shader;
   };
 }
@@ -162,7 +152,7 @@ export class SceneManager {
     this.renderer.setSize(this.width, this.height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.domElement.style.touchAction = 'none';
     this.container.appendChild(this.renderer.domElement);
@@ -207,6 +197,8 @@ export class SceneManager {
     // 6. 3D Model references & animations
     this.tshirtPivot = null;
     this.tshirtStatic = null;
+    this.tshirtOversizedGeometry = null;
+    this.tshirtRegularGeometry = null;
     this.tshirtWaves = null;
     this.tshirtWalking = null;
     this.mixer = null;
@@ -221,6 +213,12 @@ export class SceneManager {
     this.acidWash = 0.0;
     this.puffPrint = 0.0;
     this.onGarmentLoading = null;
+
+    // Custom background from device
+    this.backdropMode = 'dark';
+    this.customBackground = null;
+    this.customBackgroundTexture = null;
+    this.customBackgroundImage = null;
 
     // On-demand model loading status
     this.modelsLoading = {
@@ -277,6 +275,43 @@ export class SceneManager {
     this.onRecordingFrame = null;
     this.preRecordState = null;
 
+    // Material Presets calibrated for photorealistic fabric response
+    this.blackPreset = {
+      color: '#24272e',
+      roughness: 0.85,
+      metalness: 0.0,
+      sheen: 1.0,
+      sheenRoughness: 0.4,
+      sheenColor: '#5a5f6e',
+      normalScale: 0.8,
+      rimIntensity: 2.5
+    };
+    this.bluePreset = {
+      color: '#192848',
+      roughness: 0.90,
+      metalness: 0.0,
+      sheen: 0.45,
+      sheenRoughness: 0.5,
+      sheenColor: '#506898',
+      normalScale: 0.45
+    };
+    this.defaultPreset = {
+      roughness: 0.95,
+      metalness: 0.0,
+      sheen: 0.30,
+      sheenRoughness: 0.5,
+      normalScale: 0.35
+    };
+    this.targetMaterialProps = null;
+
+    // Contact shadow & Side-by-side comparison state
+    this.contactShadow = null;
+    this.comparisonContactShadow = null;
+    this.isSideBySideComparison = false;
+    this.comparisonShirtMesh = null;
+    this.comparisonShirtMaterial = null;
+    this.savedCameraState = null;
+
     // 7. Lighting
     this.lights = {};
     this.setupLighting('studio');
@@ -285,6 +320,7 @@ export class SceneManager {
     this.hasTriggeredLoaded = false;
     this.initMaterials();
     this.setupGarmentAttachments();
+    this.setupContactShadow();
 
     // 9. Load ONLY the active garment model on demand (avoid downloading 46MB upfront)
     this.ensureGarmentModelLoaded(this.garmentType);
@@ -302,10 +338,15 @@ export class SceneManager {
     this.animate = this.animate.bind(this);
     this.animFrameId = requestAnimationFrame(this.animate);
 
-    // Fallback safety: ensure loading overlay clears even on very slow networks
-    setTimeout(() => {
-      this.triggerLoadedIfReady(true);
-    }, 45000);
+    // Global debugging hook for inspecting meshes in console
+    if (typeof window !== 'undefined') {
+      window.__SCENE_MANAGER__ = this;
+      window.__INSPECT_SCENE_MESHES__ = (label) => this.inspectSceneMeshes(label);
+      window.__AUDIT_SCENE_MATERIALS__ = () => this.auditSceneMaterialsAndStrayPieces();
+      window.__TOGGLE_COMPARISON__ = (enable) => this.setSideBySideComparison(enable);
+      window.__UPDATE_BLACK_PRESET__ = (overrides) => this.updateBlackPreset(overrides);
+      window.__BLACK_PRESET__ = this.blackPreset;
+    }
   }
 
   initMaterials() {
@@ -329,20 +370,55 @@ export class SceneManager {
     normalMap.anisotropy = maxAniso;
     fabricMicroNormalMap.anisotropy = maxAniso;
     aoTexture.anisotropy = maxAniso;
-    if (this.designManager.texture) this.designManager.texture.anisotropy = maxAniso;
-    if (this.designManager.decalTexture) this.designManager.decalTexture.anisotropy = maxAniso;
+    aoTexture.colorSpace = THREE.LinearSRGBColorSpace;
+    if (this.designManager.texture) {
+      this.designManager.texture.anisotropy = maxAniso;
+      this.designManager.texture.colorSpace = THREE.SRGBColorSpace;
+    }
+    if (this.designManager.decalTexture) {
+      this.designManager.decalTexture.anisotropy = maxAniso;
+      this.designManager.decalTexture.colorSpace = THREE.SRGBColorSpace;
+    }
 
     this.fabricMicroNormalMap = fabricMicroNormalMap;
+
+    // Load Studio HDR environment map for authentic studio reflections and balanced contrast
+    if (this.renderer) {
+      try {
+        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+        pmremGenerator.compileEquirectangularShader();
+        const rgbeLoader = new RGBELoader();
+        rgbeLoader.load(
+          getAssetUrl('/models/studio_env.hdr'),
+          (hdrTexture) => {
+            const envMap = pmremGenerator.fromEquirectangular(hdrTexture).texture;
+            this.scene.environment = envMap;
+            hdrTexture.dispose();
+            pmremGenerator.dispose();
+          },
+          undefined,
+          (err) => {
+            console.warn('Studio HDR environment fallback to standard studio lighting:', err);
+          }
+        );
+      } catch (e) {
+        console.warn('HDR environment init note:', e);
+      }
+    }
+
+    this.jerseyNormalMap = normalMap;
+    this.aoTexture = aoTexture;
 
     // Clean, 100% photorealistic matte cotton cloth material with dynamic canvas
     this.shirtMaterial = new THREE.MeshPhysicalMaterial({
       map: this.designManager.texture,
-      roughness: 1.0,
+      roughness: 0.95,
       metalness: 0.0,
-      sheen: 0.0,
+      sheen: 0.35,
+      sheenRoughness: 0.5,
       clearcoat: 0.0,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.32, 0.32),
+      normalScale: new THREE.Vector2(0.35, 0.35),
       aoMap: aoTexture,
       aoMapIntensity: 0.65,
       side: THREE.DoubleSide
@@ -350,16 +426,22 @@ export class SceneManager {
     applyInsideFabricShader(this.shirtMaterial, () => this.garmentColor, null, fabricMicroNormalMap);
 
     this.fabricMaterial = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(this.garmentColor),
-      roughness: 1.0,
+      map: this.designManager.texture,
+      color: new THREE.Color(0xffffff),
+      roughness: 0.95,
       metalness: 0.0,
-      sheen: 0.0,
+      sheen: 0.35,
+      sheenRoughness: 0.5,
       clearcoat: 0.0,
       normalMap: normalMap,
-      normalScale: new THREE.Vector2(0.32, 0.32),
+      normalScale: new THREE.Vector2(0.35, 0.35),
+      aoMap: aoTexture,
+      aoMapIntensity: 0.65,
       side: THREE.DoubleSide
     });
     applyInsideFabricShader(this.fabricMaterial, () => this.garmentColor, null, fabricMicroNormalMap);
+
+    this.setGarmentColor(this.garmentColor, true);
 
     // Matte screen-print ink finish on decals (zero gloss/shine)
     this.decalMaterial = new THREE.MeshStandardMaterial({
@@ -468,6 +550,16 @@ export class SceneManager {
       (gltf) => {
         this.gltfScene = gltf.scene;
 
+        // Setup individual meshes with their authentic geometry coordinates:
+        this.tshirtStatic = gltf.scene.getObjectByName('tshirt_static');
+        this.tshirtWaves = gltf.scene.getObjectByName('tshirt_waves');
+        this.tshirtWalking = gltf.scene.getObjectByName('tshirt_walking');
+        this.tshirtPivot = gltf.scene.getObjectByName('tshirt_pivot');
+        if (this.tshirtPivot) {
+          this.tshirtPivot.position.set(0, 0, 0);
+          this.tshirtPivot.scale.set(1, 1, 1);
+        }
+
         // Hide and remove environment spheres, camera planes & extra export meshes from gltf
         ['env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport', 'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017'].forEach((name) => {
           const obj = gltf.scene.getObjectByName(name);
@@ -477,24 +569,12 @@ export class SceneManager {
           }
         });
 
-        // Hide any other non-tshirt meshes in gltf
+        // Ensure any other non-tshirt meshes in gltf are strictly hidden and disabled
         gltf.scene.traverse((child) => {
           if (child.isMesh && child !== this.tshirtStatic && child !== this.tshirtWaves && child !== this.tshirtWalking) {
             child.visible = false;
           }
         });
-
-        // Unhide tshirt pivot and lock to scale 1
-        this.tshirtPivot = gltf.scene.getObjectByName('tshirt_pivot');
-        if (this.tshirtPivot) {
-          this.tshirtPivot.position.set(0, 0, 0);
-          this.tshirtPivot.scale.set(1, 1, 1);
-        }
-
-        // Setup individual meshes with their authentic geometry coordinates:
-        this.tshirtStatic = gltf.scene.getObjectByName('tshirt_static');
-        this.tshirtWaves = gltf.scene.getObjectByName('tshirt_waves');
-        this.tshirtWalking = gltf.scene.getObjectByName('tshirt_walking');
 
         // 1. Static T-shirt model (millimeter coords, rotated 90deg X, scale 0.01)
         if (this.tshirtStatic) {
@@ -508,6 +588,14 @@ export class SceneManager {
           this.tshirtStatic.rotation.set(Math.PI / 2, 0, 0);
           this.tshirtStatic.scale.set(0.01, 0.01, 0.01);
           this.tshirtStatic.visible = true;
+
+          // Cache base oversized geometry and generate tailored regular fit geometry
+          if (this.tshirtStatic.geometry) {
+            this.tshirtOversizedGeometry = this.tshirtStatic.geometry.clone();
+            this.tshirtOversizedGeometry.name = 'tshirt_geometry_oversized';
+            this.tshirtRegularGeometry = this.createRegularFitGeometry(this.tshirtOversizedGeometry);
+            this.tshirtRegularGeometry.name = 'tshirt_geometry_regular';
+          }
         }
 
         // 2. Wind Waves animated model (native meter coords centered at origin)
@@ -586,6 +674,8 @@ export class SceneManager {
         this.setAnimationMode(this.animationMode);
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
+        this.auditSceneMaterialsAndStrayPieces();
+        this.inspectSceneMeshes('T-shirt Model Loaded: ' + this.garmentType);
 
         const cbs = [...this.tshirtCallbacks];
         this.tshirtCallbacks = [];
@@ -600,6 +690,89 @@ export class SceneManager {
         cbs.forEach(cb => cb());
       }
     );
+  }
+
+  createRegularFitGeometry(sourceGeometry) {
+    const geo = sourceGeometry.clone();
+    const pos = geo.attributes.position;
+    const count = pos.count;
+
+    function smoothstep(min, max, value) {
+      const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+      return t * t * (3 - 2 * t);
+    }
+
+    for (let i = 0; i < count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      const absX = Math.abs(x);
+      const signX = Math.sign(x) || 1;
+
+      // 1. Neckline protection weight: keep collar opening natural around neck
+      const neckDist = Math.hypot(absX * 1.1, z + 360);
+      const neckWeight = smoothstep(65, 115, neckDist);
+
+      // 2. Torso width scale (tailored silhouette with subtle natural waist suppression)
+      const waistCurve = Math.exp(-Math.pow((z - 210) / 100, 2)) * 0.035;
+      const baseTorsoScaleX = 0.88 - waistCurve;
+
+      // 3. Shoulder and Sleeve scaling along X
+      // Natural shoulder placement: bring shoulder seam inward from dropped position
+      const shoulderT = smoothstep(80, 220, absX) * smoothstep(-150, -320, z);
+      // Conventional sleeve length: bring sleeve tip inward
+      const sleeveT = smoothstep(175, 340, absX) * smoothstep(125, -90, z);
+
+      let scaleX = baseTorsoScaleX;
+      scaleX = scaleX * (1 - shoulderT * 0.04);
+      scaleX = scaleX * (1 - sleeveT * 0.06);
+
+      // Blend with neck (keep collar opening intact)
+      scaleX = 1.0 * (1 - neckWeight) + scaleX * neckWeight;
+
+      let newX = signX * absX * scaleX;
+
+      // 4. Depth (Y) scale: moderate torso and sleeve depth (no baggy puffing)
+      const scaleY = 0.85 + (1 - neckWeight) * 0.15;
+      let newY = y * scaleY;
+
+      // 5. Vertical (Z) shaping:
+      let newZ = z;
+
+      // A. Natural shoulder slope (slopes naturally towards deltoids instead of horizontal drop)
+      const shoulderSlope = 14 * shoulderT;
+      newZ += shoulderSlope;
+
+      // B. Conventional sleeve lift (lifts drooping sleeve hem to classic mid-bicep)
+      const sleeveLift = -24 * sleeveT;
+      newZ += sleeveLift;
+
+      // C. Sleeve circumference slimming (narrower sleeve diameter around arm)
+      if (sleeveT > 0.01) {
+        const armProg = Math.max(0, Math.min(1, (absX - 175) / 170));
+        const axisZ = -115 + armProg * 153;
+        const axisY = 3 + armProg * 16;
+        
+        const radZ = newZ - axisZ;
+        const radY = newY - axisY;
+
+        const sleeveRadiusScale = 1.0 - (0.18 * sleeveT);
+        newZ = axisZ + radZ * sleeveRadiusScale;
+        newY = axisY + radY * sleeveRadiusScale;
+      }
+
+      // D. Standard body length: slightly adjusted body length (~6.5% shorter hem)
+      const hemT = smoothstep(0, 360, z) * (1 - sleeveT);
+      newZ -= (z * 0.065) * hemT;
+
+      pos.setXYZ(i, newX, newY, newZ);
+    }
+
+    geo.computeVertexNormals();
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+    return geo;
   }
 
   getActiveMesh() {
@@ -978,55 +1151,120 @@ export class SceneManager {
     Object.values(this.lights).forEach((l) => this.scene.remove(l));
     this.lights = {};
 
-    // Standard photorealistic studio lighting rig matching VirtualThreads reference
+    // Calibrated studio lighting rig for photorealistic fabric fidelity across all garment colors
     // Key light - crisp directional illumination from front-left
-    const keyIntensity = preset === 'light' ? 2.0 : 2.2;
+    const keyIntensity = preset === 'light' ? 1.35 : (preset === 'custom' ? 1.40 : 1.45);
     const keyLight = new THREE.DirectionalLight(0xffffff, keyIntensity);
     keyLight.position.set(-4, 7.5, 14);
     this.scene.add(keyLight);
     this.lights.key = keyLight;
 
-    // Soft fill light from front-right
-    const fillLight = new THREE.DirectionalLight(0xeef2ff, 1.4);
+    // Soft fill light opposite the key light (front-right) to soften shadow contrast
+    const fillLight = new THREE.DirectionalLight(0xf0f4ff, 1.05);
     fillLight.position.set(6, 4, 12);
     this.scene.add(fillLight);
     this.lights.fill = fillLight;
 
-    // Top-down rim backlight - definition and separation matching reference
-    const rimLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
-    rimLight.position.set(0, 9, -12);
+    // Cool rim light positioned directly behind the shirt to sculpt silhouette and drape
+    const coolRimIntensity = (this.blackPreset && this.blackPreset.rimIntensity !== undefined) ? this.blackPreset.rimIntensity : 2.5;
+    const rimLight = new THREE.DirectionalLight(0x9db0ff, coolRimIntensity);
+    rimLight.position.set(0, 6.5, -12);
     this.scene.add(rimLight);
     this.lights.rim = rimLight;
 
-    // Soft lateral rim light for shoulder drape separation
-    const sideRimLight = new THREE.DirectionalLight(0xdde8ff, 0.9);
-    sideRimLight.position.set(10, 6, -8);
-    this.scene.add(sideRimLight);
-    this.lights.sideRim = sideRimLight;
+    // Lateral rim lights for shoulder and sleeve drape separation
+    const rightSideRim = new THREE.DirectionalLight(0x9db0ff, 1.20);
+    rightSideRim.position.set(10, 6, -8);
+    this.scene.add(rightSideRim);
+    this.lights.sideRim = rightSideRim;
+
+    const leftSideRim = new THREE.DirectionalLight(0x9db0ff, 1.20);
+    leftSideRim.position.set(-10, 6, -8);
+    this.scene.add(leftSideRim);
+    this.lights.leftSideRim = leftSideRim;
 
     // Back Key light - ensures back of garment is equally well-lit during 360 turntable
-    const backKeyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    const backKeyLight = new THREE.DirectionalLight(0xffffff, 1.25);
     backKeyLight.position.set(-4, 7.5, -14);
     this.scene.add(backKeyLight);
     this.lights.backKey = backKeyLight;
 
     // Dedicated Front Graphic Light - keeps chest prints bright, vivid, and pop
-    const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    const frontGraphicLight = new THREE.DirectionalLight(0xffffff, 0.55);
     frontGraphicLight.position.set(0, 1.5, 14);
     this.scene.add(frontGraphicLight);
     this.lights.frontGraphic = frontGraphicLight;
 
     // Dedicated Back Graphic Light - keeps back prints bright and clear when rotated
-    const backGraphicLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    const backGraphicLight = new THREE.DirectionalLight(0xffffff, 0.55);
     backGraphicLight.position.set(0, 1.5, -14);
     this.scene.add(backGraphicLight);
     this.lights.backGraphic = backGraphicLight;
 
-    // Ambient light - ensures unshadowed cloth areas stay clean authentic cotton white
-    const ambIntensity = preset === 'light' ? 1.0 : 1.1;
+    // Balanced Hemisphere Light: provides soft ground bounce reflection
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd4dbe6, 0.65);
+    this.scene.add(hemiLight);
+    this.lights.hemi = hemiLight;
+
+    // Soft ambient fill
+    const ambIntensity = preset === 'light' ? 0.30 : (preset === 'custom' ? 0.32 : 0.35);
     const ambLight = new THREE.AmbientLight(0xffffff, ambIntensity);
     this.scene.add(ambLight);
     this.lights.amb = ambLight;
+  }
+
+  setCustomBackground(dataUrl, onDone) {
+    this.customBackground = dataUrl || null;
+    if (this.customBackgroundTexture) {
+      this.customBackgroundTexture.dispose();
+      this.customBackgroundTexture = null;
+    }
+    this.customBackgroundImage = null;
+
+    if (!dataUrl) {
+      if (this.backdropMode === 'custom') {
+        this.scene.background = null;
+      }
+      if (onDone) onDone();
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      dataUrl,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        this.customBackgroundTexture = tex;
+        const img = new Image();
+        img.onload = () => {
+          this.customBackgroundImage = img;
+          if (onDone) onDone();
+        };
+        img.src = dataUrl;
+      },
+      undefined,
+      (err) => {
+        console.warn('Could not load custom background texture:', err);
+        if (onDone) onDone();
+      }
+    );
+  }
+
+  fitTextureCover(texture, imgW, imgH, canvasW, canvasH) {
+    if (!texture || !imgW || !imgH || !canvasW || !canvasH) return;
+    const imgAspect = imgW / imgH;
+    const canvasAspect = canvasW / canvasH;
+    texture.matrixAutoUpdate = false;
+    if (imgAspect > canvasAspect) {
+      const scale = canvasAspect / imgAspect;
+      texture.repeat.set(scale, 1);
+      texture.offset.set((1 - scale) / 2, 0);
+    } else {
+      const scale = imgAspect / canvasAspect;
+      texture.repeat.set(1, scale);
+      texture.offset.set(0, (1 - scale) / 2);
+    }
+    texture.updateMatrix();
   }
 
   setAcidWash(intensity) {
@@ -1119,58 +1357,415 @@ export class SceneManager {
   }
 
 
-  setGarmentColor(hex) {
-    this.garmentColor = hex;
-    if (this.designManager) {
-      this.designManager.setGarmentColor(hex);
+  isBlackColor(hex) {
+    if (!hex) return false;
+    const h = hex.toLowerCase();
+    if (h === '#24272e' || h === '#14161b' || h === '#000000' || h === '#111111' || h === '#181818' || h === '#1a1a1a') return true;
+    try {
+      const c = new THREE.Color(hex);
+      const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      return lum < 0.05;
+    } catch (e) {
+      return false;
     }
-    if (this.fabricMaterial) {
-      this.fabricMaterial.color.set(hex);
-      this.fabricMaterial.needsUpdate = true;
+  }
+
+  isBlueColor(hex) {
+    if (!hex) return false;
+    const h = hex.toLowerCase();
+    if (h === '#192848' || h === '#1e3a8a' || h === '#172554') return true;
+    try {
+      const c = new THREE.Color(hex);
+      const hsl = {};
+      c.getHSL(hsl);
+      return hsl.h >= 0.55 && hsl.h <= 0.72 && hsl.l < 0.45;
+    } catch (e) {
+      return false;
     }
-    if (this.hoodieFabricMaterial) {
-      this.hoodieFabricMaterial.color.set(hex);
-      this.hoodieFabricMaterial.needsUpdate = true;
+  }
+
+  getMaterialPresetForColor(hex) {
+    if (!hex) return { ...this.defaultPreset, color: '#ffffff' };
+    
+    // Check if black / dark
+    if (this.isBlackColor(hex)) {
+      return {
+        color: this.blackPreset.color || '#24272e',
+        roughness: this.blackPreset.roughness !== undefined ? this.blackPreset.roughness : 0.85,
+        metalness: 0.0,
+        sheen: this.blackPreset.sheen !== undefined ? this.blackPreset.sheen : 1.0,
+        sheenRoughness: this.blackPreset.sheenRoughness !== undefined ? this.blackPreset.sheenRoughness : 0.4,
+        sheenColor: this.blackPreset.sheenColor || '#5a5f6e',
+        normalScale: this.blackPreset.normalScale !== undefined ? this.blackPreset.normalScale : 0.8,
+        aoMapIntensity: 0.75
+      };
     }
-    if (this.shirtMaterial && this.shirtMaterial.sheenColor) {
-      this.shirtMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
+
+    // Check if blue / navy
+    if (this.isBlueColor(hex)) {
+      return {
+        color: hex,
+        roughness: this.bluePreset.roughness !== undefined ? this.bluePreset.roughness : 0.90,
+        metalness: 0.0,
+        sheen: this.bluePreset.sheen !== undefined ? this.bluePreset.sheen : 0.45,
+        sheenRoughness: this.bluePreset.sheenRoughness !== undefined ? this.bluePreset.sheenRoughness : 0.5,
+        sheenColor: this.bluePreset.sheenColor || '#506898',
+        normalScale: this.bluePreset.normalScale !== undefined ? this.bluePreset.normalScale : 0.45,
+        aoMapIntensity: 0.65
+      };
     }
-    if (this.fabricMaterial && this.fabricMaterial.sheenColor) {
-      this.fabricMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
-    }
-    if (this.hoodieFabricMaterial && this.hoodieFabricMaterial.sheenColor) {
-      this.hoodieFabricMaterial.sheenColor.set(hex).lerp(new THREE.Color(0xffffff), 0.65);
-    }
-    const colorObj = new THREE.Color(hex);
-    const updateInsideColor = (mat) => {
-      if (mat && mat.userData?.shader?.uniforms?.uInsideColor) {
+
+    // Balanced preset for other garment colors
+    const col = new THREE.Color(hex);
+    return {
+      color: hex,
+      roughness: 0.95,
+      metalness: 0.0,
+      sheen: 0.30,
+      sheenRoughness: 0.5,
+      sheenColor: col.clone().lerp(new THREE.Color(0xffffff), 0.55).getHexString(),
+      normalScale: 0.35,
+      aoMapIntensity: 0.65
+    };
+  }
+
+  applyMaterialProps(props) {
+    if (!props) return;
+    const { color, sheenColor, roughness, sheen, sheenRoughness, normalScale, aoMapIntensity } = props;
+
+    const colorObj = color instanceof THREE.Color ? color : (color ? new THREE.Color(color) : null);
+    const sheenColorObj = sheenColor instanceof THREE.Color ? sheenColor : (sheenColor ? new THREE.Color(sheenColor.startsWith && !sheenColor.startsWith('#') ? '#' + sheenColor : sheenColor) : null);
+
+    const applyToMaterial = (mat) => {
+      if (!mat || mat === this.decalMaterial) return;
+      const mName = (mat.name || '').toLowerCase();
+      if (mName.includes('slider') || mName.includes('metal') || mName.includes('button')) return;
+
+      if (colorObj && mat.color) {
+        mat.color.copy(colorObj);
+      }
+      if (roughness !== undefined && mat.roughness !== undefined) {
+        mat.roughness = roughness;
+      }
+      if (sheen !== undefined && mat.sheen !== undefined) {
+        mat.sheen = sheen;
+      }
+      if (sheenRoughness !== undefined && mat.sheenRoughness !== undefined) {
+        mat.sheenRoughness = sheenRoughness;
+      }
+      if (sheenColorObj && mat.sheenColor) {
+        mat.sheenColor.copy(sheenColorObj);
+      }
+      if (normalScale !== undefined && mat.normalScale) {
+        mat.normalScale.set(normalScale, normalScale);
+      }
+      if (aoMapIntensity !== undefined && mat.aoMapIntensity !== undefined) {
+        mat.aoMapIntensity = aoMapIntensity;
+      }
+      mat.side = THREE.DoubleSide;
+      mat.needsUpdate = true;
+
+      if (mat.userData?.shader?.uniforms?.uInsideColor && colorObj) {
         mat.userData.shader.uniforms.uInsideColor.value.copy(colorObj);
       }
     };
-    updateInsideColor(this.shirtMaterial);
-    updateInsideColor(this.fabricMaterial);
-    updateInsideColor(this.hoodieFabricMaterial);
-    if (this.tshirtWaves) updateInsideColor(this.tshirtWaves.material);
-    if (this.tshirtWalking) updateInsideColor(this.tshirtWalking.material);
 
-    // Update real garment models
+    applyToMaterial(this.shirtMaterial);
+    applyToMaterial(this.fabricMaterial);
+    applyToMaterial(this.hoodieFabricMaterial);
+
     const updateMeshColors = (root) => {
       if (!root) return;
       root.traverse((c) => {
-        if (c.isMesh && c.material && c.material !== this.decalMaterial) {
-          const mName = (c.material.name || '').toLowerCase();
-          if (!mName.includes('slider') && !mName.includes('metal') && !mName.includes('material9428')) {
-            if (c.material.color) {
-              c.material.color.set(hex);
-              c.material.needsUpdate = true;
-            }
+        if (c.isMesh && c.material && c !== this.comparisonShirtMesh) {
+          if (Array.isArray(c.material)) {
+            c.material.forEach(applyToMaterial);
+          } else {
+            applyToMaterial(c.material);
           }
         }
       });
     };
+
+    updateMeshColors(this.gltfScene);
     updateMeshColors(this.realHoodieRoot);
     updateMeshColors(this.realPantsRoot);
     updateMeshColors(this.realCapRoot);
+    updateMeshColors(this.attachmentsGroup);
+  }
+
+  setGarmentColor(hex, immediate = false) {
+    let resolvedHex = hex || '#ffffff';
+    if (this.isBlackColor(resolvedHex)) {
+      resolvedHex = this.blackPreset.color || '#24272e';
+    }
+    this.garmentColor = resolvedHex;
+
+    if (this.designManager) {
+      this.designManager.setGarmentColor(resolvedHex);
+    }
+
+    const preset = this.getMaterialPresetForColor(resolvedHex);
+    const targetColor = new THREE.Color(preset.color);
+    const sheenHex = preset.sheenColor.startsWith && !preset.sheenColor.startsWith('#') ? '#' + preset.sheenColor : preset.sheenColor;
+    const targetSheenColor = new THREE.Color(sheenHex);
+
+    if (immediate) {
+      this.applyMaterialProps({
+        color: targetColor,
+        sheenColor: targetSheenColor,
+        roughness: preset.roughness,
+        sheen: preset.sheen,
+        sheenRoughness: preset.sheenRoughness,
+        normalScale: preset.normalScale,
+        aoMapIntensity: preset.aoMapIntensity
+      });
+      this.targetMaterialProps = null;
+    } else {
+      this.targetMaterialProps = {
+        color: targetColor,
+        sheenColor: targetSheenColor,
+        roughness: preset.roughness,
+        sheen: preset.sheen,
+        sheenRoughness: preset.sheenRoughness,
+        normalScale: preset.normalScale,
+        aoMapIntensity: preset.aoMapIntensity
+      };
+    }
+  }
+
+  setupContactShadow() {
+    if (this.contactShadow) {
+      this.scene.remove(this.contactShadow);
+      if (this.contactShadow.geometry) this.contactShadow.geometry.dispose();
+      if (this.contactShadow.material) {
+        if (this.contactShadow.material.map) this.contactShadow.material.map.dispose();
+        this.contactShadow.material.dispose();
+      }
+      this.contactShadow = null;
+    }
+
+    if (typeof document === 'undefined') return;
+
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const ctx = shadowCanvas.getContext('2d');
+    const grad = ctx.createRadialGradient(128, 128, 15, 128, 128, 120);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
+    grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.30)');
+    grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.08)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    const shadowGeo = new THREE.PlaneGeometry(5.6, 3.4);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      opacity: 0.60,
+      depthWrite: false
+    });
+
+    this.contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    this.contactShadow.name = 'garment_contact_shadow';
+    this.contactShadow.rotation.x = -Math.PI / 2;
+    this.contactShadow.position.set(0, -4.32, 0);
+    this.scene.add(this.contactShadow);
+  }
+
+  auditSceneMaterialsAndStrayPieces() {
+    const strayNames = ['env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport', 'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017'];
+    const issuesFound = [];
+
+    this.scene.traverse((obj) => {
+      if (obj.isMesh && obj !== this.contactShadow && obj !== this.comparisonContactShadow) {
+        const name = obj.name || '';
+        const isStray = strayNames.some(s => name === s || name.includes(s));
+        if (isStray) {
+          obj.visible = false;
+          if (obj.parent && obj.parent !== this.scene) {
+            try { obj.parent.remove(obj); } catch (e) {}
+          }
+          issuesFound.push({ type: 'Stray leftover pattern piece hidden & removed', name: obj.name });
+          return;
+        }
+
+        if (!obj.material) {
+          console.warn('⚠️ [Scene Audit] Mesh has NO material! Assigning shared fabric material:', obj.name);
+          obj.material = this.fabricMaterial || this.shirtMaterial;
+          obj.visible = true;
+          issuesFound.push({ type: 'Missing material fixed', name: obj.name });
+        } else {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach(mat => {
+            if (mat !== this.decalMaterial && !mat.name?.toLowerCase().includes('button')) {
+              mat.side = THREE.DoubleSide;
+              if (mat.map && mat.map.colorSpace !== THREE.SRGBColorSpace) {
+                mat.map.colorSpace = THREE.SRGBColorSpace;
+              }
+              mat.needsUpdate = true;
+            }
+          });
+        }
+      }
+    });
+
+    console.group('🔍 [Scene Audit: Materials & Stray Pieces]');
+    if (issuesFound.length > 0) {
+      console.table(issuesFound);
+    } else {
+      console.log('✅ All scene garment meshes have valid PBR materials, DoubleSide enabled, and stray pieces hidden.');
+    }
+    console.groupEnd();
+
+    return issuesFound;
+  }
+
+  setSideBySideComparison(enable) {
+    this.isSideBySideComparison = !!enable;
+
+    if (!this.tshirtStatic && !this.realHoodieRoot) {
+      console.warn('Model not loaded yet for side-by-side comparison');
+      return;
+    }
+
+    if (this.isSideBySideComparison) {
+      // 1. Prepare comparison material for black
+      if (!this.comparisonShirtMaterial) {
+        this.comparisonShirtMaterial = new THREE.MeshPhysicalMaterial({
+          map: this.designManager?.texture || null,
+          color: new THREE.Color(this.blackPreset.color || '#24272e'),
+          roughness: this.blackPreset.roughness !== undefined ? this.blackPreset.roughness : 0.85,
+          metalness: 0.0,
+          sheen: this.blackPreset.sheen !== undefined ? this.blackPreset.sheen : 1.0,
+          sheenRoughness: this.blackPreset.sheenRoughness !== undefined ? this.blackPreset.sheenRoughness : 0.4,
+          sheenColor: new THREE.Color(this.blackPreset.sheenColor || '#5a5f6e'),
+          normalMap: this.jerseyNormalMap || null,
+          normalScale: new THREE.Vector2(this.blackPreset.normalScale || 0.8, this.blackPreset.normalScale || 0.8),
+          aoMap: this.aoTexture || null,
+          aoMapIntensity: 0.75,
+          side: THREE.DoubleSide
+        });
+        applyInsideFabricShader(this.comparisonShirtMaterial, () => this.blackPreset.color || '#24272e', null, this.fabricMicroNormalMap);
+      }
+
+      // 2. Prepare comparison mesh (Black on the right: X = +2.85)
+      if (!this.comparisonShirtMesh && this.tshirtStatic) {
+        this.comparisonShirtMesh = new THREE.Mesh(this.tshirtStatic.geometry, this.comparisonShirtMaterial);
+        this.comparisonShirtMesh.name = 'comparison_shirt_black';
+        this.comparisonShirtMesh.rotation.copy(this.tshirtStatic.rotation);
+        this.comparisonShirtMesh.scale.copy(this.tshirtStatic.scale);
+        this.scene.add(this.comparisonShirtMesh);
+      }
+
+      if (this.comparisonShirtMesh && this.tshirtStatic) {
+        this.comparisonShirtMesh.geometry = this.tshirtStatic.geometry;
+        this.comparisonShirtMesh.position.set(2.85, this.tshirtStatic.position.y, this.tshirtStatic.position.z);
+        this.comparisonShirtMesh.visible = true;
+      }
+
+      // 3. Primary shirt (Blue on the left: X = -2.85)
+      if (this.tshirtPivot) {
+        this.tshirtPivot.position.x = -2.85;
+      } else if (this.tshirtStatic) {
+        this.tshirtStatic.position.x = -2.85;
+      }
+      this.setGarmentColor('#192848', true);
+
+      // 4. Contact shadows at -2.85 and +2.85
+      if (this.contactShadow) {
+        this.contactShadow.position.x = -2.85;
+      }
+      if (!this.comparisonContactShadow && this.contactShadow) {
+        this.comparisonContactShadow = this.contactShadow.clone();
+        this.comparisonContactShadow.name = 'comparison_contact_shadow';
+        this.scene.add(this.comparisonContactShadow);
+      }
+      if (this.comparisonContactShadow) {
+        this.comparisonContactShadow.position.set(2.85, -4.32, 0);
+        this.comparisonContactShadow.visible = true;
+      }
+
+      // 5. Camera framing symmetrically to inspect both garments
+      if (this.camera && this.controls) {
+        if (!this.savedCameraState) {
+          this.savedCameraState = {
+            camPos: this.camera.position.clone(),
+            target: this.controls.target.clone()
+          };
+        }
+        this.camera.position.set(0, 0.75, 18.5);
+        this.controls.target.set(0, 0.75, 0);
+        this.controls.update();
+      }
+    } else {
+      // Restore single garment view
+      if (this.comparisonShirtMesh) {
+        this.comparisonShirtMesh.visible = false;
+      }
+      if (this.comparisonContactShadow) {
+        this.comparisonContactShadow.visible = false;
+      }
+      if (this.tshirtPivot) {
+        this.tshirtPivot.position.x = 0;
+      } else if (this.tshirtStatic) {
+        this.tshirtStatic.position.x = 0;
+      }
+      if (this.contactShadow) {
+        this.contactShadow.position.x = 0;
+      }
+
+      // Restore camera
+      if (this.savedCameraState && this.camera && this.controls) {
+        this.camera.position.copy(this.savedCameraState.camPos);
+        this.controls.target.copy(this.savedCameraState.target);
+        this.controls.update();
+        this.savedCameraState = null;
+      }
+
+      // Restore garment color
+      this.setGarmentColor(this.garmentColor, true);
+    }
+  }
+
+  updateBlackPreset(overrides) {
+    if (!overrides) return;
+    this.blackPreset = { ...this.blackPreset, ...overrides };
+
+    if (this.isBlackColor(this.garmentColor)) {
+      this.setGarmentColor(this.blackPreset.color || '#24272e', true);
+    }
+
+    if (this.comparisonShirtMaterial) {
+      if (overrides.color) {
+        this.comparisonShirtMaterial.color.set(overrides.color);
+        if (this.comparisonShirtMaterial.userData?.shader?.uniforms?.uInsideColor) {
+          this.comparisonShirtMaterial.userData.shader.uniforms.uInsideColor.value.set(overrides.color);
+        }
+      }
+      if (overrides.roughness !== undefined) {
+        this.comparisonShirtMaterial.roughness = overrides.roughness;
+      }
+      if (overrides.sheen !== undefined) {
+        this.comparisonShirtMaterial.sheen = overrides.sheen;
+      }
+      if (overrides.sheenRoughness !== undefined) {
+        this.comparisonShirtMaterial.sheenRoughness = overrides.sheenRoughness;
+      }
+      if (overrides.sheenColor) {
+        this.comparisonShirtMaterial.sheenColor.set(overrides.sheenColor);
+      }
+      if (overrides.normalScale !== undefined && this.comparisonShirtMaterial.normalScale) {
+        this.comparisonShirtMaterial.normalScale.set(overrides.normalScale, overrides.normalScale);
+      }
+      this.comparisonShirtMaterial.needsUpdate = true;
+    }
+
+    if (overrides.rimIntensity !== undefined && this.lights.rim) {
+      this.lights.rim.intensity = overrides.rimIntensity;
+    }
   }
 
   // --- Dynamic Garment Type Switching (All 9 Garments in 3D) ---
@@ -1200,6 +1795,7 @@ export class SceneManager {
       if (this.onGarmentLoading) {
         this.onGarmentLoading(false, this.garmentType);
       }
+      this.inspectSceneMeshes('Garment Selected: ' + this.garmentType);
       if (onComplete) onComplete();
     };
 
@@ -1226,11 +1822,14 @@ export class SceneManager {
     this.attachmentsGroup = new THREE.Group();
     this.attachmentsGroup.name = 'garment_attachments';
     this.attachmentsGroup.scale.set(1, 1, 1);
+    this.attachmentsGroup.visible = false;
 
     const fabMat = this.fabricMaterial || this.shirtMaterial;
 
     // 1. Sweatshirt: Authentic streetwear long sleeves, ribbed cuffs, waistband, and crewneck collar
     this.sweatshirtGroup = new THREE.Group();
+    this.sweatshirtGroup.name = 'garment_sweatshirt_attachments';
+    this.sweatshirtGroup.visible = false;
     this.crewCollarGroup = this.sweatshirtGroup;
 
     // Seamless left & right long sleeve extensions connecting directly inside drop-shoulder sleeve openings
@@ -1238,20 +1837,24 @@ export class SceneManager {
     
     // Left sleeve extension & ribbed cuff
     const leftArm = new THREE.Mesh(armGeom, fabMat);
+    leftArm.name = 'attachment_sweatshirt_left_arm';
     leftArm.position.set(-4.08, 0.42, 0.04);
     leftArm.rotation.set(0.10, 0, 0.65);
     
     const cuffGeom = new THREE.CylinderGeometry(0.35, 0.38, 0.45, 24);
     const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
+    leftCuff.name = 'attachment_sweatshirt_left_cuff';
     leftCuff.position.set(-4.95, -0.38, 0.04);
     leftCuff.rotation.set(0.10, 0, 0.65);
 
     // Right sleeve extension & ribbed cuff
     const rightArm = new THREE.Mesh(armGeom, fabMat);
+    rightArm.name = 'attachment_sweatshirt_right_arm';
     rightArm.position.set(4.08, 0.42, 0.04);
     rightArm.rotation.set(0.10, 0, -0.65);
 
     const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
+    rightCuff.name = 'attachment_sweatshirt_right_cuff';
     rightCuff.position.set(4.95, -0.38, 0.04);
     rightCuff.rotation.set(0.10, 0, -0.65);
 
@@ -1259,11 +1862,13 @@ export class SceneManager {
     const crewGeom = new THREE.TorusGeometry(1.22, 0.10, 20, 48);
     crewGeom.rotateX(Math.PI * 0.45);
     const crewMesh = new THREE.Mesh(crewGeom, fabMat);
+    crewMesh.name = 'attachment_sweatshirt_crew_collar';
     crewMesh.position.set(0, 3.20, 0.08);
 
     // Ribbed bottom hem waistband sitting flush at bottom hem (Y = -4.18)
     const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 32);
     const waistHem = new THREE.Mesh(waistGeom, fabMat);
+    waistHem.name = 'attachment_sweatshirt_waist_hem';
     waistHem.position.set(0, -4.18, 0.0);
     waistHem.scale.set(1.0, 1.0, 0.52);
 
@@ -1272,10 +1877,13 @@ export class SceneManager {
 
     // 2. Polo Turned-down Folded Collar, 3-Button Placket & Ribbed Sleeve Cuffs (Envato Elements style)
     this.poloGroup = new THREE.Group();
+    this.poloGroup.name = 'garment_polo_attachments';
+    this.poloGroup.visible = false;
 
     // Fabric neck insert to completely mask and occlude the round crewneck rim underneath
     const neckCoverGeom = new THREE.CylinderGeometry(1.18, 1.25, 0.38, 32, 1, false);
     const neckCoverMesh = new THREE.Mesh(neckCoverGeom, fabMat);
+    neckCoverMesh.name = 'attachment_polo_neck_cover';
     neckCoverMesh.position.set(0, 3.16, 0.50);
     neckCoverMesh.rotation.set(0.24, 0, 0);
 
@@ -1283,6 +1891,7 @@ export class SceneManager {
     const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.48, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
     poloCollarCurve.rotateX(-0.16);
     const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
+    poloCollarMesh.name = 'attachment_polo_collar';
     poloCollarMesh.position.set(0, 3.24, 0.06);
 
     // Left and right folded lapel wings laying flat against upper chest
@@ -1296,10 +1905,12 @@ export class SceneManager {
     const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
     const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
+    leftLapel.name = 'attachment_polo_left_lapel';
     leftLapel.position.set(-0.14, 3.20, 0.95);
     leftLapel.rotation.set(0.20, 0.10, -0.18);
 
     const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
+    rightLapel.name = 'attachment_polo_right_lapel';
     rightLapel.position.set(0.14, 3.20, 0.95);
     rightLapel.rotation.set(0.20, -0.10, 0.18);
     rightLapel.scale.set(-1, 1, 1);
@@ -1307,12 +1918,14 @@ export class SceneManager {
     // Front center placket with stitch welt
     const placketGeom = new THREE.BoxGeometry(0.44, 1.62, 0.045);
     const placketMesh = new THREE.Mesh(placketGeom, fabMat);
+    placketMesh.name = 'attachment_polo_placket';
     placketMesh.position.set(0, 2.14, 0.96);
     placketMesh.rotation.set(0.14, 0, 0);
 
     // Bottom box-stitch placket tab
     const placketTabGeom = new THREE.BoxGeometry(0.48, 0.22, 0.055);
     const placketTabMesh = new THREE.Mesh(placketTabGeom, fabMat);
+    placketTabMesh.name = 'attachment_polo_placket_tab';
     placketTabMesh.position.set(0, 1.34, 0.88);
     placketTabMesh.rotation.set(0.14, 0, 0);
 
@@ -1327,10 +1940,13 @@ export class SceneManager {
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
 
     const b1 = new THREE.Mesh(buttonGeom, buttonMat);
+    b1.name = 'attachment_polo_button_1';
     b1.position.set(0, 2.70, 1.00);
     const b2 = new THREE.Mesh(buttonGeom, buttonMat);
+    b2.name = 'attachment_polo_button_2';
     b2.position.set(0, 2.22, 0.94);
     const b3 = new THREE.Mesh(buttonGeom, buttonMat);
+    b3.name = 'attachment_polo_button_3';
     b3.position.set(0, 1.74, 0.88);
 
     this.poloNeckCover = neckCoverMesh;
@@ -1346,10 +1962,12 @@ export class SceneManager {
     // Ribbed short-sleeve cuffs (left & right arm bands)
     const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
     const leftPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    leftPoloCuff.name = 'attachment_polo_cuff_left';
     leftPoloCuff.position.set(-3.25, 1.38, 0.06);
     leftPoloCuff.rotation.set(0, 0, -0.58);
 
     const rightPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    rightPoloCuff.name = 'attachment_polo_cuff_right';
     rightPoloCuff.position.set(3.25, 1.38, 0.06);
     rightPoloCuff.rotation.set(0, 0, 0.58);
     this.poloLeftCuff = leftPoloCuff;
@@ -1781,6 +2399,19 @@ export class SceneManager {
     const isPants = (t === 'sweatpants');
     const isCap = (t === 'cap');
 
+    // Select authentic garment geometry matching selected fit
+    if (this.tshirtStatic) {
+      const isRegular = (t === 'regular_tee');
+      const targetGeometry = isRegular ? this.tshirtRegularGeometry : this.tshirtOversizedGeometry;
+      if (targetGeometry && this.tshirtStatic.geometry !== targetGeometry) {
+        this.tshirtStatic.geometry = targetGeometry;
+        this.tshirtStatic.geometry.attributes.position.needsUpdate = true;
+        if (this.tshirtStatic.geometry.attributes.normal) {
+          this.tshirtStatic.geometry.attributes.normal.needsUpdate = true;
+        }
+      }
+    }
+
     // Show high-res upper body shirt mesh for all t-shirt family garments
     if (this.tshirtStatic) {
       this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
@@ -1792,16 +2423,12 @@ export class SceneManager {
       this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
-    // Upper body t-shirt scaling
+    // Upper body t-shirt scaling & positioning
     if (this.tshirtStatic) {
       if (t === 'cropped_tee') {
         // High-waisted boxy streetwear crop: wide drop-shoulder with clean raised hem
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
-      } else if (t === 'regular_tee') {
-        // Classic tailored fitted cut (standard shoulder seams, tailored torso, distinct from oversized)
-        this.tshirtStatic.scale.set(0.0084, 0.0094, 0.0080);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
       } else if (t === 'sweatshirt') {
         // Heavyweight fleece boxy drape matching long-sleeve sweatshirt attachments
         this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0104);
@@ -1811,9 +2438,27 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0094, 0.0096, 0.0090);
         this.tshirtStatic.position.set(0, -0.427445, 0);
       } else {
-        // Streetwear oversized drop-shoulder cut
+        // Both regular_tee and oversized_tee use authentic 1:1 scale (0.0100, 0.0100, 0.0100).
+        // Their visible silhouette distinction is driven by the authentic 3D geometry vertices.
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
+      }
+    }
+
+    // Adapt animations to selected fit silhouette
+    const isRegular = (t === 'regular_tee');
+    if (this.tshirtWalking) {
+      if (isRegular) {
+        this.tshirtWalking.scale.set(0.88, 0.86, 0.94);
+      } else {
+        this.tshirtWalking.scale.set(1.0, 1.0, 1.0);
+      }
+    }
+    if (this.tshirtWaves) {
+      if (isRegular) {
+        this.tshirtWaves.scale.set(0.88, 0.86, 0.94);
+      } else {
+        this.tshirtWaves.scale.set(1.0, 1.0, 1.0);
       }
     }
 
@@ -1828,15 +2473,20 @@ export class SceneManager {
       this.realCapRoot.visible = isCap;
     }
 
-    // Attachments visibility
-    if (this.hoodieZipperMesh) {
-      this.hoodieZipperMesh.visible = (t === 'zip_hoodie');
+    // Attachments visibility: strictly hide procedural attachments when not sweatshirt or polo
+    const isSweatshirt = (t === 'sweatshirt');
+    const isPolo = (t === 'polo');
+    if (this.attachmentsGroup) {
+      this.attachmentsGroup.visible = isSweatshirt || isPolo;
     }
     if (this.sweatshirtGroup) {
-      this.sweatshirtGroup.visible = (t === 'sweatshirt');
+      this.sweatshirtGroup.visible = isSweatshirt;
     }
     if (this.poloGroup) {
-      this.poloGroup.visible = (t === 'polo');
+      this.poloGroup.visible = isPolo;
+    }
+    if (this.hoodieZipperMesh) {
+      this.hoodieZipperMesh.visible = (t === 'zip_hoodie');
     }
     this.updateDecalVisibility();
   }
@@ -1850,6 +2500,60 @@ export class SceneManager {
     if (this.pantsDecalMeshThigh) this.pantsDecalMeshThigh.visible = hasFront;
     if (this.pantsDecalMeshPocket) this.pantsDecalMeshPocket.visible = hasBack;
     if (this.capDecalMeshFront) this.capDecalMeshFront.visible = hasFront;
+  }
+
+  inspectSceneMeshes(label = 'Scene Inspection') {
+    const tableData = [];
+
+    const isHierarchyVisible = (obj) => {
+      let cur = obj;
+      while (cur) {
+        if (!cur.visible) return false;
+        cur = cur.parent;
+      }
+      return true;
+    };
+
+    this.scene.traverse((obj) => {
+      if (obj.isMesh) {
+        const mat = obj.material;
+        const matName = Array.isArray(mat)
+          ? mat.map((m) => m?.name || m?.type || 'none').join(', ')
+          : (mat?.name || mat?.type || 'none');
+        const matColor = Array.isArray(mat)
+          ? mat.map((m) => (m?.color ? '#' + m.color.getHexString() : 'none')).join(', ')
+          : (mat?.color ? '#' + mat.color.getHexString() : 'none');
+        const mapInfo = Array.isArray(mat)
+          ? mat.map((m) => (m?.map ? (m.map.name || 'canvas/texture') + ` (cs:${m.map.colorSpace}, flipY:${m.map.flipY})` : 'none')).join(', ')
+          : (mat?.map ? (mat.map.name || 'canvas/texture') + ` (cs:${mat.map.colorSpace}, flipY:${mat.map.flipY})` : 'none');
+        const sideInfo = Array.isArray(mat)
+          ? mat.map((m) => (m?.side === THREE.DoubleSide ? 'DoubleSide' : (m?.side === THREE.BackSide ? 'BackSide' : 'FrontSide'))).join(', ')
+          : (mat?.side === THREE.DoubleSide ? 'DoubleSide' : (mat?.side === THREE.BackSide ? 'BackSide' : 'FrontSide'));
+        const normalsCount = obj.geometry?.attributes?.normal ? obj.geometry.attributes.normal.count : 0;
+        const vertexCount = obj.geometry?.attributes?.position ? obj.geometry.attributes.position.count : 0;
+
+        tableData.push({
+          Name: obj.name || '(unnamed mesh)',
+          Parent: obj.parent?.name || '(root)',
+          LocalVisible: obj.visible,
+          EffectiveVisible: isHierarchyVisible(obj),
+          Material: matName,
+          Color: matColor,
+          Side: sideInfo,
+          TextureMap: mapInfo,
+          Position: `${obj.position.x.toFixed(2)}, ${obj.position.y.toFixed(2)}, ${obj.position.z.toFixed(2)}`,
+          Rotation: `${obj.rotation.x.toFixed(2)}, ${obj.rotation.y.toFixed(2)}, ${obj.rotation.z.toFixed(2)}`,
+          Scale: `${obj.scale.x.toFixed(3)}, ${obj.scale.y.toFixed(3)}, ${obj.scale.z.toFixed(3)}`,
+          Normals: normalsCount > 0 ? `Yes (${normalsCount} norm / ${vertexCount} vert)` : 'NO NORMALS'
+        });
+      }
+    });
+
+    console.group(`🔍 [VirtualThread 3D Mesh Inspection] ${label} (Garment: ${this.garmentType}, Family: ${this.getGarmentFamily(this.garmentType)})`);
+    console.table(tableData);
+    console.groupEnd();
+
+    return tableData;
   }
 
   setAnimationMode(mode) {
@@ -2219,6 +2923,46 @@ export class SceneManager {
     const maxDelta = this.isRecordingVideo ? 0.33 : 0.05;
     const delta = Math.min(Math.max(rawDelta, 0.001), maxDelta);
 
+    // Smooth material preset transition (color, sheenColor, roughness, sheen, normalScale)
+    if (this.targetMaterialProps && this.shirtMaterial) {
+      const lerpSpeed = Math.min(1.0, delta * 8.0);
+
+      const curColor = this.shirtMaterial.color ? this.shirtMaterial.color.clone() : new THREE.Color(0xffffff);
+      curColor.lerp(this.targetMaterialProps.color, lerpSpeed);
+
+      let curSheenColor = this.shirtMaterial.sheenColor ? this.shirtMaterial.sheenColor.clone() : new THREE.Color(0xffffff);
+      curSheenColor.lerp(this.targetMaterialProps.sheenColor, lerpSpeed);
+
+      const curRoughness = this.shirtMaterial.roughness !== undefined ? this.shirtMaterial.roughness : 0.9;
+      const nextRoughness = THREE.MathUtils.lerp(curRoughness, this.targetMaterialProps.roughness, lerpSpeed);
+
+      const curSheen = this.shirtMaterial.sheen !== undefined ? this.shirtMaterial.sheen : 0.0;
+      const nextSheen = THREE.MathUtils.lerp(curSheen, this.targetMaterialProps.sheen, lerpSpeed);
+
+      const curSheenRoughness = this.shirtMaterial.sheenRoughness !== undefined ? this.shirtMaterial.sheenRoughness : 0.4;
+      const nextSheenRoughness = THREE.MathUtils.lerp(curSheenRoughness, this.targetMaterialProps.sheenRoughness, lerpSpeed);
+
+      const curNormalScale = this.shirtMaterial.normalScale ? this.shirtMaterial.normalScale.x : 0.35;
+      const nextNormalScale = THREE.MathUtils.lerp(curNormalScale, this.targetMaterialProps.normalScale, lerpSpeed);
+
+      const isConverged = curColor.distanceTo(this.targetMaterialProps.color) < 0.002 && Math.abs(nextRoughness - this.targetMaterialProps.roughness) < 0.002;
+
+      const propsToApply = isConverged ? this.targetMaterialProps : {
+        color: curColor,
+        sheenColor: curSheenColor,
+        roughness: nextRoughness,
+        sheen: nextSheen,
+        sheenRoughness: nextSheenRoughness,
+        normalScale: nextNormalScale
+      };
+
+      this.applyMaterialProps(propsToApply);
+
+      if (isConverged) {
+        this.targetMaterialProps = null;
+      }
+    }
+
     if (this.mixer) {
       this.mixer.update(delta);
     }
@@ -2437,9 +3181,16 @@ export class SceneManager {
 
     this.recordingBgColor = solidBg;
 
-    // Set 3D scene background to solid color during recording to guarantee 100% opaque WebGL pixels
+    // Set 3D scene background to solid color or custom device background during recording
     this.originalSceneBackground = this.scene.background;
-    this.scene.background = new THREE.Color(solidBg);
+    if (this.backdropMode === 'custom' && this.customBackgroundTexture) {
+      this.scene.background = this.customBackgroundTexture;
+      const imgW = this.customBackgroundImage?.naturalWidth || this.customBackgroundImage?.width || targetW;
+      const imgH = this.customBackgroundImage?.naturalHeight || this.customBackgroundImage?.height || targetH;
+      this.fitTextureCover(this.customBackgroundTexture, imgW, imgH, targetW, targetH);
+    } else {
+      this.scene.background = new THREE.Color(solidBg);
+    }
 
     // Save controls state and lock orbit interaction during capture to prevent mouse movement
     this.preRecordState = {
@@ -2523,15 +3274,29 @@ export class SceneManager {
     const originalWidth = this.width;
     const originalHeight = this.height;
     const originalRatio = this.renderer.getPixelRatio();
+    const origSceneBg = this.scene.background;
 
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
+    if (!isTransparent && this.backdropMode === 'custom' && this.customBackgroundTexture) {
+      this.scene.background = this.customBackgroundTexture;
+      const imgW = this.customBackgroundImage?.naturalWidth || this.customBackgroundImage?.width || width;
+      const imgH = this.customBackgroundImage?.naturalHeight || this.customBackgroundImage?.height || height;
+      this.fitTextureCover(this.customBackgroundTexture, imgW, imgH, width, height);
+    } else if (isTransparent) {
+      this.scene.background = null;
+    } else {
+      const isLight = this.backdropMode === 'light';
+      this.scene.background = new THREE.Color(isLight ? 0xf3f4f6 : 0x121318);
+    }
+
     this.renderer.render(this.scene, this.camera);
     const dataUrl = this.renderer.domElement.toDataURL(isTransparent ? 'image/png' : 'image/jpeg', 0.95);
 
+    this.scene.background = origSceneBg;
     this.renderer.setSize(originalWidth, originalHeight);
     this.renderer.setPixelRatio(originalRatio);
     this.camera.aspect = originalWidth / originalHeight;

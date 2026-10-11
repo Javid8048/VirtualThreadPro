@@ -7,24 +7,39 @@ export function Viewport3D({
   onCameraChange,
   onZoomIn,
   onZoomOut,
-  backdropMode
+  backdropMode,
+  customBackground = null,
+  backgroundBlur = 0
 }) {
   const containerRef = useRef(null);
 
   // Background style class
   const getBackdropClass = () => {
     if (backdropMode === 'dark') {
-      return 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-studio-800 via-studio-900 to-studio-950';
+      return 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
     } else if (backdropMode === 'light') {
       return 'bg-gradient-to-b from-[#e8ecf3] to-[#ccd4e2]';
-    } else {
+    } else if (backdropMode === 'transparent') {
       // Transparent checkerboard
-      return 'bg-[linear-gradient(45deg,#1b202c_25%,transparent_25%),linear-gradient(-45deg,#1b202c_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1b202c_75%),linear-gradient(-45deg,transparent_75%,#1b202c_75%)] bg-[size:24px_24px] bg-studio-950';
+      return 'bg-[linear-gradient(45deg,#1b202c_25%,transparent_25%),linear-gradient(-45deg,#1b202c_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1b202c_75%),linear-gradient(-45deg,transparent_75%,#1b202c_75%)] bg-[size:24px_24px] bg-[#0f1115]';
+    } else {
+      return 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
     }
   };
 
   return (
     <div className={`relative flex-1 h-[calc(100vh-3.5rem)] overflow-hidden transition-colors duration-300 ${getBackdropClass()}`}>
+      {/* Custom Device Background */}
+      {backdropMode === 'custom' && customBackground && (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-300"
+          style={{
+            backgroundImage: `url(${customBackground})`,
+            filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : 'none',
+            transform: backgroundBlur > 0 ? 'scale(1.06)' : 'none'
+          }}
+        />
+      )}
       {/* 3D Canvas Mounting Point */}
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 

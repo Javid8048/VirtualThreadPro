@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw, X } from 'lucide-react';
+import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw, X, Sliders } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 
 const COLOR_SWATCHES = [
   { name: 'Pure White', hex: '#ffffff' },
-  { name: 'Washed Black', hex: '#14161b' },
+  { name: 'Washed Black', hex: '#24272e' },
   { name: 'Heather Grey', hex: '#7a7d85' },
   { name: 'Vintage Cream', hex: '#f0ede6' },
   { name: 'Forest Green', hex: '#263b2f' },
@@ -17,6 +17,10 @@ const COLOR_SWATCHES = [
 export function SidebarLeft({
   garmentColor,
   onGarmentColorChange,
+  isComparisonMode = false,
+  onToggleComparison = () => {},
+  blackPreset = {},
+  onUpdateBlackPreset = () => {},
   backdropMode,
   onBackdropModeChange,
   animationMode,
@@ -47,11 +51,27 @@ export function SidebarLeft({
   activeSide = 'front',
   onSideChange,
   isExportStudioOpen = false,
-  onBackToLanding
+  onBackToLanding,
+  customBackground = null,
+  onCustomBackgroundUpload,
+  onRemoveCustomBackground,
+  backgroundBlur = 0,
+  onBackgroundBlurChange
 }) {
   const [openSection, setOpenSection] = useState('designs'); // default to 'designs'
   const [layers, setLayers] = useState([]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isBlackTweakOpen, setIsBlackTweakOpen] = useState(false);
+  const bgFileInputRef = useRef(null);
+
+  const handleBgFileSelected = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (onCustomBackgroundUpload) {
+      onCustomBackgroundUpload(file);
+    }
+    e.target.value = '';
+  };
 
   // Sync design layers
   useEffect(() => {
@@ -217,7 +237,7 @@ export function SidebarLeft({
                   onClick={onOpenProductsCatalog}
                   className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 dark:text-brand-accent hover:bg-indigo-50 dark:hover:bg-brand-500/15 border border-indigo-100 dark:border-brand-500/30 transition-colors"
                 >
-                  View All 7 Blanks & Details →
+                  View All 9 Blanks & Details →
                 </button>
               )}
             </div>
@@ -482,6 +502,192 @@ export function SidebarLeft({
                 />
                 <span className="text-[11px] font-mono text-gray-500 dark:text-studio-400 uppercase">{garmentColor}</span>
               </div>
+
+              {/* Blue vs Black Comparison Toggle */}
+              <div className="pt-2 border-t border-gray-100 dark:border-studio-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isComparisonMode;
+                    onToggleComparison(next);
+                    if (next) setIsBlackTweakOpen(true);
+                  }}
+                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-semibold border flex items-center justify-between transition-all ${
+                    isComparisonMode
+                      ? 'bg-brand-500 text-white border-transparent shadow-xs'
+                      : 'border-gray-200 dark:border-studio-700 text-gray-700 dark:text-studio-200 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="flex items-center -space-x-1">
+                      <span className="size-3 rounded-full bg-[#192848] border border-white/40" />
+                      <span className="size-3 rounded-full bg-[#24272e] border border-white/40" />
+                    </span>
+                    <span>Compare Blue vs Black</span>
+                  </span>
+                  <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full ${isComparisonMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-studio-700 text-gray-600 dark:text-studio-300'}`}>
+                    {isComparisonMode ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Tweakable Controls for Black Preset */}
+              <div className="pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsBlackTweakOpen(!isBlackTweakOpen)}
+                  className="w-full flex items-center justify-between text-[11px] font-semibold text-gray-600 dark:text-studio-300 hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Sliders className="size-3 text-gray-400 dark:text-studio-400" />
+                    <span>Black Preset Calibration</span>
+                  </div>
+                  {isBlackTweakOpen ? (
+                    <ChevronDown className="size-3.5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="size-3.5 text-gray-400" />
+                  )}
+                </button>
+
+                {isBlackTweakOpen && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-gray-50/90 dark:bg-studio-800/80 border border-gray-200/80 dark:border-studio-700/60 space-y-2.5 text-[11px] animate-fadeIn">
+                    {/* Base Color */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600 dark:text-studio-300 font-medium">Base Color</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={blackPreset.color || '#24272e'}
+                          onChange={(e) => onUpdateBlackPreset({ color: e.target.value })}
+                          className="size-5 rounded cursor-pointer border border-gray-300 dark:border-studio-600 bg-transparent"
+                        />
+                        <span className="font-mono text-[10px] text-gray-500 dark:text-studio-400 uppercase">
+                          {blackPreset.color || '#24272e'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Roughness */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Roughness</span>
+                        <span className="font-mono">{(blackPreset.roughness !== undefined ? blackPreset.roughness : 0.85).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={blackPreset.roughness !== undefined ? blackPreset.roughness : 0.85}
+                        onChange={(e) => onUpdateBlackPreset({ roughness: parseFloat(e.target.value) })}
+                        className="w-full accent-brand-500 h-1 bg-gray-200 dark:bg-studio-700 rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Sheen Intensity */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Sheen Intensity</span>
+                        <span className="font-mono">{(blackPreset.sheen !== undefined ? blackPreset.sheen : 1.0).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.05"
+                        value={blackPreset.sheen !== undefined ? blackPreset.sheen : 1.0}
+                        onChange={(e) => onUpdateBlackPreset({ sheen: parseFloat(e.target.value) })}
+                        className="w-full accent-brand-500 h-1 bg-gray-200 dark:bg-studio-700 rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Sheen Roughness */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Sheen Roughness</span>
+                        <span className="font-mono">{(blackPreset.sheenRoughness !== undefined ? blackPreset.sheenRoughness : 0.4).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={blackPreset.sheenRoughness !== undefined ? blackPreset.sheenRoughness : 0.4}
+                        onChange={(e) => onUpdateBlackPreset({ sheenRoughness: parseFloat(e.target.value) })}
+                        className="w-full accent-brand-500 h-1 bg-gray-200 dark:bg-studio-700 rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Sheen Color */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600 dark:text-studio-300 font-medium">Sheen Color</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={blackPreset.sheenColor || '#5a5f6e'}
+                          onChange={(e) => onUpdateBlackPreset({ sheenColor: e.target.value })}
+                          className="size-5 rounded cursor-pointer border border-gray-300 dark:border-studio-600 bg-transparent"
+                        />
+                        <span className="font-mono text-[10px] text-gray-500 dark:text-studio-400 uppercase">
+                          {blackPreset.sheenColor || '#5a5f6e'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Cool Rim Light Intensity */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Cool Rim Light (#9db0ff)</span>
+                        <span className="font-mono">{(blackPreset.rimIntensity !== undefined ? blackPreset.rimIntensity : 2.5).toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        value={blackPreset.rimIntensity !== undefined ? blackPreset.rimIntensity : 2.5}
+                        onChange={(e) => onUpdateBlackPreset({ rimIntensity: parseFloat(e.target.value) })}
+                        className="w-full accent-brand-500 h-1 bg-gray-200 dark:bg-studio-700 rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Normal Scale (Jersey Weave) */}
+                    <div>
+                      <div className="flex justify-between text-[10px] text-gray-500 dark:text-studio-400 mb-1">
+                        <span>Jersey Weave Normal</span>
+                        <span className="font-mono">{(blackPreset.normalScale !== undefined ? blackPreset.normalScale : 0.8).toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.05"
+                        value={blackPreset.normalScale !== undefined ? blackPreset.normalScale : 0.8}
+                        onChange={(e) => onUpdateBlackPreset({ normalScale: parseFloat(e.target.value) })}
+                        className="w-full accent-brand-500 h-1 bg-gray-200 dark:bg-studio-700 rounded-lg cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Reset Button */}
+                    <button
+                      type="button"
+                      onClick={() => onUpdateBlackPreset({
+                        color: '#24272e',
+                        roughness: 0.85,
+                        metalness: 0.0,
+                        sheen: 1.0,
+                        sheenRoughness: 0.4,
+                        sheenColor: '#5a5f6e',
+                        normalScale: 0.8,
+                        rimIntensity: 2.5
+                      })}
+                      className="w-full py-1 rounded-lg text-[10px] font-semibold text-gray-500 dark:text-studio-400 hover:text-gray-900 dark:hover:text-white bg-gray-200/60 dark:bg-studio-700/60 hover:bg-gray-200 dark:hover:bg-studio-700 transition-colors"
+                    >
+                      Reset Black Preset to Defaults
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -492,7 +698,13 @@ export function SidebarLeft({
             onClick={() => toggleSection('bg')}
             className="w-full flex items-center justify-between font-bold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-brand-accent py-1 transition-colors"
           >
-            <span>Background</span>
+            <div className="flex items-center gap-2">
+              <ImageIcon className="size-3.5 text-brand-500" />
+              <span>Background & Device Image</span>
+              {customBackground && (
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" title="Custom device background active" />
+              )}
+            </div>
             {openSection === 'bg' ? (
               <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
             ) : (
@@ -501,31 +713,129 @@ export function SidebarLeft({
           </button>
 
           {openSection === 'bg' && (
-            <div className="pt-2.5 pb-1 grid grid-cols-2 gap-1.5 animate-fadeIn">
-              <button
-                onClick={() => onBackdropModeChange('dark')}
-                className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all ${
-                  backdropMode === 'dark' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
-                }`}
-              >
-                Dark Studio
-              </button>
-              <button
-                onClick={() => onBackdropModeChange('light')}
-                className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all ${
-                  backdropMode === 'light' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
-                }`}
-              >
-                Clean Grey
-              </button>
-              <button
-                onClick={() => onBackdropModeChange('transparent')}
-                className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border col-span-2 transition-all ${
-                  backdropMode === 'transparent' ? 'bg-black dark:bg-brand-500 text-white' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
-                }`}
-              >
-                Transparent (PNG)
-              </button>
+            <div className="pt-2.5 pb-1 space-y-2 animate-fadeIn">
+              {/* Presets Grid */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onBackdropModeChange('dark')}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                    backdropMode === 'dark' ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-2 rounded-full bg-studio-900 border border-white/40 shrink-0" />
+                  <span>Dark Studio</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBackdropModeChange('light')}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                    backdropMode === 'light' ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-2 rounded-full bg-[#ccd4e2] border border-gray-400/40 shrink-0" />
+                  <span>Clean Grey</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBackdropModeChange('transparent')}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                    backdropMode === 'transparent' ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <span className="size-2 rounded-full bg-studio-800 border border-dashed border-gray-400 shrink-0" />
+                  <span>Transparent</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customBackground) {
+                      onBackdropModeChange('custom');
+                    } else if (bgFileInputRef.current) {
+                      bgFileInputRef.current.click();
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                    backdropMode === 'custom' ? 'bg-black dark:bg-brand-500 text-white border-transparent shadow-xs' : 'border-gray-200 dark:border-studio-700 text-gray-600 dark:text-studio-300 hover:bg-gray-50 dark:hover:bg-studio-800'
+                  }`}
+                >
+                  <ImageIcon className="size-3 shrink-0" />
+                  <span>Device Image</span>
+                </button>
+              </div>
+
+              {/* Hidden Global Input for Background File Selection */}
+              <input
+                ref={bgFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif,image/jpg"
+                onChange={handleBgFileSelected}
+                className="hidden"
+              />
+
+              {/* Upload CTA or Active Custom Image Card */}
+              {!customBackground ? (
+                <button
+                  type="button"
+                  onClick={() => bgFileInputRef.current?.click()}
+                  className="w-full py-2 px-3 rounded-xl border border-dashed border-gray-300 dark:border-studio-700 hover:border-brand-500 dark:hover:border-brand-500 bg-gray-50/60 dark:bg-studio-850/60 hover:bg-brand-50/50 dark:hover:bg-brand-500/10 text-gray-700 dark:text-studio-200 transition-all flex items-center justify-center gap-2 group active:scale-[0.99]"
+                >
+                  <UploadCloud className="size-4 text-brand-500 group-hover:scale-110 transition-transform shrink-0" />
+                  <span className="text-[11px] font-bold">Add Background from Device</span>
+                </button>
+              ) : (
+                <div className="p-2 rounded-xl bg-gray-50 dark:bg-studio-850 border border-gray-200 dark:border-studio-700 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="size-9 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-studio-700 bg-black/20">
+                        <img src={customBackground} alt="Device Background" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-gray-900 dark:text-white truncate">Device Background</div>
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                          <Check className="size-2.5" />
+                          <span>Active in Studio</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => bgFileInputRef.current?.click()}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-studio-800 hover:bg-gray-100 dark:hover:bg-studio-750 text-gray-700 dark:text-studio-200 border border-gray-200 dark:border-studio-700 transition-all shadow-2xs"
+                        title="Upload a different image from device"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onRemoveCustomBackground}
+                        className="size-6 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        title="Remove custom background"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Depth of Field (Blur) Slider */}
+                  <div className="pt-1.5 border-t border-gray-200/70 dark:border-studio-750">
+                    <div className="flex items-center justify-between text-[10px] font-medium text-gray-500 dark:text-studio-400 mb-1">
+                      <span>Depth of Field (Blur)</span>
+                      <span className="font-mono text-gray-700 dark:text-studio-200 font-bold">{backgroundBlur || 0}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="1"
+                      value={backgroundBlur || 0}
+                      onChange={(e) => onBackgroundBlurChange && onBackgroundBlurChange(Number(e.target.value))}
+                      className="w-full h-1 bg-gray-200 dark:bg-studio-700 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -839,6 +1149,35 @@ export function SidebarLeft({
                   onChange={(e) => onPuffPrintChange(parseFloat(e.target.value))}
                   className="w-full accent-brand-500 cursor-pointer"
                 />
+              </div>
+
+              {/* Fabric Texture Finish */}
+              <div className="p-2 bg-gray-50 dark:bg-studio-800/80 rounded-xl border border-gray-150 dark:border-studio-700 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-700 dark:text-studio-300">
+                  <span>Fabric Texture &amp; Weave</span>
+                  <span className="font-mono text-black dark:text-white capitalize">
+                    {designManager?.fabricFinish?.replace('_', ' ') || 'Cotton'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 pt-0.5">
+                  {[
+                    { id: 'cotton', label: 'Cotton' },
+                    { id: 'mineral_wash', label: 'Mineral' },
+                    { id: 'heavy_terry', label: 'Terry' }
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => designManager?.setFabricFinish?.(f.id)}
+                      className={`py-1 px-1 rounded-lg text-[10px] font-bold transition-all ${
+                        (designManager?.fabricFinish || 'cotton') === f.id
+                          ? 'bg-black dark:bg-brand-500 text-white shadow-xs'
+                          : 'bg-white dark:bg-studio-900 text-gray-600 dark:text-studio-300 border border-gray-200 dark:border-studio-700 hover:bg-gray-100 dark:hover:bg-studio-750'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
