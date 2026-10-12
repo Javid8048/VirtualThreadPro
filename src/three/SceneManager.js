@@ -1430,7 +1430,16 @@ export class SceneManager {
     const { color, sheenColor, roughness, sheen, sheenRoughness, normalScale, aoMapIntensity } = props;
 
     const colorObj = color instanceof THREE.Color ? color : (color ? new THREE.Color(color) : null);
-    const sheenColorObj = sheenColor instanceof THREE.Color ? sheenColor : (sheenColor ? new THREE.Color(sheenColor.startsWith && !sheenColor.startsWith('#') ? '#' + sheenColor : sheenColor) : null);
+    const parseColorSafe = (val) => {
+      if (!val) return null;
+      if (val instanceof THREE.Color) return val;
+      if (typeof val === 'string') {
+        const hex = val.startsWith('#') ? val : '#' + val;
+        try { return new THREE.Color(hex); } catch (e) { return null; }
+      }
+      try { return new THREE.Color(val); } catch (e) { return null; }
+    };
+    const sheenColorObj = parseColorSafe(sheenColor);
 
     const applyToMaterial = (mat) => {
       if (!mat || mat === this.decalMaterial) return;
@@ -1503,7 +1512,9 @@ export class SceneManager {
 
     const preset = this.getMaterialPresetForColor(resolvedHex);
     const targetColor = new THREE.Color(preset.color);
-    const sheenHex = preset.sheenColor.startsWith && !preset.sheenColor.startsWith('#') ? '#' + preset.sheenColor : preset.sheenColor;
+    const sheenHex = typeof preset.sheenColor === 'string'
+      ? (preset.sheenColor.startsWith('#') ? preset.sheenColor : '#' + preset.sheenColor)
+      : (preset.sheenColor || '#5a5f6e');
     const targetSheenColor = new THREE.Color(sheenHex);
 
     if (immediate) {
@@ -2930,41 +2941,72 @@ export class SceneManager {
     const delta = Math.min(Math.max(rawDelta, 0.001), maxDelta);
 
     // Smooth material preset transition (color, sheenColor, roughness, sheen, normalScale)
-    if (this.targetMaterialProps && this.shirtMaterial) {
-      const lerpSpeed = Math.min(1.0, delta * 8.0);
+    if (this.targetMaterialProps && (this.shirtMaterial || this.fabricMaterial || this.hoodieFabricMaterial)) {
+      try {
+        const lerpSpeed = Math.min(1.0, delta * 8.0);
+        const activeMat = this.shirtMaterial || this.fabricMaterial || this.hoodieFabricMaterial;
 
-      const curColor = this.shirtMaterial.color ? this.shirtMaterial.color.clone() : new THREE.Color(0xffffff);
-      curColor.lerp(this.targetMaterialProps.color, lerpSpeed);
+        const targetColor = this.targetMaterialProps.color instanceof THREE.Color
+          ? this.targetMaterialProps.color
+          : new THREE.Color(this.targetMaterialProps.color || 0xffffff);
 
-      let curSheenColor = this.shirtMaterial.sheenColor ? this.shirtMaterial.sheenColor.clone() : new THREE.Color(0xffffff);
-      curSheenColor.lerp(this.targetMaterialProps.sheenColor, lerpSpeed);
+        const curColor = activeMat?.color ? activeMat.color.clone() : new THREE.Color(0xffffff);
+        curColor.lerp(targetColor, lerpSpeed);
 
-      const curRoughness = this.shirtMaterial.roughness !== undefined ? this.shirtMaterial.roughness : 0.9;
-      const nextRoughness = THREE.MathUtils.lerp(curRoughness, this.targetMaterialProps.roughness, lerpSpeed);
+        const targetSheenColor = this.targetMaterialProps.sheenColor instanceof THREE.Color
+          ? this.targetMaterialProps.sheenColor
+          : new THREE.Color(
+              typeof this.targetMaterialProps.sheenColor === 'string'
+                ? (this.targetMaterialProps.sheenColor.startsWith('#') ? this.targetMaterialProps.sheenColor : '#' + this.targetMaterialProps.sheenColor)
+                : (this.targetMaterialProps.sheenColor || 0xffffff)
+            );
 
-      const curSheen = this.shirtMaterial.sheen !== undefined ? this.shirtMaterial.sheen : 0.0;
-      const nextSheen = THREE.MathUtils.lerp(curSheen, this.targetMaterialProps.sheen, lerpSpeed);
+        let curSheenColor = activeMat?.sheenColor ? activeMat.sheenColor.clone() : new THREE.Color(0xffffff);
+        curSheenColor.lerp(targetSheenColor, lerpSpeed);
 
-      const curSheenRoughness = this.shirtMaterial.sheenRoughness !== undefined ? this.shirtMaterial.sheenRoughness : 0.4;
-      const nextSheenRoughness = THREE.MathUtils.lerp(curSheenRoughness, this.targetMaterialProps.sheenRoughness, lerpSpeed);
+        const curRoughness = typeof activeMat?.roughness === 'number' ? activeMat.roughness : 0.9;
+        const targetRoughness = typeof this.targetMaterialProps.roughness === 'number' ? this.targetMaterialProps.roughness : 0.9;
+        const nextRoughness = THREE.MathUtils.lerp(curRoughness, targetRoughness, lerpSpeed);
 
-      const curNormalScale = this.shirtMaterial.normalScale ? this.shirtMaterial.normalScale.x : 0.35;
-      const nextNormalScale = THREE.MathUtils.lerp(curNormalScale, this.targetMaterialProps.normalScale, lerpSpeed);
+        const curSheen = typeof activeMat?.sheen === 'number' ? activeMat.sheen : 0.0;
+        const targetSheen = typeof this.targetMaterialProps.sheen === 'number' ? this.targetMaterialProps.sheen : 0.0;
+        const nextSheen = THREE.MathUtils.lerp(curSheen, targetSheen, lerpSpeed);
 
-      const isConverged = curColor.distanceTo(this.targetMaterialProps.color) < 0.002 && Math.abs(nextRoughness - this.targetMaterialProps.roughness) < 0.002;
+        const curSheenRoughness = typeof activeMat?.sheenRoughness === 'number' ? activeMat.sheenRoughness : 0.4;
+        const targetSheenRoughness = typeof this.targetMaterialProps.sheenRoughness === 'number' ? this.targetMaterialProps.sheenRoughness : 0.4;
+        const nextSheenRoughness = THREE.MathUtils.lerp(curSheenRoughness, targetSheenRoughness, lerpSpeed);
 
-      const propsToApply = isConverged ? this.targetMaterialProps : {
-        color: curColor,
-        sheenColor: curSheenColor,
-        roughness: nextRoughness,
-        sheen: nextSheen,
-        sheenRoughness: nextSheenRoughness,
-        normalScale: nextNormalScale
-      };
+        const curNormalScale = activeMat?.normalScale ? activeMat.normalScale.x : 0.35;
+        const targetNormalScale = typeof this.targetMaterialProps.normalScale === 'number' ? this.targetMaterialProps.normalScale : 0.35;
+        const nextNormalScale = THREE.MathUtils.lerp(curNormalScale, targetNormalScale, lerpSpeed);
 
-      this.applyMaterialProps(propsToApply);
+        // Euclidean RGB distance delta (THREE.Color has no distanceTo method)
+        const dR = curColor.r - targetColor.r;
+        const dG = curColor.g - targetColor.g;
+        const dB = curColor.b - targetColor.b;
+        const colorDist = Math.hypot(dR, dG, dB);
+        const isConverged = colorDist < 0.003 && Math.abs(nextRoughness - targetRoughness) < 0.003;
 
-      if (isConverged) {
+        const propsToApply = isConverged ? this.targetMaterialProps : {
+          color: curColor,
+          sheenColor: curSheenColor,
+          roughness: nextRoughness,
+          sheen: nextSheen,
+          sheenRoughness: nextSheenRoughness,
+          normalScale: nextNormalScale,
+          aoMapIntensity: this.targetMaterialProps.aoMapIntensity
+        };
+
+        this.applyMaterialProps(propsToApply);
+
+        if (isConverged) {
+          this.targetMaterialProps = null;
+        }
+      } catch (err) {
+        console.error('⚠️ [VirtualThread] Error during material transition lerp:', err);
+        if (this.targetMaterialProps) {
+          this.applyMaterialProps(this.targetMaterialProps);
+        }
         this.targetMaterialProps = null;
       }
     }

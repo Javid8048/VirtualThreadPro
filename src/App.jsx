@@ -222,7 +222,7 @@ export default function App() {
     window.__SCENE_MANAGER__ = sm;
     setDesignManager(sm.designManager);
 
-    if (garmentColor) sm.setGarmentColor(garmentColor);
+    if (garmentColor) sm.setGarmentColor(garmentColor, true);
     if (customBackground) sm.setCustomBackground(customBackground);
     if (backdropMode) sm.setupLighting(backdropMode);
     if (animationMode) sm.setAnimationMode(animationMode);
