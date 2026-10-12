@@ -241,153 +241,49 @@ export function LandingPage({
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1">
         
-        {/* Editorial Hero Section without duplicate heavy WebGL Canvas */}
-        <section className="pt-8 sm:pt-12 pb-10 border-b border-gray-200 dark:border-white/10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        {/* Clean Hero Section */}
+        <section className="pt-10 sm:pt-16 pb-12 sm:pb-16 border-b border-gray-200 dark:border-white/10">
+          <div className="max-w-3xl flex flex-col justify-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-500 text-xs font-semibold mb-4 border border-brand-500/20 w-fit">
+              <Sparkles className="size-3.5" />
+              <span>Real-Time 3D Apparel Engine • WebGL 2.0</span>
+            </div>
             
-            {/* Left Column: Headlines, Value Props & Actions */}
-            <div className="lg:col-span-7 flex flex-col justify-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 text-brand-500 text-xs font-semibold mb-4 border border-brand-500/20 w-fit">
-                <Sparkles className="size-3.5" />
-                <span>Real-Time 3D Apparel Engine • WebGL 2.0</span>
-              </div>
-              
-              <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-black tracking-tight text-gray-950 dark:text-white mb-4 leading-[1.12]">
-                Convert 2D Designs into 3D Apparel Mockups
-              </h1>
-              
-              <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed mb-6 max-w-xl">
-                Pick a streetwear blank, position your artwork in real-time 3D with tactile puff print and embroidery finishes, and export silky-smooth 60 FPS video loops and 4K renders in seconds.
-              </p>
+            <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-black tracking-tight text-gray-950 dark:text-white mb-4 leading-[1.12]">
+              Convert 2D Designs into 3D Apparel Mockups
+            </h1>
+            
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed mb-8 max-w-2xl">
+              Pick a streetwear blank, position your artwork in real-time 3D with tactile puff print and embroidery finishes, and export silky-smooth 60 FPS video loops and 4K renders in seconds.
+            </p>
 
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                {hasActiveSession && onResumeStudio ? (
-                  <button
-                    onClick={onResumeStudio}
-                    className="h-11 px-7 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
-                  >
-                    <Sparkles className="size-4" />
-                    <span>Resume Active Studio</span>
-                    <ArrowRight className="size-4" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onSelectGarment('regular_tee')}
-                    className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    <span>Launch 3D Studio</span>
-                    <ArrowRight className="size-4" />
-                  </button>
-                )}
-
-                <a
-                  href="#studio-blanks-grid"
-                  className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+            <div className="flex flex-wrap items-center gap-3">
+              {hasActiveSession && onResumeStudio ? (
+                <button
+                  onClick={onResumeStudio}
+                  className="h-11 px-7 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
                 >
-                  <span>Explore 9 Blanks</span>
-                </a>
-              </div>
+                  <Sparkles className="size-4" />
+                  <span>Resume Active Studio</span>
+                  <ArrowRight className="size-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => onSelectGarment('regular_tee')}
+                  className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
+                >
+                  <span>Launch 3D Studio</span>
+                  <ArrowRight className="size-4" />
+                </button>
+              )}
 
-              {/* Feature Highlights Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-100 dark:border-white/10 text-xs">
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <div className="size-2 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="font-semibold">9 Streetwear Blanks</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <div className="size-2 rounded-full bg-brand-500 shrink-0" />
-                  <span className="font-semibold">60 FPS WebGL Video</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <div className="size-2 rounded-full bg-purple-500 shrink-0" />
-                  <span className="font-semibold">Puff &amp; Embroidery</span>
-                </div>
-              </div>
+              <a
+                href="#studio-blanks-grid"
+                className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+              >
+                <span>Explore 9 Blanks</span>
+              </a>
             </div>
-
-            {/* Right Column: Studio Showcase Card (0ms Instant Load, Eliminates Demo WebGL Screen) */}
-            <div className="lg:col-span-5 flex items-center justify-center">
-              <div className="w-full max-w-md rounded-3xl border border-gray-200/90 dark:border-white/10 bg-white/95 dark:bg-[#15181e]/95 backdrop-blur-xl p-6 shadow-2xl transition-all">
-                {/* Header Badge */}
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10 mb-5">
-                  <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white">
-                      3D Studio Engine
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/20">
-                    WebGL 2.0 PBR
-                  </span>
-                </div>
-
-                {/* Quick Blank Silhouettes Grid */}
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2.5">
-                  Instant Launch Blanks:
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-5">
-                  {[
-                    { id: 'regular_tee', label: 'Classic Tee', gsm: '220 GSM' },
-                    { id: 'oversized_tee', label: 'Oversized', gsm: '280 GSM' },
-                    { id: 'hoodie', label: 'Hoodie', gsm: '420 GSM' },
-                    { id: 'sweatshirt', label: 'Sweatshirt', gsm: '380 GSM' },
-                    { id: 'sweatpants', label: 'Joggers', gsm: '380 GSM' },
-                    { id: 'cap', label: '6-Panel Cap', gsm: '280 GSM' },
-                  ].map((blank) => (
-                    <button
-                      key={blank.id}
-                      onClick={() => onSelectGarment(blank.id)}
-                      className="p-2.5 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.03] hover:border-brand-500/50 hover:bg-brand-500/5 transition-all text-left group"
-                    >
-                      <div className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-brand-500 transition-colors">
-                        {blank.label}
-                      </div>
-                      <div className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                        {blank.gsm}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Key Studio Features list */}
-                <div className="space-y-2 mb-5 text-xs text-gray-600 dark:text-gray-300">
-                  <div className="flex items-center gap-2">
-                    <Check className="size-3.5 text-emerald-500 shrink-0" />
-                    <span>Real-time front &amp; back 2D-to-3D UV artwork mapping</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="size-3.5 text-brand-500 shrink-0" />
-                    <span>360° turntable spin &amp; catwalk runway animations</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="size-3.5 text-purple-500 shrink-0" />
-                    <span>Hardware-accelerated 60 FPS video &amp; 4K snapshots</span>
-                  </div>
-                </div>
-
-                {/* Launch / Resume Button */}
-                {hasActiveSession && onResumeStudio ? (
-                  <button
-                    onClick={onResumeStudio}
-                    className="w-full h-11 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all shadow-md"
-                  >
-                    <Sparkles className="size-4" />
-                    <span>Resume 3D Studio Session</span>
-                    <ArrowRight className="size-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onSelectGarment(currentGarmentType || 'regular_tee')}
-                    className="w-full h-11 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-xs flex items-center justify-center gap-2 hover:opacity-90 active:scale-98 transition-all shadow-md"
-                  >
-                    <Shirt className="size-4" />
-                    <span>Open Customizer Studio</span>
-                    <ArrowRight className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
           </div>
         </section>
 
