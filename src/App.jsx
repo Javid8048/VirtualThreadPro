@@ -366,7 +366,13 @@ export default function App() {
 
   // Handlers
   const handleGarmentTypeChange = (type) => {
-    if (type === garmentType) return;
+    if (type === garmentType) {
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.applyGarmentTypeVisibility();
+        sceneManagerRef.current.updateDecalVisibility();
+      }
+      return;
+    }
     setIsGarmentLoading(true);
     setPendingGarmentType(type);
 
@@ -392,7 +398,8 @@ export default function App() {
       }, 300);
     }
 
-    // Restore cached artwork for the new garment if previously customized
+    // Restore cached artwork for the new garment if previously customized;
+    // otherwise preserve current artwork so uploaded graphics transfer across garment switches
     if (designManager) {
       const cached = artworkCacheRef.current[type];
       if (cached && cached.length > 0) {
@@ -408,7 +415,16 @@ export default function App() {
   window.__SET_VIEW_MODE__ = setViewMode;
 
   const handleSelectGarmentFromLanding = (type, color) => {
-    handleGarmentTypeChange(type);
+    if (type && type !== garmentType) {
+      handleGarmentTypeChange(type);
+    } else if (sceneManagerRef.current) {
+      sceneManagerRef.current.setGarmentType(type || garmentType, () => {
+        setIsGarmentLoading(false);
+        setPendingGarmentType(null);
+      });
+      sceneManagerRef.current.applyGarmentTypeVisibility();
+      sceneManagerRef.current.updateDecalVisibility();
+    }
     if (color) {
       handleGarmentColorChange(color);
     }
@@ -422,8 +438,29 @@ export default function App() {
   window.__SET_CURRENT_PAGE__ = setCurrentPage;
   window.__SET_RIGHT_DRAWER_MODE__ = setRightDrawerMode;
 
+  const handleResumeStudio = () => {
+    setPositionGuideOpen(true);
+    setRightDrawerMode('design');
+    setCurrentCamera('front');
+    setIsZoomed(false);
+    setCurrentPage('studio');
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.resume();
+      sceneManagerRef.current.applyGarmentTypeVisibility();
+      sceneManagerRef.current.updateDecalVisibility();
+      if (customBackground) {
+        sceneManagerRef.current.setCustomBackground(customBackground);
+      }
+      sceneManagerRef.current.setupLighting(backdropMode);
+    }
+  };
+  window.__RESUME_STUDIO__ = handleResumeStudio;
+
   const handleBackToLanding = () => {
-    // Non-destructive: retain custom designs in session so returning to studio keeps work intact
+    // Non-destructive: retain custom designs, background & colors in session so returning to studio keeps work intact
+    if (designManager) {
+      artworkCacheRef.current[garmentType] = [...designManager.layers];
+    }
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setAnimationMode('static');
       sceneManagerRef.current.setCameraPreset('front', true);
@@ -565,9 +602,6 @@ export default function App() {
 
   const handleInteractionModeChange = (mode) => {
     setInteractionMode(mode);
-    if (mode === 'dragDesign') {
-      setPositionGuideOpen(true);
-    }
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setInteractionMode(mode);
     }
@@ -709,6 +743,9 @@ export default function App() {
       {currentPage === 'landing' && (
         <LandingPage
           onSelectGarment={handleSelectGarmentFromLanding}
+          onResumeStudio={handleResumeStudio}
+          hasActiveSession={Boolean(designManager?.layers?.length > 0 || customBackground || garmentColor !== '#ffffff' || garmentType !== 'regular_tee')}
+          currentGarmentType={garmentType}
           onOpenPricing={() => setProductsCatalogOpen(true)}
           onOpenCatalog={() => setProductsCatalogOpen(true)}
           theme={theme}
@@ -751,13 +788,35 @@ export default function App() {
         }`}
       />
 
-      {/* 3D Viewport Mobile Touch Hint Pill (Swipe to rotate • Pinch to zoom) */}
+      {/* 3D Viewport Mobile Touch Hint Pill & Drag Design HUD */}
       {currentPage === 'studio' && viewMode === '3d' && (
-        <div className="md:hidden absolute top-18 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 animate-fadeIn">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-studio-900/70 backdrop-blur-md border border-studio-800 text-[10px] font-semibold text-studio-300 shadow-lg">
-            <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Swipe to rotate • Pinch to zoom</span>
-          </div>
+        <div className="md:hidden absolute top-18 left-1/2 -translate-x-1/2 select-none z-20 animate-fadeIn">
+          {interactionMode === 'dragDesign' ? (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-600/95 backdrop-blur-md border border-brand-400/80 text-[11px] font-bold text-white shadow-xl">
+              <Move className="size-3.5 animate-pulse shrink-0" />
+              <span>Drag graphic to move • Pinch to resize</span>
+              <button
+                onClick={() => handleInteractionModeChange('orbit')}
+                className="ml-1 px-2.5 py-0.5 rounded-full bg-black/40 hover:bg-black/60 text-[10px] font-extrabold uppercase tracking-wider text-white border border-white/20 transition-all pointer-events-auto"
+                title="Exit to Orbit Mode"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-studio-900/80 backdrop-blur-md border border-studio-800 text-[10px] font-semibold text-studio-300 shadow-lg">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>Swipe to rotate • Pinch to zoom</span>
+              <button
+                onClick={() => handleInteractionModeChange('dragDesign')}
+                className="ml-1.5 px-2 py-0.5 rounded-md bg-brand-500/25 hover:bg-brand-500/40 text-[10px] font-bold text-brand-300 border border-brand-500/40 transition-all pointer-events-auto flex items-center gap-1"
+                title="Switch to Move Design Mode"
+              >
+                <Move className="size-2.5" />
+                <span>Move Design</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { CanvasDesignManager } from './CanvasDesignManager';
+import { ApparelMeshBuilder } from './ApparelMesh';
 import { getAssetUrl } from '../utils/assets';
 
 if (typeof window !== 'undefined') {
@@ -683,8 +684,22 @@ export class SceneManager {
       },
       undefined,
       (err) => {
-        console.error('Error loading 3D apparel model:', err);
+        console.warn('⚠️ GLTF apparel model load error, creating procedural garment fallback:', err);
+        if (!this.tshirtStatic) {
+          const fallbackGeo = ApparelMeshBuilder.createTShirtGeometry('oversized');
+          this.tshirtStatic = new THREE.Mesh(fallbackGeo, this.fabricMaterial || this.shirtMaterial);
+          this.tshirtStatic.name = 'tshirt_static';
+          this.tshirtStatic.position.set(0, -0.427445, 0);
+          this.tshirtStatic.scale.set(0.72, 0.72, 0.72);
+          this.tshirtStatic.visible = true;
+          this.scene.add(this.tshirtStatic);
+          this.tshirtOversizedGeometry = fallbackGeo;
+          this.tshirtRegularGeometry = this.createRegularFitGeometry(fallbackGeo);
+        }
+        this.modelsLoaded.tshirt = true;
         this.modelsLoading.tshirt = false;
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady(true);
         const cbs = [...this.tshirtCallbacks];
         this.tshirtCallbacks = [];
         cbs.forEach(cb => cb());
@@ -1040,25 +1055,6 @@ export class SceneManager {
           }
         }, 380);
 
-        // If direct UV hit on mesh, also snap to raycast position
-        const rect = dom.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const mesh = this.getActiveMesh();
-        if (mesh && !e.altKey && this.designGestureMode === 'move') {
-          const intersects = this.raycaster.intersectObject(mesh, false);
-          if (intersects.length > 0 && intersects[0].uv) {
-            const uv = intersects[0].uv;
-            const x = Math.round(uv.x * 2048);
-            const y = Math.round(uv.y * 2048);
-            const side = x < 1024 ? 'front' : 'back';
-            this.dragStart.startX = x;
-            this.dragStart.startY = y;
-            this.dragStart.side = side;
-            this.designManager.updateLayer(activeLayer.id, { x, y, side }, true);
-          }
-        }
       }
     });
 
@@ -1787,8 +1783,9 @@ export class SceneManager {
 
     const finish = () => {
       this.applyGarmentTypeVisibility();
+      this.updateDecalVisibility();
       this.setAnimationMode(this.animationMode);
-      this.triggerLoadedIfReady();
+      this.triggerLoadedIfReady(true);
       if (this.controls && this.camera) {
         this.setCameraPreset(this.currentCameraView || 'front', this.isZoomed);
       }
@@ -2177,8 +2174,11 @@ export class SceneManager {
       },
       undefined,
       (err) => {
-        console.error('Error loading virtualthreads hoodie GLB:', err);
+        console.warn('⚠️ Error loading virtualthreads hoodie GLB:', err);
+        this.modelsLoaded.hoodie = true;
         this.modelsLoading.hoodie = false;
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady(true);
         const cbs = [...this.hoodieCallbacks];
         this.hoodieCallbacks = [];
         cbs.forEach(cb => cb());
@@ -2288,8 +2288,11 @@ export class SceneManager {
       },
       undefined,
       (err) => {
-        console.error('Error loading real pants OBJ:', err);
+        console.warn('⚠️ Error loading real pants OBJ:', err);
+        this.modelsLoaded.pants = true;
         this.modelsLoading.pants = false;
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady(true);
         const cbs = [...this.pantsCallbacks];
         this.pantsCallbacks = [];
         cbs.forEach(cb => cb());
@@ -2379,8 +2382,11 @@ export class SceneManager {
       },
       undefined,
       (err) => {
-        console.error('Error loading real cap OBJ:', err);
+        console.warn('⚠️ Error loading real cap OBJ:', err);
+        this.modelsLoaded.cap = true;
         this.modelsLoading.cap = false;
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady(true);
         const cbs = [...this.capCallbacks];
         this.capCallbacks = [];
         cbs.forEach(cb => cb());
@@ -2395,9 +2401,9 @@ export class SceneManager {
   applyGarmentTypeVisibility() {
     const t = this.garmentType || 'regular_tee';
     const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
-    const isTshirtFamily = !isHoodieFamily;
     const isPants = (t === 'sweatpants');
     const isCap = (t === 'cap');
+    const isTshirtFamily = !isHoodieFamily && !isPants && !isCap;
 
     // Select authentic garment geometry matching selected fit
     if (this.tshirtStatic) {

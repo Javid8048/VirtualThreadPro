@@ -229,7 +229,29 @@ export function MobileBottomNav({
           <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-studio-500 mb-1.5">
             Viewport & Studio Mode
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
+            {/* Drag Design vs Orbit Mode Toggle */}
+            <button
+              onClick={() => {
+                onInteractionModeChange(interactionMode === 'orbit' ? 'dragDesign' : 'orbit');
+                setShowCameraFlyout(false);
+              }}
+              className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold transition-all ${
+                interactionMode === 'dragDesign'
+                  ? 'bg-brand-500 text-white shadow-sm ring-2 ring-brand-400/40'
+                  : 'bg-gray-100 dark:bg-studio-800 text-gray-700 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-750'
+              }`}
+              title="Toggle Drag Design Mode"
+            >
+              <div className="relative">
+                <Move className="size-4" />
+                {interactionMode === 'dragDesign' && (
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-white animate-pulse" />
+                )}
+              </div>
+              <span className="truncate max-w-full px-0.5">{interactionMode === 'dragDesign' ? 'Drag Mode' : 'Orbit Mode'}</span>
+            </button>
+
             {/* Zoom Toggle */}
             <button
               onClick={onToggleZoom}
@@ -273,19 +295,26 @@ export function MobileBottomNav({
 
       {/* Main Glassmorphic Dock with Direct Rotate & Walk in Bottom Bar */}
       <nav className="h-14 px-1 bg-white/95 dark:bg-studio-900/95 backdrop-blur-2xl rounded-2xl border border-gray-200/90 dark:border-studio-700/80 shadow-2xl grid grid-cols-6 gap-0.5 text-gray-900 dark:text-white items-center">
-        {/* 1. Mode / 3D Orbit Action (or 3D Studio switch in 2D mode) */}
+        {/* 1. Drag Design vs 3D Orbit Mode Toggle */}
         {viewMode === '3d' ? (
           <button
             onClick={() => onInteractionModeChange(interactionMode === 'orbit' ? 'dragDesign' : 'orbit')}
             className={`h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all ${
               interactionMode === 'dragDesign'
-                ? 'bg-brand-500 text-white shadow-sm ring-1 ring-brand-400/40'
+                ? 'bg-brand-500 text-white shadow-md ring-2 ring-brand-400/50 font-black'
                 : 'text-gray-700 dark:text-studio-200 hover:bg-gray-100 dark:hover:bg-studio-800'
             }`}
-            title={interactionMode === 'orbit' ? 'Switch to Move/Resize Design' : 'Switch to 3D Orbit'}
+            title={interactionMode === 'orbit' ? 'Switch to Drag & Move Design Mode' : 'Switch to 3D Orbit Camera'}
           >
-            {interactionMode === 'orbit' ? <RotateCw className="size-3.5" /> : <Move className="size-3.5" />}
-            <span className="text-[9px] font-bold leading-none">{interactionMode === 'orbit' ? 'Orbit' : 'Move'}</span>
+            <div className="relative">
+              <Move className={`size-3.5 ${interactionMode === 'dragDesign' ? 'animate-pulse' : ''}`} />
+              {interactionMode === 'dragDesign' && (
+                <span className="absolute -top-1 -right-1 size-1.5 rounded-full bg-white animate-ping" />
+              )}
+            </div>
+            <span className="text-[9px] font-bold leading-none truncate max-w-full px-0.5">
+              {interactionMode === 'dragDesign' ? 'Dragging' : 'Drag Design'}
+            </span>
           </button>
         ) : (
           <button
