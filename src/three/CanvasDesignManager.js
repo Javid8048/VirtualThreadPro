@@ -345,10 +345,7 @@ export class CanvasDesignManager {
     const isDecalGarment = this.garmentType && (
       this.garmentType === 'hoodie' ||
       this.garmentType === 'zip_hoodie' ||
-      this.garmentType === 'hanging_hoodie' ||
-      this.garmentType === 'sweatpants' ||
-      this.garmentType === 'pants' ||
-      this.garmentType === 'cap'
+      this.garmentType === 'hanging_hoodie'
     );
 
     if (isDecalGarment && dCtx) {

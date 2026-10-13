@@ -80,12 +80,9 @@ export function HeaderNav({
     regular_tee: 'Normal T-Shirt',
     oversized_tee: 'Oversized Tee',
     cropped_tee: 'Cropped Tee',
-    polo: 'Athletic Polo',
     sweatshirt: 'Sweatshirt',
     hoodie: 'Hoodie',
-    zip_hoodie: 'Zip Hoodie',
-    sweatpants: 'Jogger Sweatpants',
-    cap: '6-Panel Cap'
+    zip_hoodie: 'Zip Hoodie'
   };
 
   return (

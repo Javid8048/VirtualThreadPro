@@ -30,7 +30,9 @@ function fastStaticModelsPlugin() {
                   'Content-Length': stat.size,
                   'Content-Type': mimeTypes[ext] || 'application/octet-stream',
                   'Access-Control-Allow-Origin': '*',
-                  'Cache-Control': 'public, max-age=3600'
+                  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+                  'Pragma': 'no-cache',
+                  'Expires': '0'
                 });
                 fs.createReadStream(filePath, { highWaterMark: 1024 * 1024 }).pipe(res);
                 return;
@@ -48,12 +50,31 @@ function fastStaticModelsPlugin() {
 
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? '/VirtualThreadPro/' : '/',
+  define: {
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString())
+  },
   plugins: [react(), fastStaticModelsPlugin()],
   server: {
     port: 3000,
     open: false,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    },
     watch: {
-      ignored: ['**/scratch_*/**', '**/scratch*/**', '**/dist/**', '**/*.mjs']
+      usePolling: true,
+      interval: 300,
+      ignored: ['**/dist/**']
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      }
     }
   }
 }));

@@ -8,13 +8,10 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 9 },
+  { id: 'all', label: 'All Blanks', count: 6 },
   { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['regular_tee', 'oversized_tee', 'cropped_tee'] },
   { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] },
   { id: 'sweatshirts', label: 'Sweatshirts', count: 1, ids: ['sweatshirt'] },
-  { id: 'polo', label: 'Polo Shirts', count: 1, ids: ['polo'] },
-  { id: 'bottoms', label: 'Bottoms', count: 1, ids: ['sweatpants'] },
-  { id: 'headwear', label: 'Headwear', count: 1, ids: ['cap'] },
 ];
 
 // Curated blank specifications
@@ -24,10 +21,7 @@ const BLANK_SPECS = {
   hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
   sweatshirt: { gsm: '380 GSM', subtitle: 'French Terry Cotton · Ribbed Crewneck' },
   cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
-  zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' },
-  polo: { gsm: '220 GSM', subtitle: 'Honeycomb Piqué Cotton · Tailored Athletic Fit' },
-  sweatpants: { gsm: '380 GSM', subtitle: 'Heavyweight Fleece · Drawstrings & Ribbed Cuffs' },
-  cap: { gsm: '280 GSM', subtitle: 'Structured Cotton Twill · 6-Panel Curved Brim' }
+  zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' }
 };
 
 // Studio Capabilities (Feature breakdown matching clone prompt)
@@ -281,7 +275,7 @@ export function LandingPage({
                 href="#studio-blanks-grid"
                 className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
               >
-                <span>Explore 9 Blanks</span>
+                <span>Explore 6 Blanks</span>
               </a>
             </div>
           </div>

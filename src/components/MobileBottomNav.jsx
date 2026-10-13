@@ -38,7 +38,7 @@ export function MobileBottomNav({
 }) {
   const [showCameraFlyout, setShowCameraFlyout] = useState(false);
 
-  const isWalkable = garmentType !== 'polo';
+  const isWalkable = true;
   const isRotating = animationMode === 'turntable' || animationMode === 'rotate_walk';
   const isWalking = (animationMode === 'walking' || animationMode === 'rotate_walk') && isWalkable;
   const isTurntable = animationMode === 'turntable';

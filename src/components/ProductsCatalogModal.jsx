@@ -68,46 +68,13 @@ export const GARMENT_PRODUCTS = [
     features: ['Front Metal Zipper', 'Split Kangaroo Pocket', 'Dual-side Decals'],
     imageBg: 'from-rose-900/30 to-slate-950/40',
     popular: true
-  },
-  {
-    id: 'polo',
-    title: 'TAILORED ATHLETIC POLO STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Collared',
-    description: 'Tailored athletic polo crafted from 220 GSM honeycomb piqué cotton with flat-knit collar, 3-button placket, and ribbed cuffs.',
-    features: ['Flat-Knit Turned Collar', '3-Button Placket Welt', 'Ribbed Arm Cuffs'],
-    imageBg: 'from-teal-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
-    id: 'sweatpants',
-    title: 'STREETWEAR JOGGER SWEATPANTS STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Bottoms',
-    description: 'Heavyweight streetwear fleece jogger sweatpants with anatomical waistband, hanging drawstrings with metal aglets, tapered knees, and ribbed cuffs.',
-    features: ['Drawstrings with Metal Aglets', 'Front Thigh & Back Pocket Decals', 'Tapered Streetwear Fit'],
-    imageBg: 'from-zinc-900/40 to-slate-950/40',
-    popular: true
-  },
-  {
-    id: 'cap',
-    title: 'STRUCTURED 6-PANEL CAP STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Headwear',
-    description: 'Structured 6-panel streetwear cap with curved visor brim, top button squatchee, and authentic front crown embroidery profile.',
-    features: ['3D Crown Panels & Visor', 'Front Decal & Embroidery', '360° Turntable Orbit'],
-    imageBg: 'from-amber-900/30 to-stone-950/40',
-    popular: true
   }
 ];
 
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 9 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 6 streetwear blanks, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
