@@ -6,7 +6,8 @@ export function PresetGraphicsModal({
   isOpen,
   onClose,
   onSelectGraphic,
-  selectedSide = 'front'
+  selectedSide = 'front',
+  garmentColor = '#ffffff'
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,11 +26,12 @@ export function PresetGraphicsModal({
   const handleApplyGraphic = async (item) => {
     try {
       setIsAdding(true);
-      const { img, dataUrl } = await svgToImage(item.svg);
+      const { img, dataUrl, svg } = await svgToImage(item.svg, garmentColor);
       onSelectGraphic({
         image: img,
         dataUrl,
-        name: item.name
+        name: item.name,
+        svg: item.svg
       });
       setIsAdding(false);
       onClose();

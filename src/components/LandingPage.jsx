@@ -8,18 +8,16 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 6 },
+  { id: 'all', label: 'All Blanks', count: 5 },
   { id: 'tshirts', label: 'T-Shirts', count: 3, ids: ['regular_tee', 'oversized_tee', 'cropped_tee'] },
-  { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] },
-  { id: 'sweatshirts', label: 'Sweatshirts', count: 1, ids: ['sweatshirt'] },
+  { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] }
 ];
 
 // Curated blank specifications
 const BLANK_SPECS = {
-  regular_tee: { gsm: '220 GSM', subtitle: 'Ringspun Cotton · Classic Normal Fit' },
+  regular_tee: { gsm: '220 GSM', subtitle: 'Classic Combed Cotton · Standard Fit' },
   oversized_tee: { gsm: '280 GSM', subtitle: 'Heavyweight Combed Cotton · Drop-Shoulder' },
   hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
-  sweatshirt: { gsm: '380 GSM', subtitle: 'French Terry Cotton · Ribbed Crewneck' },
   cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
   zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' }
 };
@@ -56,14 +54,14 @@ const PRICING_TIERS = [
     frequency: 'Instant Access',
     desc: 'Launch the interactive 3D studio and customize all blanks immediately with no sign-up wall.',
     features: [
-      'Access to all 7 streetwear 3D blanks',
+      'Access to all 5 streetwear 3D blanks',
       'Front & back artwork positioning',
       'Real-time color customization',
       '360° turntable & walk animations',
       'Standard resolution exports'
     ],
     buttonText: 'Try Starter Studio',
-    garmentId: 'regular_tee',
+    garmentId: 'oversized_tee',
     featured: false
   },
   {
@@ -95,7 +93,7 @@ const PRICING_TIERS = [
       'Priority client presentation rendering'
     ],
     buttonText: 'Enter Agency Studio',
-    garmentId: 'sweatshirt',
+    garmentId: 'zip_hoodie',
     featured: false
   }
 ];

@@ -15,7 +15,8 @@ import {
   Image as ImageIcon,
   UploadCloud,
   Trash2,
-  Check
+  Check,
+  FolderOpen
 } from 'lucide-react';
 
 export function HeaderNav({
@@ -39,6 +40,7 @@ export function HeaderNav({
   theme = 'dark',
   onToggleTheme,
   onOpenExport,
+  onOpenProjects,
   onBackToLanding,
   onUndo,
   onRedo,
@@ -77,10 +79,10 @@ export function HeaderNav({
   ];
 
   const garmentNameMap = {
-    regular_tee: 'Normal T-Shirt',
+    regular_tee: 'Regular Tee',
     oversized_tee: 'Oversized Tee',
+    polo: 'Polo T-Shirt',
     cropped_tee: 'Cropped Tee',
-    sweatshirt: 'Sweatshirt',
     hoodie: 'Hoodie',
     zip_hoodie: 'Zip Hoodie'
   };
@@ -284,8 +286,19 @@ export function HeaderNav({
 
       </div>
 
-      {/* 3. Right: Quick Actions (Export Button, Theme & Fullscreen) */}
+      {/* 3. Right: Quick Actions (Projects, Export Button, Theme & Fullscreen) */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {onOpenProjects && (
+          <button
+            onClick={onOpenProjects}
+            className="px-2.5 py-1.5 rounded-xl border border-gray-200/90 dark:border-studio-700 bg-white dark:bg-studio-800 text-gray-700 dark:text-studio-200 hover:border-brand-500 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95"
+            title="Open saved projects and designs"
+          >
+            <FolderOpen className="size-3.5 text-brand-500" />
+            <span className="hidden sm:inline">Projects</span>
+          </button>
+        )}
+
         {onOpenExport && (
           <button
             onClick={onOpenExport}

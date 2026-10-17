@@ -30,7 +30,7 @@ export function MobileBottomNav({
   rightDrawerMode = 'design',
   onToggleDesignGuide,
   onOpenExport,
-  garmentType = 'regular_tee',
+  garmentType = 'oversized_tee',
   viewMode = '3d',
   onViewModeChange,
   selectedSide = 'front',

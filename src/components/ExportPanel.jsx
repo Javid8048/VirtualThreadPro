@@ -43,13 +43,15 @@ export function ExportPanel({
   const [imageFormat, setImageFormat] = useState('png'); // 'png' | 'jpg'
   const [isGeneratingTechPack, setIsGeneratingTechPack] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [printArtworkSide, setPrintArtworkSide] = useState('front');
+  const [isExportingDual, setIsExportingDual] = useState(false);
 
   useEffect(() => {
     if (defaultTab) setActiveTab(defaultTab);
   }, [defaultTab]);
 
   // Video recording state
-  const [videoFps, setVideoFps] = useState(24); // 24 | 30 | 60 - Default is 24
+  const [videoFps, setVideoFps] = useState(30); // 30 | 60 | 24 - Default is 30 for silky-smooth motion
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
   const [videoMotion, setVideoMotion] = useState('current'); // 'current' | 'showcase360'
   const [preferredFormat, setPreferredFormat] = useState('webm'); // 'webm' | 'mp4'
@@ -111,6 +113,59 @@ export function ExportPanel({
     // Trigger download
     const link = document.createElement('a');
     link.download = `virtualthreads-${imageRes}-${Date.now()}.${imageFormat}`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadDualViews = async () => {
+    if (!sceneManager) return;
+    setIsExportingDual(true);
+    try {
+      let width = 3840;
+      let height = 2160;
+      if (imageRes === '1080p') { width = 1920; height = 1080; }
+      else if (imageRes === 'mobile') { width = 1080; height = 1920; }
+      else if (imageRes === '2k_square') { width = 2048; height = 2048; }
+
+      const isTransparent = imageFormat === 'png';
+
+      // 1. Front View
+      await sceneManager.setCameraPreset('front');
+      await new Promise((r) => setTimeout(r, 350));
+      const frontUrl = sceneManager.captureSnapshot(width, height, isTransparent);
+      const link1 = document.createElement('a');
+      link1.download = `garment-front-${Date.now()}.${imageFormat}`;
+      link1.href = frontUrl;
+      document.body.appendChild(link1);
+      link1.click();
+      document.body.removeChild(link1);
+
+      // 2. Back View
+      await sceneManager.setCameraPreset('back');
+      await new Promise((r) => setTimeout(r, 350));
+      const backUrl = sceneManager.captureSnapshot(width, height, isTransparent);
+      const link2 = document.createElement('a');
+      link2.download = `garment-back-${Date.now()}.${imageFormat}`;
+      link2.href = backUrl;
+      document.body.appendChild(link2);
+      link2.click();
+      document.body.removeChild(link2);
+    } catch (e) {
+      console.error('Dual view export failed:', e);
+    } finally {
+      setIsExportingDual(false);
+    }
+  };
+
+  const handleDownloadPrintReady = () => {
+    const dm = sceneManager?.designManager;
+    if (!dm) return;
+    const dataUrl = dm.exportPrintReadyArtwork(printArtworkSide);
+    if (!dataUrl) return;
+    const link = document.createElement('a');
+    link.download = `print-ready-artwork-${printArtworkSide}-${Date.now()}.png`;
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
@@ -653,9 +708,9 @@ export function ExportPanel({
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { value: 24, label: '24 FPS', desc: 'Default / Cinematic' },
-                  { value: 30, label: '30 FPS', desc: 'Standard Video' },
-                  { value: 60, label: '60 FPS', desc: 'High Motion' }
+                  { value: 30, label: '30 FPS', desc: 'Smooth Standard' },
+                  { value: 60, label: '60 FPS', desc: 'Ultra Smooth 60fps' },
+                  { value: 24, label: '24 FPS', desc: 'Cinematic' }
                 ].map((item) => (
                   <button
                     key={item.value}
@@ -1002,11 +1057,75 @@ export function ExportPanel({
             <button
               onClick={handleDownloadSnapshot}
               disabled={!hasAcceptedAup}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-2 disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-brand-500 via-indigo-600 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-extrabold text-sm shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               <Download className="size-4" />
               <span>Download {imageRes.toUpperCase()} Snapshot ({imageFormat.toUpperCase()})</span>
             </button>
+
+            {/* Dual Front & Back Export */}
+            <button
+              onClick={handleDownloadDualViews}
+              disabled={!hasAcceptedAup || isExportingDual}
+              className="w-full py-2.5 px-4 rounded-2xl bg-gray-100 dark:bg-studio-800 hover:bg-gray-200 dark:hover:bg-studio-700 text-gray-900 dark:text-white font-bold text-xs border border-gray-200 dark:border-studio-700 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {isExportingDual ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin text-brand-500" />
+                  <span>Capturing Front & Back Views...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCw className="size-3.5 text-brand-500" />
+                  <span>Download Dual Views (Front & Back PNGs)</span>
+                </>
+              )}
+            </button>
+
+            {/* Print-Ready Isolated Artwork Export Section */}
+            <div className="pt-3 border-t border-gray-100 dark:border-studio-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700 dark:text-studio-200 flex items-center gap-1.5">
+                  <Palette className="size-3.5 text-brand-500" />
+                  <span>Print-Ready Artwork (DTG/Screen)</span>
+                </label>
+                <span className="text-[10px] font-mono font-bold text-brand-500 bg-brand-50 dark:bg-brand-500/20 px-2 py-0.5 rounded-full border border-brand-200 dark:border-brand-500/30">
+                  Isolated PNG
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 dark:text-studio-400">
+                Exports transparent 300-DPI isolated artwork decals without garment background for printing factories.
+              </p>
+              <div className="flex items-center gap-1">
+                {[
+                  { id: 'front', label: 'Front' },
+                  { id: 'back', label: 'Back' },
+                  { id: 'left_sleeve', label: 'L Sleeve' },
+                  { id: 'right_sleeve', label: 'R Sleeve' }
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setPrintArtworkSide(s.id)}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                      printArtworkSide === s.id
+                        ? 'bg-brand-500 text-white shadow-2xs'
+                        : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-700'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadPrintReady}
+                className="w-full py-2 px-3 rounded-xl bg-black dark:bg-studio-800 hover:bg-gray-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+              >
+                <Download className="size-3.5" />
+                <span>Download {printArtworkSide.toUpperCase().replace('_', ' ')} Artwork</span>
+              </button>
+            </div>
           </div>
         )}
 

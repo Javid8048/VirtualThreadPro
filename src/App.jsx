@@ -5,17 +5,19 @@ import { PositionGuide } from './components/PositionGuide';
 import { ExportPanel } from './components/ExportPanel';
 import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { GetStartedModal } from './components/GetStartedModal';
+import { ProjectsModal } from './components/ProjectsModal';
 import { StaticGarmentView } from './components/StaticGarmentView';
 import { LandingPage } from './components/LandingPage';
 import { HeaderNav } from './components/HeaderNav';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { SceneManager } from './three/SceneManager';
+import { ProjectManager } from './utils/projectManager';
 
 const garmentNameMap = {
-  regular_tee: 'Normal T-Shirt',
+  regular_tee: 'Regular Tee',
   oversized_tee: 'Oversized Tee',
+  polo: 'Polo T-Shirt',
   cropped_tee: 'Cropped Tee',
-  sweatshirt: 'Sweatshirt',
   hoodie: 'Hoodie',
   zip_hoodie: 'Zip Hoodie'
 };
@@ -47,7 +49,7 @@ export default function App() {
   // App Page Route State ('landing' | 'studio')
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Garment Blank Type State (9 Streetwear Blanks)
+  // Garment Blank Type State (5 Streetwear Blanks)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [currentCamera, setCurrentCamera] = useState('front');
@@ -55,6 +57,7 @@ export default function App() {
   const [activeSide, setActiveSide] = useState('front');
   const [productsCatalogOpen, setProductsCatalogOpen] = useState(false);
   const [getStartedOpen, setGetStartedOpen] = useState(false);
+  const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
   // Theme State ('dark' | 'light')
   const [theme, setTheme] = useState(() => {
@@ -74,6 +77,7 @@ export default function App() {
   const [backdropMode, setBackdropMode] = useState(theme === 'light' ? 'light' : 'dark');
   const [customBackground, setCustomBackground] = useState(null);
   const [backgroundBlur, setBackgroundBlur] = useState(0);
+  const customBgImage = customBackground;
 
   // Sync theme changes with DOM and backdrop
   useEffect(() => {
@@ -682,12 +686,13 @@ export default function App() {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
+        const isHoodie = garmentType === 'hoodie' || garmentType === 'zip_hoodie';
         sceneManagerRef.current.designManager.addLayer({
           type: 'image',
           side: targetSide,
           image: img,
-          x: targetSide === 'back' ? 1520 : 530,
-          y: 800,
+          x: isHoodie ? (targetSide === 'back' ? 416 : 430) : (targetSide === 'back' ? 1520 : 530),
+          y: isHoodie ? (targetSide === 'back' ? 1530 : 730) : 800,
           scale: 1.0,
           rotation: 0,
           printType: 'screen'
@@ -700,6 +705,132 @@ export default function App() {
     e.target.value = '';
   };
 
+  const handleSelectPresetBg = (url) => {
+    setCustomBgImage(url);
+    setBackdropMode('custom');
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setCustomBackgroundImage(url);
+      sceneManagerRef.current.setupLighting('custom');
+    }
+  };
+
+  const handleCustomBgUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      setCustomBgImage(dataUrl);
+      setBackdropMode('custom');
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.setCustomBackgroundImage(dataUrl);
+        sceneManagerRef.current.setupLighting('custom');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveCustomBg = () => {
+    setCustomBgImage(null);
+    setBackdropMode('dark');
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setCustomBackgroundImage(null);
+      sceneManagerRef.current.setupLighting('dark');
+    }
+  };
+
+  const handleSaveCurrentProject = () => {
+    if (!sceneManagerRef.current) return null;
+    const dm = sceneManagerRef.current.designManager;
+    if (!dm) return null;
+    let thumb = null;
+    try {
+      thumb = sceneManagerRef.current.captureSnapshot(320, 320, false);
+    } catch (e) {
+      console.warn('Could not generate project thumbnail:', e);
+    }
+    const saved = ProjectManager.saveProject({
+      name: `${garmentNameMap[garmentType] || 'T-Shirt'} Design`,
+      garmentType: garmentType,
+      garmentColor: garmentColor,
+      backdropMode: backdropMode,
+      layers: dm.layers,
+      thumbnail: thumb
+    });
+    return saved;
+  };
+
+  const handleLoadProject = (project) => {
+    if (!project) return;
+    if (project.garmentType) {
+      handleGarmentTypeChange(project.garmentType);
+    }
+    if (project.garmentColor) {
+      handleGarmentColorChange(project.garmentColor);
+    }
+    if (project.backdropMode) {
+      setBackdropMode(project.backdropMode);
+    }
+    const dm = sceneManagerRef.current?.designManager;
+    if (dm && Array.isArray(project.layers)) {
+      dm.clearAll();
+      project.layers.forEach((l) => {
+        if (l.type === 'text') {
+          dm.addLayer({
+            type: 'text',
+            side: l.side || 'front',
+            text: l.text,
+            textColor: l.textColor,
+            fontSize: l.fontSize,
+            fontFamily: l.fontFamily,
+            x: l.x,
+            y: l.y,
+            scale: l.scale,
+            rotation: l.rotation,
+            opacity: l.opacity,
+            printType: l.printType
+          });
+        } else if (l.type === 'shape') {
+          dm.addLayer({
+            type: 'shape',
+            shapeType: l.shapeType,
+            fillColor: l.fillColor,
+            strokeColor: l.strokeColor,
+            strokeWidth: l.strokeWidth,
+            side: l.side || 'front',
+            x: l.x,
+            y: l.y,
+            scale: l.scale,
+            rotation: l.rotation,
+            opacity: l.opacity,
+            printType: l.printType
+          });
+        } else if (l.dataUrl || (l.image && typeof l.image === 'string')) {
+          const img = new Image();
+          img.onload = () => {
+            dm.addLayer({
+              type: 'image',
+              side: l.side || 'front',
+              image: img,
+              x: l.x,
+              y: l.y,
+              scale: l.scale,
+              rotation: l.rotation,
+              opacity: l.opacity,
+              printType: l.printType
+            });
+          };
+          img.src = l.dataUrl || l.image;
+        }
+      });
+    }
+  };
+
   // Viewport background style
   const getBackdropClass = () => {
     if (backdropMode === 'dark') {
@@ -708,6 +839,8 @@ export default function App() {
       return 'bg-[#e5e7eb]';
     } else if (backdropMode === 'transparent') {
       return 'bg-[linear-gradient(45deg,#1b202c_25%,transparent_25%),linear-gradient(-45deg,#1b202c_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1b202c_75%),linear-gradient(-45deg,transparent_75%,#1b202c_75%)] bg-[size:24px_24px] bg-[#0f1115]';
+    } else if (backdropMode === 'custom') {
+      return 'bg-[#121318] bg-cover bg-center bg-no-repeat';
     } else {
       return 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
     }
@@ -725,7 +858,10 @@ export default function App() {
   }, [currentPage]);
 
   return (
-    <div className={`relative w-full ${currentPage === 'landing' ? 'min-h-screen' : 'h-screen w-screen overflow-hidden'} ${getBackdropClass()}`}>
+    <div
+      className={`relative w-full ${currentPage === 'landing' ? 'min-h-screen' : 'h-screen w-screen overflow-hidden'} ${getBackdropClass()}`}
+      style={backdropMode === 'custom' && customBgImage ? { backgroundImage: `url(${customBgImage})` } : undefined}
+    >
       
       {/* Hidden Global File Input (SEC-02: Restricted to safe raster images) */}
       <input
@@ -827,6 +963,7 @@ export default function App() {
           onSwitchTo3D={() => setViewMode('3d')}
           backdropMode={backdropMode}
           customBackground={customBackground}
+          customBgImage={customBackground}
           backgroundBlur={backgroundBlur}
           activeSide={activeSide}
           onSideChange={handleSideChange}
@@ -897,6 +1034,7 @@ export default function App() {
               positionGuideOpen={rightDrawerMode === 'design'}
               onTogglePositionGuide={() => setRightDrawerMode(rightDrawerMode === 'design' ? null : 'design')}
               onOpenExport={handleOpenExport}
+              onOpenProjects={() => setProjectsModalOpen(true)}
               onBackToLanding={handleBackToLanding}
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
@@ -932,6 +1070,10 @@ export default function App() {
             onRemoveCustomBackground={handleRemoveCustomBackground}
             backgroundBlur={backgroundBlur}
             onBackgroundBlurChange={setBackgroundBlur}
+            customBgImage={customBackground}
+            onCustomBgUpload={handleCustomBgUpload}
+            onRemoveCustomBg={handleRemoveCustomBg}
+            onSelectPresetBg={handleSelectPresetBg}
             animationMode={animationMode}
             onAnimationModeChange={handleAnimationModeChange}
             walkSpeed={walkSpeed}
@@ -969,6 +1111,7 @@ export default function App() {
         onOpenExport={handleOpenExport}
         designManager={designManager}
         currentGarmentType={garmentType}
+        garmentColor={garmentColor}
         selectedSide={activeSide}
         onSideChange={handleSideChange}
         onTriggerUpload={handleTriggerUpload}
@@ -1180,6 +1323,16 @@ export default function App() {
         onSelectGarment={handleGarmentTypeChange}
         onTriggerUploadFront={handleTriggerUploadFront}
         onOpenCatalog={() => setProductsCatalogOpen(true)}
+      />
+
+      {/* Local Projects & Saved Designs Manager Modal */}
+      <ProjectsModal
+        isOpen={projectsModalOpen}
+        onClose={() => setProjectsModalOpen(false)}
+        onLoadProject={handleLoadProject}
+        onSaveCurrentProject={handleSaveCurrentProject}
+        currentGarmentType={garmentType}
+        currentGarmentColor={garmentColor}
       />
 
     </div>

@@ -241,16 +241,58 @@ export const PRESET_GRAPHICS = [
 ];
 
 /**
- * Converts raw SVG markup into an HTMLImageElement that can be drawn into canvas.
+ * Calculates whether a given hex color is dark based on perceived relative luminance.
  */
-export function svgToImage(svgString) {
+export function isGarmentDark(color) {
+  if (!color) return false;
+  let hex = String(color).replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  if (hex.length < 6) return false;
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.45;
+}
+
+/**
+ * Adapts SVG fill and stroke colors for high contrast against the garment color.
+ * On dark garments, renders light prints (e.g. white box / white text for PARIS).
+ */
+export function getContrastedSvg(svg, garmentColor) {
+  if (!svg) return '';
+  const isDark = typeof garmentColor === 'boolean' ? garmentColor : isGarmentDark(garmentColor);
+  if (!isDark) return svg;
+
+  if (svg.includes('PARIS')) {
+    // Invert the PARIS box logo on dark garments: white box with dark typography and border
+    return svg
+      .replace(/fill="#000000"/g, 'fill="#ffffff"')
+      .replace(/fill="#ffffff"/g, 'fill="#111111"')
+      .replace(/stroke="#ffffff"/g, 'stroke="#111111"')
+      .replace(/fill="#cccccc"/g, 'fill="#444444"');
+  }
+
+  // General presets: invert black strokes and fills to white for dark garments
+  return svg
+    .replace(/fill="#000000"/g, 'fill="#ffffff"')
+    .replace(/stroke="#000000"/g, 'stroke="#ffffff"');
+}
+
+/**
+ * Converts raw SVG markup into an HTMLImageElement that can be drawn into canvas,
+ * with automatic contrast adaptation for the target garment color.
+ */
+export function svgToImage(svgString, garmentColor = null) {
   return new Promise((resolve, reject) => {
-    const encoded = encodeURIComponent(svgString);
+    const finalSvg = garmentColor ? getContrastedSvg(svgString, garmentColor) : svgString;
+    const encoded = encodeURIComponent(finalSvg);
     const dataUrl = `data:image/svg+xml;charset=utf-8,${encoded}`;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve({ img, dataUrl });
+    img.onload = () => resolve({ img, dataUrl, svg: finalSvg });
     img.onerror = (err) => reject(err);
     img.src = dataUrl;
   });
 }
+

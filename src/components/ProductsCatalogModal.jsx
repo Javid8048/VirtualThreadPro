@@ -5,12 +5,12 @@ import { getAssetUrl } from '../utils/assets';
 export const GARMENT_PRODUCTS = [
   {
     id: 'regular_tee',
-    title: 'NORMAL T-SHIRT STUDIO',
-    badge: 'DEFAULT BLANK',
-    badgeType: 'default',
+    title: 'REGULAR T-SHIRT STUDIO',
+    badge: 'STUDIO READY',
+    badgeType: 'studio',
     category: 'Tops',
-    description: 'Classic fitted everyday crewneck normal t-shirt with standard sleeve length, tailored chest proportions, and clean silhouette.',
-    features: ['Classic Everyday Fit', 'Clean Double Stitch', 'Dual-side Print'],
+    description: 'Classic fitted everyday crewneck t-shirt with standard shoulder width, tailored torso, and conventional sleeves.',
+    features: ['Standard Shoulder Seam', 'Tailored Torso Silhouette', 'Conventional Sleeve Length'],
     imageBg: 'from-sky-900/30 to-slate-950/40',
     popular: true
   },
@@ -20,9 +20,20 @@ export const GARMENT_PRODUCTS = [
     badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Tops',
-    description: 'Heavyweight streetwear oversized drop-shoulder t-shirt with authentic cloth drape and wrinkles.',
-    features: ['Walk & Wind Animations', 'Front & Back Decals', 'Puff Print & Acid Wash'],
+    description: 'Heavyweight streetwear oversized drop-shoulder t-shirt with wider torso, dropped shoulders, and loose drape.',
+    features: ['Streetwear Drop-Shoulder', 'Wider Boxy Silhouette', 'Elongated Loose Sleeves'],
     imageBg: 'from-blue-900/30 to-indigo-950/40',
+    popular: true
+  },
+  {
+    id: 'polo',
+    title: 'POLO T-SHIRT STUDIO',
+    badge: 'STUDIO READY',
+    badgeType: 'studio',
+    category: 'Tops',
+    description: 'Classic tailored polo shirt with folded rib collar, 3-button front placket, and ribbed sleeve cuffs.',
+    features: ['Ribbed Folded Collar', '3-Button Placket', 'Ribbed Sleeve Bands'],
+    imageBg: 'from-emerald-900/30 to-teal-950/40',
     popular: true
   },
   {
@@ -34,17 +45,6 @@ export const GARMENT_PRODUCTS = [
     description: 'Heavyweight streetwear hoodie featuring a draped double-layer 3D hood, front kangaroo pocket, and ribbed cuffs.',
     features: ['3D Draped Hood', 'Kangaroo Pocket', '4K & 60fps Video'],
     imageBg: 'from-purple-900/30 to-slate-950/40',
-    popular: true
-  },
-  {
-    id: 'sweatshirt',
-    title: 'OVERSIZED SWEATSHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Sweatshirts',
-    description: 'Heavyweight streetwear crewneck sweatshirt with ribbed wrist cuffs, neckband, and bottom hem.',
-    features: ['Ribbed Long Sleeves', 'Torso & Back Placement', '360° Orbit'],
-    imageBg: 'from-emerald-900/30 to-slate-950/40',
     popular: true
   },
   {
@@ -74,7 +74,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 6 streetwear blanks, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 5 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
@@ -115,7 +115,7 @@ export function ProductsCatalogModal({
 
   if (!isOpen) return null;
 
-  const categories = ['All', 'Tops', 'Outerwear', 'Sweatshirts', 'Collared', 'Bottoms', 'Headwear'];
+  const categories = ['All', 'Tops', 'Outerwear'];
   const filteredProducts = selectedCategory === 'All'
     ? GARMENT_PRODUCTS
     : GARMENT_PRODUCTS.filter(p => p.category === selectedCategory);
@@ -186,7 +186,7 @@ export function ProductsCatalogModal({
               </p>
               <p className="text-xs text-brand-accent mt-1 flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="size-3.5" />
-                All 7 garment types unlocked with exterior-only graphic reflection.
+                All 5 garment types unlocked with exterior-only graphic reflection.
               </p>
             </div>
 

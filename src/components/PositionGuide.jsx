@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, Share2, Layers } from 'lucide-react';
+import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, Share2, Layers, Square, Circle, Star, Triangle, Shield, Shapes } from 'lucide-react';
 import { PresetGraphicsModal } from './PresetGraphicsModal';
 
 export function PositionGuide({
@@ -7,6 +7,7 @@ export function PositionGuide({
   onClose,
   onOpenExport,
   designManager,
+  garmentColor: propGarmentColor,
   currentGarmentType = 'oversized_tee',
   selectedSide: propSide = 'front',
   onSideChange,
@@ -16,12 +17,16 @@ export function PositionGuide({
   onCameraChange
 }) {
   const [selectedSide, setSelectedSide] = useState(propSide || 'front'); // 'front' | 'back'
-  const [garmentColor, setGarmentColor] = useState('#ffffff');
+  const activeGarmentColor = propGarmentColor || designManager?.garmentColor || '#ffffff';
+  const [garmentColor, setGarmentColor] = useState(activeGarmentColor);
   const [penStrokeWidth, setPenStrokeWidth] = useState(1);
   const [textColor, setTextColor] = useState('#000000');
   const [fontSize, setFontSize] = useState(12);
   const [fontFamily, setFontFamily] = useState('Roboto');
   const [textInput, setTextInput] = useState('VIRTUAL THREADS');
+  const [shapeFillColor, setShapeFillColor] = useState('#ffffff');
+  const [shapeStrokeColor, setShapeStrokeColor] = useState('#000000');
+  const [shapeStrokeWidth, setShapeStrokeWidth] = useState(4);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [presetModalOpen, setPresetModalOpen] = useState(false);
 
@@ -96,6 +101,8 @@ export function PositionGuide({
   const garmentColorInputRef = useRef(null);
   const textColorInputRef = useRef(null);
   const textInputRef = useRef(null);
+  const shapeFillInputRef = useRef(null);
+  const shapeStrokeInputRef = useRef(null);
   const containerRef = useRef(null);
   const activeIdRef = useRef(null);
 
@@ -119,6 +126,10 @@ export function PositionGuide({
             setTextColor(active.textColor || '#000000');
             setFontSize(active.fontSize || 12);
             setFontFamily(active.fontFamily || 'Roboto');
+          } else if (active.type === 'shape') {
+            setShapeFillColor(active.fillColor || '#ffffff');
+            setShapeStrokeColor(active.strokeColor || '#000000');
+            setShapeStrokeWidth(active.strokeWidth ?? 4);
           }
         }
       } else {
@@ -131,6 +142,82 @@ export function PositionGuide({
     const unsubscribe = designManager.subscribe(syncState);
     return () => unsubscribe();
   }, [designManager]);
+
+  const handleSideSelect = (side) => {
+    setSelectedSide(side);
+    if (onSideChange) onSideChange(side);
+    if (onCameraChange) {
+      const cam = side === 'left_sleeve' ? 'left' : (side === 'right_sleeve' ? 'right' : side);
+      onCameraChange(cam);
+    }
+  };
+
+  const handleAddShape = (shapeType = 'rectangle') => {
+    if (!designManager) return;
+    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+    let cx = 480, cy = 920;
+    if (selectedSide === 'back') {
+      cx = isHoodie ? 416 : 1528;
+      cy = isHoodie ? 1530 : 920;
+    } else if (selectedSide === 'left_sleeve') {
+      cx = 1660; cy = 770;
+    } else if (selectedSide === 'right_sleeve') {
+      cx = 1660; cy = 1520;
+    } else {
+      cx = isHoodie ? 430 : 480;
+      cy = isHoodie ? 730 : 920;
+    }
+
+    const defaultFills = {
+      rectangle: '#ffffff',
+      circle: '#ffffff',
+      star: '#f59e0b',
+      triangle: '#ef4444',
+      badge: '#3b82f6'
+    };
+
+    const newLayer = designManager.addLayer({
+      type: 'shape',
+      shapeType: shapeType,
+      side: selectedSide,
+      fillColor: defaultFills[shapeType] || shapeFillColor || '#ffffff',
+      strokeColor: shapeStrokeColor || '#000000',
+      strokeWidth: shapeStrokeWidth ?? 4,
+      x: cx,
+      y: cy,
+      scale: 1.0,
+      rotation: 0,
+      printType: 'screen'
+    });
+    if (newLayer) {
+      setActiveLayerId(newLayer.id);
+      showFeedback(`Added ${shapeType} shape`);
+    }
+  };
+
+  const handleShapeFillChange = (e) => {
+    const color = e.target.value;
+    setShapeFillColor(color);
+    if (designManager && activeLayerId) {
+      designManager.updateLayer(activeLayerId, { fillColor: color });
+    }
+  };
+
+  const handleShapeStrokeChange = (e) => {
+    const color = e.target.value;
+    setShapeStrokeColor(color);
+    if (designManager && activeLayerId) {
+      designManager.updateLayer(activeLayerId, { strokeColor: color });
+    }
+  };
+
+  const handleShapeStrokeWidthChange = (e) => {
+    const width = Math.max(0, Math.min(30, parseInt(e.target.value, 10) || 0));
+    setShapeStrokeWidth(width);
+    if (designManager && activeLayerId) {
+      designManager.updateLayer(activeLayerId, { strokeWidth: width });
+    }
+  };
 
   const activeLayer = layers.find((l) => l.id === activeLayerId) || null;
 
@@ -152,7 +239,9 @@ export function PositionGuide({
   // Text layer handler
   const handleAddText = () => {
     if (!designManager) return;
-    const centerX = selectedSide === 'back' ? 1528 : 480;
+    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+    const centerX = isHoodie ? (selectedSide === 'back' ? 416 : 430) : (selectedSide === 'back' ? 1528 : 480);
+    const centerY = isHoodie ? (selectedSide === 'back' ? 1530 : 730) : 920;
     const textToAdd = textInput.trim() || 'CUSTOM TEXT';
     const newLayer = designManager.addLayer({
       type: 'text',
@@ -162,7 +251,7 @@ export function PositionGuide({
       fontSize: fontSize || 12,
       fontFamily: fontFamily,
       x: centerX,
-      y: 920,
+      y: centerY,
       scale: 1.0,
       rotation: 0,
       printType: 'screen'
@@ -243,13 +332,15 @@ export function PositionGuide({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const centerX = selectedSide === 'back' ? 1528 : 480;
+        const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+        const centerX = isHoodie ? (selectedSide === 'back' ? 416 : 430) : (selectedSide === 'back' ? 1528 : 480);
+        const centerY = isHoodie ? (selectedSide === 'back' ? 1530 : 730) : (selectedSide === 'back' ? 1528 : 720);
         const newLayer = designManager.addLayer({
           type: 'image',
           side: selectedSide,
           image: img,
           x: centerX,
-          y: 920,
+          y: centerY,
           scale: 1.0,
           rotation: 0,
           printType: 'screen'
@@ -265,19 +356,23 @@ export function PositionGuide({
     e.target.value = '';
   };
 
-  // Preset graphic decal handler
+  // Preset graphic decal handler (positions cleanly on chest area)
   const handleSelectPresetGraphic = (item) => {
     if (!designManager) return;
-    const centerX = selectedSide === 'back' ? 1528 : 480;
+    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+    const centerX = isHoodie ? (selectedSide === 'back' ? 416 : 430) : (selectedSide === 'back' ? 1528 : 480);
+    const centerY = isHoodie ? (selectedSide === 'back' ? 1530 : 730) : (selectedSide === 'back' ? 1528 : 720);
     const newLayer = designManager.addLayer({
       type: 'image',
       side: selectedSide,
       image: item.image,
       x: centerX,
-      y: 920,
+      y: centerY,
       scale: 1.0,
       rotation: 0,
-      printType: 'screen'
+      printType: 'screen',
+      presetSvg: item.svg,
+      presetName: item.name
     });
     if (newLayer) {
       setActiveLayerId(newLayer.id);
@@ -414,7 +509,7 @@ export function PositionGuide({
       validLayers.forEach((layerItem) => {
         const side = layerItem.side || 'front';
         const x = Number.isFinite(layerItem.x) ? Math.max(0, Math.min(2048, layerItem.x)) : (side === 'back' ? 1528 : 480);
-        const y = Number.isFinite(layerItem.y) ? Math.max(0, Math.min(2048, layerItem.y)) : 800;
+        const y = Number.isFinite(layerItem.y) ? Math.max(0, Math.min(2048, layerItem.y)) : (side === 'back' ? 1528 : 720);
         const scale = Number.isFinite(layerItem.scale) ? Math.max(0.1, Math.min(5.0, layerItem.scale)) : 1.0;
         const rotation = Number.isFinite(layerItem.rotation) ? layerItem.rotation % 360 : 0;
 
@@ -554,18 +649,32 @@ export function PositionGuide({
     let newY = Math.round(dragStart.layerY + deltaY);
 
     // Keep coordinates within garment SVG bounds
-    newX = Math.max(100, Math.min(1948, newX));
-    newY = Math.max(400, Math.min(1948, newY));
+    newX = Math.max(80, Math.min(1968, newX));
+    newY = Math.max(80, Math.min(1968, newY));
 
-    // Determine side automatically based on X coordinate
-    const targetSide = newX > 1024 ? 'back' : 'front';
+    // Determine side automatically based on garment UV topology
+    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+    let targetSide = 'front';
+    if (isHoodie) {
+      if (newX > 1300) {
+        targetSide = newY < 1100 ? 'left_sleeve' : 'right_sleeve';
+      } else {
+        targetSide = newY > 1100 ? 'back' : 'front';
+      }
+    } else {
+      if (newY > 1650) {
+        targetSide = newX > 1024 ? 'right_sleeve' : 'left_sleeve';
+      } else {
+        targetSide = newX > 1024 ? 'back' : 'front';
+      }
+    }
 
     designManager.updateLayer(dragStart.layerId, {
       x: newX,
       y: newY,
       side: targetSide
     });
-  }, [isDragging, dragStart, isResizing, resizeStart, designManager]);
+  }, [isDragging, dragStart, isResizing, resizeStart, designManager, currentGarmentType]);
 
   const handlePointerUp = useCallback((e) => {
     if (isResizing) {
@@ -600,9 +709,27 @@ export function PositionGuide({
     const clickX = Math.round((e.clientX - rect.left) * scaleFactorX);
     const clickY = Math.round((e.clientY - rect.top) * scaleFactorY);
 
-    const targetSide = clickX > 1024 ? 'back' : 'front';
+    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
+    let targetSide = 'front';
+    if (isHoodie) {
+      if (clickX > 1300) {
+        targetSide = clickY < 1100 ? 'left_sleeve' : 'right_sleeve';
+      } else {
+        targetSide = clickY > 1100 ? 'back' : 'front';
+      }
+    } else {
+      if (clickY > 1650) {
+        targetSide = clickX > 1024 ? 'right_sleeve' : 'left_sleeve';
+      } else {
+        targetSide = clickX > 1024 ? 'back' : 'front';
+      }
+    }
+
     setSelectedSide(targetSide);
-    if (onCameraChange) onCameraChange(targetSide);
+    if (onCameraChange) {
+      const cam = targetSide === 'left_sleeve' ? 'left' : (targetSide === 'right_sleeve' ? 'right' : targetSide);
+      onCameraChange(cam);
+    }
 
     if (activeLayerId) {
       designManager.updateLayer(activeLayerId, {
@@ -990,6 +1117,37 @@ export function PositionGuide({
           </div>
         </div>
 
+        {/* ROW 3.5: Add Shapes Row (Rectangle, Circle, Star, Triangle, Badge) */}
+        <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750 text-xs">
+          <span className="font-bold text-[10px] uppercase text-gray-500 dark:text-studio-400 flex items-center gap-1 shrink-0">
+            <Shapes className="size-3 text-brand-500" />
+            <span>Shapes:</span>
+          </span>
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+            {[
+              { type: 'rectangle', label: 'Square', icon: Square },
+              { type: 'circle', label: 'Circle', icon: Circle },
+              { type: 'star', label: 'Star', icon: Star },
+              { type: 'triangle', label: 'Triangle', icon: Triangle },
+              { type: 'badge', label: 'Badge', icon: Shield }
+            ].map((s) => {
+              const IconComp = s.icon;
+              return (
+                <button
+                  key={s.type}
+                  type="button"
+                  onClick={() => handleAddShape(s.type)}
+                  className="px-2 py-1 rounded-lg bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 hover:border-brand-500 text-gray-700 dark:text-studio-200 text-[10px] font-bold flex items-center gap-1 shadow-2xs active:scale-95 transition-all"
+                  title={`Add ${s.label} Shape`}
+                >
+                  <IconComp className="size-2.5 text-brand-500" />
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ROW 4: Print Finishes & Texture Selector (Screen / 3D Puff / Embroidery / Metallic Foil / Gloss) */}
         {activeLayer && (
           <div className="flex items-center justify-between px-3.5 py-1.5 bg-gray-50/80 dark:bg-studio-850/80 border-b border-gray-200/80 dark:border-studio-750 text-[10px] gap-1 overflow-x-auto scrollbar-none">
@@ -1026,6 +1184,65 @@ export function PositionGuide({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ROW 4.5: Active Shape Properties (Fill, Stroke Color, Stroke Width) */}
+        {activeLayer && activeLayer.type === 'shape' && (
+          <div className="flex items-center justify-between px-3.5 py-1.5 bg-brand-50/50 dark:bg-brand-950/25 border-b border-brand-200/50 dark:border-brand-800/30 text-xs">
+            <span className="font-bold text-[10px] uppercase text-brand-600 dark:text-brand-400 flex items-center gap-1 shrink-0">
+              <span>Shape Style:</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Fill:</span>
+                <input
+                  ref={shapeFillInputRef}
+                  type="color"
+                  value={shapeFillColor}
+                  onChange={handleShapeFillChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => shapeFillInputRef.current?.click()}
+                  className="size-5 rounded-full border border-gray-300 dark:border-studio-600 shadow-2xs cursor-pointer"
+                  style={{ backgroundColor: shapeFillColor }}
+                  title="Change Shape Fill Color"
+                />
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Border:</span>
+                <input
+                  ref={shapeStrokeInputRef}
+                  type="color"
+                  value={shapeStrokeColor}
+                  onChange={handleShapeStrokeChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => shapeStrokeInputRef.current?.click()}
+                  className="size-5 rounded-full border border-gray-300 dark:border-studio-600 shadow-2xs cursor-pointer"
+                  style={{ backgroundColor: shapeStrokeColor }}
+                  title="Change Shape Stroke Color"
+                />
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-500">Width:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={shapeStrokeWidth}
+                  onChange={handleShapeStrokeWidthChange}
+                  className="w-10 h-6 px-1 text-[11px] font-bold text-center bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded"
+                  title="Border Stroke Width"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1166,6 +1383,32 @@ export function PositionGuide({
           POSITION GUIDE
         </div>
 
+        {/* Print Target Tabs: Front, Back, Left Sleeve, Right Sleeve */}
+        <div className="flex items-center justify-center gap-1.5 pb-2">
+          {[
+            { id: 'front', label: 'Front' },
+            { id: 'back', label: 'Back' },
+            { id: 'left_sleeve', label: 'L Sleeve' },
+            { id: 'right_sleeve', label: 'R Sleeve' }
+          ].map((tab) => {
+            const isActive = selectedSide === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleSideSelect(tab.id)}
+                className={`px-3 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                  isActive
+                    ? 'bg-black dark:bg-brand-500 text-white shadow-xs ring-1 ring-brand-400/40'
+                    : 'bg-gray-100 dark:bg-studio-800 text-gray-600 dark:text-studio-300 hover:bg-gray-200 dark:hover:bg-studio-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Responsive Pattern Viewport Outer Frame */}
         <div className="relative flex-1 w-full min-h-0 bg-white dark:bg-studio-850 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-100 dark:border-studio-750 p-1">
           <div 
@@ -1190,57 +1433,88 @@ export function PositionGuide({
                 `}</style>
               </defs>
 
-              {/* Top Collar Rib Pieces (Calibrated: Front 480, Back 1528) */}
-              <path className="pattern-panel" d="M 320 420 C 320 540, 640 540, 640 420 C 640 465, 320 465, 320 420 Z" />
-              <path className="pattern-panel" d="M 1368 420 C 1368 480, 1688 480, 1688 420 C 1688 450, 1368 450, 1368 420 Z" />
+              {/* Base Pattern Panels */}
+              {(currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie') ? (
+                <>
+                  {/* HOODIE FRONT PANEL (Chest center x=430, y=730; Kangaroo Pocket y=865) */}
+                  <rect x="140" y="440" width="580" height="580" rx="36" className="pattern-panel" />
+                  <line x1="430" y1="480" x2="430" y2="980" className="pattern-center-dash" />
+                  <text x="430" y="690" className="pattern-label">FRONT CHEST</text>
+                  <text x="430" y="865" className="pattern-sub">POCKET AREA</text>
 
-              {/* FRONT PANEL (Calibrated 3D Seam Centerline at x=480) */}
-              <path 
-                className="pattern-panel" 
-                d="
-                  M 325 585
-                  C 400 670, 560 670, 635 585
-                  L 890 700
-                  L 820 1020
-                  L 765 1020
-                  L 765 1580
-                  L 195 1580
-                  L 195 1020
-                  L 140 1020
-                  L 70 700
-                  Z
-                " 
-              />
+                  {/* HOODIE BACK PANEL (Torso center x=416, y=1530) */}
+                  <rect x="140" y="1220" width="560" height="640" rx="36" className="pattern-panel" />
+                  <line x1="416" y1="1260" x2="416" y2="1820" className="pattern-center-dash" />
+                  <text x="416" y="1530" className="pattern-label">BACK</text>
 
-              {/* Front Center Line & Safe Area */}
-              <line x1="480" y1="730" x2="480" y2="1240" className="pattern-center-dash" />
-              <text x="480" y="960" className="pattern-label">FRONT</text>
+                  {/* HOOD PANELS (Center x=1060, y=750) */}
+                  <rect x="800" y="440" width="520" height="620" rx="36" className="pattern-panel" />
+                  <text x="1060" y="750" className="pattern-label">HOOD</text>
 
-              {/* BACK PANEL (Calibrated 3D Seam Centerline at x=1528) */}
-              <path 
-                className="pattern-panel" 
-                d="
-                  M 1373 605
-                  C 1448 645, 1608 645, 1683 605
-                  L 1938 700
-                  L 1868 1020
-                  L 1813 1020
-                  L 1813 1580
-                  L 1243 1580
-                  L 1243 1020
-                  L 1188 1020
-                  L 1118 700
-                  Z
-                " 
-              />
+                  {/* SLEEVE PANELS */}
+                  <rect x="1390" y="440" width="540" height="660" rx="36" className="pattern-panel" />
+                  <text x="1660" y="770" className="pattern-label">LEFT SLEEVE</text>
 
-              {/* Back Center Line & Safe Area */}
-              <line x1="1528" y1="730" x2="1528" y2="1240" className="pattern-center-dash" />
-              <text x="1528" y="960" className="pattern-label">BACK</text>
+                  <rect x="1390" y="1180" width="540" height="680" rx="36" className="pattern-panel" />
+                  <text x="1660" y="1520" className="pattern-label">RIGHT SLEEVE</text>
+                </>
+              ) : (
+                <>
+                  {/* Top Collar Rib Pieces (Calibrated: Front 480, Back 1528) */}
+                  <path className="pattern-panel" d="M 320 420 C 320 540, 640 540, 640 420 C 640 465, 320 465, 320 420 Z" />
+                  <path className="pattern-panel" d="M 1368 420 C 1368 480, 1688 480, 1688 420 C 1688 450, 1368 450, 1368 420 Z" />
 
-              {/* Sleeves at Bottom (Calibrated Centers) */}
-              <path className="pattern-panel" d="M 180 1710 L 780 1710 L 750 1960 L 210 1960 Z" />
-              <path className="pattern-panel" d="M 1228 1710 L 1828 1710 L 1798 1960 L 1258 1960 Z" />
+                  {/* FRONT PANEL (Calibrated 3D Seam Centerline at x=480) */}
+                  <path 
+                    className="pattern-panel" 
+                    d="
+                      M 325 585
+                      C 400 670, 560 670, 635 585
+                      L 890 700
+                      L 820 1020
+                      L 765 1020
+                      L 765 1580
+                      L 195 1580
+                      L 195 1020
+                      L 140 1020
+                      L 70 700
+                      Z
+                    " 
+                  />
+
+                  {/* Front Center Line & Safe Area */}
+                  <line x1="480" y1="730" x2="480" y2="1240" className="pattern-center-dash" />
+                  <text x="480" y="960" className="pattern-label">FRONT</text>
+
+                  {/* BACK PANEL (Calibrated 3D Seam Centerline at x=1528) */}
+                  <path 
+                    className="pattern-panel" 
+                    d="
+                      M 1373 605
+                      C 1448 645, 1608 645, 1683 605
+                      L 1938 700
+                      L 1868 1020
+                      L 1813 1020
+                      L 1813 1580
+                      L 1243 1580
+                      L 1243 1020
+                      L 1188 1020
+                      L 1118 700
+                      Z
+                    " 
+                  />
+
+                  {/* Back Center Line & Safe Area */}
+                  <line x1="1528" y1="730" x2="1528" y2="1240" className="pattern-center-dash" />
+                  <text x="1528" y="960" className="pattern-label">BACK</text>
+
+                  {/* Sleeves at Bottom (Calibrated Centers) */}
+                  <path className="pattern-panel" d="M 180 1710 L 780 1710 L 750 1960 L 210 1960 Z" />
+                  <text x="480" y="1840" className="pattern-label" style={{ fontSize: '38px' }}>LEFT SLEEVE</text>
+                  <path className="pattern-panel" d="M 1228 1710 L 1828 1710 L 1798 1960 L 1258 1960 Z" />
+                  <text x="1528" y="1840" className="pattern-label" style={{ fontSize: '38px' }}>RIGHT SLEEVE</text>
+                </>
+              )}
             </svg>
 
           {/* Interactive Decal Layers Rendered on top of 2048x2048 schematic */}
@@ -1279,6 +1553,46 @@ export function PositionGuide({
                     >
                       {layer.text || 'CUSTOM TEXT'}
                     </div>
+                  ) : layer.type === 'shape' ? (
+                    <svg
+                      viewBox="-60 -60 120 120"
+                      style={{
+                        width: 'clamp(46px, 10vw, 76px)',
+                        height: 'clamp(46px, 10vw, 76px)'
+                      }}
+                      className="pointer-events-none drop-shadow-md select-none overflow-visible"
+                    >
+                      {layer.shapeType === 'circle' && (
+                        <circle cx="0" cy="0" r="45" fill={layer.fillColor || '#ffffff'} stroke={layer.strokeColor || '#000000'} strokeWidth={layer.strokeWidth ?? 4} />
+                      )}
+                      {layer.shapeType === 'rectangle' && (
+                        <rect x="-45" y="-45" width="90" height="90" rx="8" fill={layer.fillColor || '#ffffff'} stroke={layer.strokeColor || '#000000'} strokeWidth={layer.strokeWidth ?? 4} />
+                      )}
+                      {layer.shapeType === 'star' && (
+                        <polygon
+                          points="0,-45 13,-14 45,-14 19,7 28,40 0,20 -28,40 -19,7 -45,-14 -13,-14"
+                          fill={layer.fillColor || '#f59e0b'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 3}
+                        />
+                      )}
+                      {layer.shapeType === 'triangle' && (
+                        <polygon
+                          points="0,-45 45,35 -45,35"
+                          fill={layer.fillColor || '#ffffff'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 4}
+                        />
+                      )}
+                      {layer.shapeType === 'badge' && (
+                        <polygon
+                          points="0,-48 42,-24 42,24 0,48 -42,24 -42,-24"
+                          fill={layer.fillColor || '#3b82f6'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 4}
+                        />
+                      )}
+                    </svg>
                   ) : layer.image ? (
                     <img
                       src={layer.image.src}
@@ -1350,6 +1664,7 @@ export function PositionGuide({
         onClose={() => setPresetModalOpen(false)}
         onSelectGraphic={handleSelectPresetGraphic}
         selectedSide={selectedSide}
+        garmentColor={activeGarmentColor}
       />
 
     </aside>

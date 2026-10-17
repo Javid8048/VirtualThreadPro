@@ -14,6 +14,39 @@ const COLOR_SWATCHES = [
   { name: 'Acid Washed', hex: '#2b2d35' }
 ];
 
+export const DEFAULT_INTERNET_BACKGROUNDS = [
+  {
+    id: 'concrete_studio',
+    name: 'Minimal Concrete',
+    thumbnail: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=140&q=75',
+    url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1920&q=80'
+  },
+  {
+    id: 'warm_loft',
+    name: 'Warm Loft',
+    thumbnail: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=140&q=75',
+    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80'
+  },
+  {
+    id: 'cyber_neon',
+    name: 'Tokyo Cyber',
+    thumbnail: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=140&q=75',
+    url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1920&q=80'
+  },
+  {
+    id: 'white_cyclorama',
+    name: 'White Studio',
+    thumbnail: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=140&q=75',
+    url: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1920&q=80'
+  },
+  {
+    id: 'urban_warehouse',
+    name: 'Urban Loft',
+    thumbnail: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=140&q=75',
+    url: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=1920&q=80'
+  }
+];
+
 export function SidebarLeft({
   garmentColor,
   onGarmentColorChange,
@@ -56,7 +89,11 @@ export function SidebarLeft({
   onCustomBackgroundUpload,
   onRemoveCustomBackground,
   backgroundBlur = 0,
-  onBackgroundBlurChange
+  onBackgroundBlurChange,
+  customBgImage = null,
+  onCustomBgUpload,
+  onRemoveCustomBg,
+  onSelectPresetBg
 }) {
   const [openSection, setOpenSection] = useState('designs'); // default to 'designs'
   const [layers, setLayers] = useState([]);
@@ -69,6 +106,8 @@ export function SidebarLeft({
     if (!file) return;
     if (onCustomBackgroundUpload) {
       onCustomBackgroundUpload(file);
+    } else if (onCustomBgUpload) {
+      onCustomBgUpload(e);
     }
     e.target.value = '';
   };
@@ -83,6 +122,8 @@ export function SidebarLeft({
 
   const frontLayers = layers.filter((l) => (l.side || 'front') === 'front');
   const backLayers = layers.filter((l) => (l.side || 'front') === 'back');
+  const leftSleeveLayers = layers.filter((l) => l.side === 'left_sleeve');
+  const rightSleeveLayers = layers.filter((l) => l.side === 'right_sleeve');
   const isWalkable = true;
 
   const toggleSection = (section) => {
@@ -232,12 +273,48 @@ export function SidebarLeft({
                   );
                 })}
               </div>
+
+              {/* T-Shirt Fit Selector: Instant toggle between Regular Fit & Oversized Fit */}
+              {(currentGarmentType === 'oversized_tee' || currentGarmentType === 'regular_tee') && (
+                <div className="pt-2 pb-1 border-t border-gray-100 dark:border-studio-800">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-studio-400 block mb-1.5">
+                    Fit & Silhouette:
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-studio-950 rounded-xl border border-gray-200 dark:border-studio-800">
+                    <button
+                      type="button"
+                      onClick={() => onSelectGarment && onSelectGarment('regular_tee')}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-all ${
+                        currentGarmentType === 'regular_tee'
+                          ? 'bg-white dark:bg-studio-800 text-brand-600 dark:text-brand-accent shadow-xs ring-1 ring-gray-200 dark:ring-studio-700'
+                          : 'text-gray-600 dark:text-studio-400 hover:text-black dark:hover:text-white'
+                      }`}
+                    >
+                      <span className="leading-tight">Regular Fit</span>
+                      <span className="text-[8px] font-normal opacity-75">Standard Shoulders</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectGarment && onSelectGarment('oversized_tee')}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-bold flex flex-col items-center justify-center gap-0.5 transition-all ${
+                        currentGarmentType === 'oversized_tee'
+                          ? 'bg-white dark:bg-studio-800 text-brand-600 dark:text-brand-accent shadow-xs ring-1 ring-gray-200 dark:ring-studio-700'
+                          : 'text-gray-600 dark:text-studio-400 hover:text-black dark:hover:text-white'
+                      }`}
+                    >
+                      <span className="leading-tight">Oversized Fit</span>
+                      <span className="text-[8px] font-normal opacity-75">Dropped Shoulder</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {onOpenProductsCatalog && (
                 <button
                   onClick={onOpenProductsCatalog}
                   className="w-full mt-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-bold text-indigo-600 dark:text-brand-accent hover:bg-indigo-50 dark:hover:bg-brand-500/15 border border-indigo-100 dark:border-brand-500/30 transition-colors"
                 >
-                  View All 6 Blanks & Details →
+                  View All 5 Blanks & Details →
                 </button>
               )}
             </div>
@@ -298,7 +375,7 @@ export function SidebarLeft({
                             text: 'FRONT TEXT',
                             textColor: '#000000',
                             x: 480,
-                            y: 800
+                            y: 720
                           });
                         }
                       }}
@@ -430,13 +507,17 @@ export function SidebarLeft({
                           <div className="flex items-center gap-1.5 min-w-0">
                             {l.type === 'image' && l.image ? (
                               <img src={l.image.src} alt="" className="size-5 rounded object-cover border border-gray-200 dark:border-studio-700" />
+                            ) : l.type === 'shape' ? (
+                              <div className="size-5 rounded bg-brand-500/20 text-brand-500 border border-brand-500/30 flex items-center justify-center font-bold text-[9px] uppercase">
+                                {l.shapeType ? l.shapeType[0] : 'S'}
+                              </div>
                             ) : (
                               <div className="size-5 rounded bg-gray-200 dark:bg-studio-700 flex items-center justify-center font-bold text-[10px] text-gray-800 dark:text-white">
                                 T
                               </div>
                             )}
                             <span className="text-[11px] font-semibold text-gray-800 dark:text-white truncate">
-                              {l.type === 'image' ? `Graphic #${idx + 1}` : l.text}
+                              {l.type === 'image' ? `Graphic #${idx + 1}` : l.type === 'shape' ? `${l.shapeType || 'Shape'} #${idx + 1}` : l.text}
                             </span>
                           </div>
                           <button
@@ -446,6 +527,134 @@ export function SidebarLeft({
                             }}
                             className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"
                             title="Delete Layer"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Left Sleeve Layers Group */}
+              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-studio-800">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                    Left Sleeve ({leftSleeveLayers.length})
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (onSideChange) onSideChange('left_sleeve');
+                        if (onCameraChange) onCameraChange('left');
+                        if (onOpenPositionGuide) onOpenPositionGuide();
+                      }}
+                      className="text-[10px] text-sky-600 dark:text-sky-400 hover:text-sky-800 font-bold px-1 rounded hover:bg-sky-50 dark:hover:bg-sky-500/20"
+                    >
+                      + Design
+                    </button>
+                  </div>
+                </div>
+                {leftSleeveLayers.length === 0 ? (
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 italic bg-gray-50 dark:bg-studio-800/60 rounded-lg p-1.5 text-center border border-gray-100 dark:border-studio-800">
+                    No left sleeve designs
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {leftSleeveLayers.map((l, idx) => {
+                      const isActive = l.id === designManager?.activeLayerId;
+                      return (
+                        <div
+                          key={l.id}
+                          onClick={() => {
+                            if (designManager) designManager.setActiveLayer(l.id);
+                            if (onSideChange) onSideChange('left_sleeve');
+                            if (onCameraChange) onCameraChange('left');
+                            if (onOpenPositionGuide) onOpenPositionGuide();
+                          }}
+                          className={`flex items-center justify-between p-1.5 rounded-xl border cursor-pointer transition-all ${
+                            isActive
+                              ? 'bg-sky-50 dark:bg-sky-500/20 border-sky-300 dark:border-sky-500/50'
+                              : 'bg-white dark:bg-studio-800 border-gray-200 dark:border-studio-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[11px] font-semibold text-gray-800 dark:text-white truncate">
+                              {l.type === 'image' ? `Graphic #${idx + 1}` : l.type === 'shape' ? `${l.shapeType || 'Shape'}` : l.text}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (designManager) designManager.removeLayer(l.id);
+                            }}
+                            className="text-gray-400 hover:text-red-500 p-1"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Sleeve Layers Group */}
+              <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-studio-800">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    Right Sleeve ({rightSleeveLayers.length})
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (onSideChange) onSideChange('right_sleeve');
+                        if (onCameraChange) onCameraChange('right');
+                        if (onOpenPositionGuide) onOpenPositionGuide();
+                      }}
+                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 font-bold px-1 rounded hover:bg-purple-50 dark:hover:bg-purple-500/20"
+                    >
+                      + Design
+                    </button>
+                  </div>
+                </div>
+                {rightSleeveLayers.length === 0 ? (
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400 italic bg-gray-50 dark:bg-studio-800/60 rounded-lg p-1.5 text-center border border-gray-100 dark:border-studio-800">
+                    No right sleeve designs
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {rightSleeveLayers.map((l, idx) => {
+                      const isActive = l.id === designManager?.activeLayerId;
+                      return (
+                        <div
+                          key={l.id}
+                          onClick={() => {
+                            if (designManager) designManager.setActiveLayer(l.id);
+                            if (onSideChange) onSideChange('right_sleeve');
+                            if (onCameraChange) onCameraChange('right');
+                            if (onOpenPositionGuide) onOpenPositionGuide();
+                          }}
+                          className={`flex items-center justify-between p-1.5 rounded-xl border cursor-pointer transition-all ${
+                            isActive
+                              ? 'bg-purple-50 dark:bg-purple-500/20 border-purple-300 dark:border-purple-500/50'
+                              : 'bg-white dark:bg-studio-800 border-gray-200 dark:border-studio-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[11px] font-semibold text-gray-800 dark:text-white truncate">
+                              {l.type === 'image' ? `Graphic #${idx + 1}` : l.type === 'shape' ? `${l.shapeType || 'Shape'}` : l.text}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (designManager) designManager.removeLayer(l.id);
+                            }}
+                            className="text-gray-400 hover:text-red-500 p-1"
                           >
                             <Trash2 className="size-3" />
                           </button>
@@ -713,7 +922,7 @@ export function SidebarLeft({
           </button>
 
           {openSection === 'bg' && (
-            <div className="pt-2.5 pb-1 space-y-2 animate-fadeIn">
+            <div className="pt-2.5 pb-1 space-y-2.5 animate-fadeIn">
               {/* Presets Grid */}
               <div className="grid grid-cols-2 gap-1.5">
                 <button
@@ -749,7 +958,7 @@ export function SidebarLeft({
                 <button
                   type="button"
                   onClick={() => {
-                    if (customBackground) {
+                    if (customBackground || customBgImage) {
                       onBackdropModeChange('custom');
                     } else if (bgFileInputRef.current) {
                       bgFileInputRef.current.click();
@@ -764,6 +973,54 @@ export function SidebarLeft({
                 </button>
               </div>
 
+              {/* Curated Internet Background Presets */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400">
+                  <span>Internet Presets</span>
+                  <span className="text-[9px] text-brand-500 font-mono">5 STYLES</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {DEFAULT_INTERNET_BACKGROUNDS.map((preset) => {
+                    const activeBg = customBackground || customBgImage;
+                    const isSelected = backdropMode === 'custom' && activeBg === preset.url;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectPresetBg) onSelectPresetBg(preset.url);
+                          else if (onCustomBackgroundUpload) onCustomBackgroundUpload(preset.url);
+                        }}
+                        className={`group relative overflow-hidden rounded-xl border p-1 text-left transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
+                            : 'border-gray-200 dark:border-studio-750 hover:border-gray-300 dark:hover:border-studio-600 bg-gray-50/50 dark:bg-studio-850/50'
+                        }`}
+                        title={preset.name}
+                      >
+                        <img
+                          src={preset.thumbnail}
+                          alt={preset.name}
+                          crossOrigin="anonymous"
+                          className="size-7 rounded-lg object-cover shrink-0 border border-black/10 dark:border-white/10"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-bold text-gray-800 dark:text-studio-200 truncate leading-tight">
+                            {preset.name}
+                          </div>
+                          {isSelected && (
+                            <div className="text-[9px] font-semibold text-brand-500 flex items-center gap-0.5">
+                              <Check className="size-2.5" />
+                              <span>Active</span>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Hidden Global Input for Background File Selection */}
               <input
                 ref={bgFileInputRef}
@@ -774,7 +1031,7 @@ export function SidebarLeft({
               />
 
               {/* Upload CTA or Active Custom Image Card */}
-              {!customBackground ? (
+              {!(customBackground || customBgImage) ? (
                 <button
                   type="button"
                   onClick={() => bgFileInputRef.current?.click()}
@@ -788,10 +1045,12 @@ export function SidebarLeft({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="size-9 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-studio-700 bg-black/20">
-                        <img src={customBackground} alt="Device Background" className="w-full h-full object-cover" />
+                        <img src={customBackground || customBgImage} alt="Background" className="w-full h-full object-cover" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[11px] font-bold text-gray-900 dark:text-white truncate">Device Background</div>
+                        <div className="text-[11px] font-bold text-gray-900 dark:text-white truncate">
+                          {DEFAULT_INTERNET_BACKGROUNDS.find(b => b.url === (customBackground || customBgImage))?.name || 'Device Background'}
+                        </div>
                         <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                           <Check className="size-2.5" />
                           <span>Active in Studio</span>
@@ -809,7 +1068,7 @@ export function SidebarLeft({
                       </button>
                       <button
                         type="button"
-                        onClick={onRemoveCustomBackground}
+                        onClick={onRemoveCustomBackground || onRemoveCustomBg}
                         className="size-6 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                         title="Remove custom background"
                       >

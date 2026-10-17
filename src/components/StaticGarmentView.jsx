@@ -10,6 +10,7 @@ export function StaticGarmentView({
   onSwitchTo3D,
   backdropMode,
   customBackground = null,
+  customBgImage = null,
   backgroundBlur = 0,
   activeSide: propActiveSide = 'front',
   onSideChange,
@@ -53,14 +54,16 @@ export function StaticGarmentView({
     custom: 'bg-[#0f1115]'
   }[backdropMode] || 'bg-[radial-gradient(ellipse_at_center,_#1f2229_0%,_#16181f_45%,_#0f1115_100%)]';
 
+  const effectiveBgImage = customBackground || customBgImage;
+
   return (
     <div className={`absolute inset-0 z-10 flex items-center justify-center select-none overflow-hidden ${bgClasses} transition-colors duration-300`}>
       {/* Custom Device Background Layer */}
-      {backdropMode === 'custom' && customBackground && (
+      {backdropMode === 'custom' && effectiveBgImage && (
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-300"
           style={{
-            backgroundImage: `url(${customBackground})`,
+            backgroundImage: `url(${effectiveBgImage})`,
             filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : 'none',
             transform: backgroundBlur > 0 ? 'scale(1.06)' : 'none'
           }}
@@ -144,14 +147,15 @@ export function StaticGarmentView({
           draggable={false}
         />
 
-        {/* Dynamic Decals / Graphic Layer Placement Overlay */}
+        {/* Dynamic Decals / Graphic Layer Placement Overlay (Calibrated precisely on chest matching 3D) */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <div className="relative flex items-center justify-center w-48 h-56 -mt-8">
+          <div className={`relative flex items-center justify-center w-48 h-56 ${activeSide === 'back' ? '-mt-16' : '-mt-24 sm:-mt-28'}`}>
             {currentLayers.map((layer) => {
               const scale = layer.scale || 1.0;
               const rotation = layer.rotation || 0;
-              const centerX = layer.side === 'back' ? 1528 : 480;
-              const centerY = layer.side === 'back' ? 960 : 800;
+              const isHoodie = garmentType === 'hoodie' || garmentType === 'zip_hoodie';
+              const centerX = layer.side === 'back' ? (isHoodie ? 416 : 1528) : (isHoodie ? 430 : 480);
+              const centerY = layer.side === 'back' ? (isHoodie ? 1530 : 960) : (isHoodie ? 730 : 720);
               const offsetX = ((layer.x - centerX) / 400) * 80;
               const offsetY = ((layer.y - centerY) / 400) * 80;
 
@@ -186,6 +190,42 @@ export function StaticGarmentView({
                     >
                       {layer.text}
                     </div>
+                  ) : layer.type === 'shape' ? (
+                    <svg
+                      viewBox="-60 -60 120 120"
+                      className="w-24 h-24 object-contain drop-shadow-lg overflow-visible"
+                    >
+                      {layer.shapeType === 'circle' && (
+                        <circle cx="0" cy="0" r="45" fill={layer.fillColor || '#ffffff'} stroke={layer.strokeColor || '#000000'} strokeWidth={layer.strokeWidth ?? 4} />
+                      )}
+                      {layer.shapeType === 'rectangle' && (
+                        <rect x="-45" y="-45" width="90" height="90" rx="8" fill={layer.fillColor || '#ffffff'} stroke={layer.strokeColor || '#000000'} strokeWidth={layer.strokeWidth ?? 4} />
+                      )}
+                      {layer.shapeType === 'star' && (
+                        <polygon
+                          points="0,-45 13,-14 45,-14 19,7 28,40 0,20 -28,40 -19,7 -45,-14 -13,-14"
+                          fill={layer.fillColor || '#f59e0b'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 3}
+                        />
+                      )}
+                      {layer.shapeType === 'triangle' && (
+                        <polygon
+                          points="0,-45 45,35 -45,35"
+                          fill={layer.fillColor || '#ffffff'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 4}
+                        />
+                      )}
+                      {layer.shapeType === 'badge' && (
+                        <polygon
+                          points="0,-48 42,-24 42,24 0,48 -42,24 -42,-24"
+                          fill={layer.fillColor || '#3b82f6'}
+                          stroke={layer.strokeColor || '#000000'}
+                          strokeWidth={layer.strokeWidth ?? 4}
+                        />
+                      )}
+                    </svg>
                   ) : null}
                 </div>
               );

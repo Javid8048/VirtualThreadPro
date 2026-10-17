@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isGarmentDark, getContrastedSvg, svgToImage } from '../utils/presetGraphics';
 
 /**
  * Manages the master 2048x2048 texture canvas that is mapped directly onto the 3D T-shirt.
@@ -95,7 +96,30 @@ export class CanvasDesignManager {
   }
 
   setGarmentColor(hex) {
+    const wasDark = isGarmentDark(this.garmentColor);
+    const isNowDark = isGarmentDark(hex);
     this.garmentColor = hex;
+
+    // Automatically adapt print contrast when garment color crosses dark/light boundary
+    if (wasDark !== isNowDark) {
+      this.layers.forEach((l) => {
+        if (l.type === 'text') {
+          if (isNowDark && (l.textColor === '#000000' || !l.textColor)) {
+            l.textColor = '#ffffff';
+          } else if (!isNowDark && l.textColor === '#ffffff') {
+            l.textColor = '#000000';
+          }
+        } else if (l.type === 'image' && l.presetSvg) {
+          svgToImage(l.presetSvg, hex).then(({ img, dataUrl }) => {
+            l.image = img;
+            l.dataUrl = dataUrl;
+            this.scheduleRender();
+            this.notify();
+          }).catch(console.error);
+        }
+      });
+    }
+
     this.render();
     this.notify();
   }
@@ -111,24 +135,65 @@ export class CanvasDesignManager {
    */
   addLayer(layer) {
     const side = layer.side || 'front';
+    const isHoodie = this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie';
+    let defaultX = 480;
+    let defaultY = 720;
+
+    if (side === 'back') {
+      defaultX = isHoodie ? 416 : 1528;
+      defaultY = isHoodie ? 1530 : 1528;
+    } else if (side === 'left_sleeve') {
+      defaultX = 1660;
+      defaultY = 770;
+    } else if (side === 'right_sleeve') {
+      defaultX = 1660;
+      defaultY = 1520;
+    } else {
+      defaultX = isHoodie ? 430 : 480;
+      defaultY = isHoodie ? 730 : 720;
+    }
+
+    // Auto-contrast default text/shape color for dark garment shades
+    const defaultTextColor = isGarmentDark(this.garmentColor) ? '#ffffff' : '#000000';
+    const defaultShapeFill = isGarmentDark(this.garmentColor) ? '#ffffff' : '#111827';
+    const defaultShapeStroke = isGarmentDark(this.garmentColor) ? '#374151' : '#e5e7eb';
+
     const defaultLayer = {
       id: 'layer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      type: 'image', // 'image' | 'text'
-      side: side, // 'front' | 'back'
+      type: 'image', // 'image' | 'text' | 'shape'
+      side: side, // 'front' | 'back' | 'left_sleeve' | 'right_sleeve'
       image: null, // HTMLImageElement or dataUrl
       text: 'VIRTUAL THREADS',
-      textColor: '#000000',
+      textColor: defaultTextColor,
       fontSize: 12,
       fontFamily: 'Roboto',
-      x: side === 'back' ? 1528 : 480,
-      y: 800,
+      shapeType: 'rectangle', // 'rectangle' | 'circle' | 'star' | 'triangle' | 'badge'
+      fillColor: defaultShapeFill,
+      strokeColor: defaultShapeStroke,
+      strokeWidth: 2,
+      width: 280,
+      height: 180,
+      x: defaultX,
+      y: defaultY,
       scale: 1.0,
       rotation: 0, // degrees
       opacity: 1.0,
-      printType: 'screen' // 'screen' | 'puff'
+      printType: 'screen' // 'screen' | 'puff' | 'embroidery' | 'metallic' | 'gloss'
     };
 
     const newLayer = { ...defaultLayer, ...layer };
+
+    // If layer has a preset SVG and is placed on dark garment, ensure light contrasted print
+    if (newLayer.presetSvg && isGarmentDark(this.garmentColor) && !newLayer._hasContrasted) {
+      newLayer._hasContrasted = true;
+      svgToImage(newLayer.presetSvg, this.garmentColor).then(({ img, dataUrl }) => {
+        newLayer.image = img;
+        newLayer.dataUrl = dataUrl;
+        this.scheduleRender();
+        this.notify();
+      }).catch(console.error);
+    }
+
     this.layers.push(newLayer);
     this.activeLayerId = newLayer.id;
     this.render();
@@ -503,6 +568,68 @@ export class CanvasDesignManager {
             targetCtx.fillStyle = layer.textColor || '#000000';
             targetCtx.fillText(layer.text, 0, 0);
           }
+        } else if (layer.type === 'shape') {
+          const w = (layer.width || 300) * (layer.scale || 1.0);
+          const h = (layer.height || (layer.shapeType === 'circle' ? w : 200)) * (layer.scale || 1.0);
+          const shape = layer.shapeType || 'rectangle';
+          const fill = layer.fillColor || '#ffffff';
+          const stroke = layer.strokeColor || '#000000';
+          const strokeW = (layer.strokeWidth || 0) * (layer.scale || 1.0);
+
+          targetCtx.save();
+          targetCtx.fillStyle = fill;
+          targetCtx.strokeStyle = stroke;
+          targetCtx.lineWidth = strokeW;
+
+          if (shape === 'rectangle') {
+            targetCtx.beginPath();
+            targetCtx.rect(-w / 2, -h / 2, w, h);
+            targetCtx.fill();
+            if (strokeW > 0) targetCtx.stroke();
+          } else if (shape === 'circle') {
+            targetCtx.beginPath();
+            targetCtx.arc(0, 0, w / 2, 0, Math.PI * 2);
+            targetCtx.fill();
+            if (strokeW > 0) targetCtx.stroke();
+          } else if (shape === 'star') {
+            targetCtx.beginPath();
+            const spikes = 5;
+            const outerRadius = w / 2;
+            const innerRadius = outerRadius * 0.45;
+            let rot = (Math.PI / 2) * 3;
+            const step = Math.PI / spikes;
+            targetCtx.moveTo(0, -outerRadius);
+            for (let i = 0; i < spikes; i++) {
+              targetCtx.lineTo(Math.cos(rot) * outerRadius, Math.sin(rot) * outerRadius);
+              rot += step;
+              targetCtx.lineTo(Math.cos(rot) * innerRadius, Math.sin(rot) * innerRadius);
+              rot += step;
+            }
+            targetCtx.lineTo(0, -outerRadius);
+            targetCtx.closePath();
+            targetCtx.fill();
+            if (strokeW > 0) targetCtx.stroke();
+          } else if (shape === 'triangle') {
+            targetCtx.beginPath();
+            targetCtx.moveTo(0, -h / 2);
+            targetCtx.lineTo(w / 2, h / 2);
+            targetCtx.lineTo(-w / 2, h / 2);
+            targetCtx.closePath();
+            targetCtx.fill();
+            if (strokeW > 0) targetCtx.stroke();
+          } else if (shape === 'badge') {
+            targetCtx.beginPath();
+            targetCtx.moveTo(0, -h / 2);
+            targetCtx.lineTo(w / 2, -h / 3);
+            targetCtx.lineTo(w / 2, h / 6);
+            targetCtx.quadraticCurveTo(w / 2, h / 2, 0, h / 2);
+            targetCtx.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 6);
+            targetCtx.lineTo(-w / 2, -h / 3);
+            targetCtx.closePath();
+            targetCtx.fill();
+            if (strokeW > 0) targetCtx.stroke();
+          }
+          targetCtx.restore();
         }
 
         targetCtx.restore();
@@ -517,6 +644,112 @@ export class CanvasDesignManager {
     if (isDecalGarment && this.decalTexture) {
       this.decalTexture.needsUpdate = true;
     }
+  }
+
+  /**
+   * Generates a high-resolution, print-ready isolated artwork PNG on transparent background
+   * containing only the designs (front, back, or sleeves) without the garment background.
+   */
+  exportPrintReadyArtwork(side = 'front') {
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = this.size;
+    exportCanvas.height = this.size;
+    const expCtx = exportCanvas.getContext('2d');
+    if (!expCtx) return null;
+
+    expCtx.imageSmoothingEnabled = true;
+    expCtx.imageSmoothingQuality = 'high';
+
+    const sideLayers = this.layers.filter((l) => (l.side || 'front') === side);
+
+    sideLayers.forEach((layer) => {
+      expCtx.save();
+      expCtx.globalAlpha = layer.opacity || 1.0;
+      expCtx.translate(layer.x, layer.y);
+      if (layer.rotation) {
+        expCtx.rotate((layer.rotation * Math.PI) / 180);
+      }
+
+      if (layer.type === 'image' && layer.image) {
+        const img = layer.image;
+        const baseW = 420;
+        const aspect = img.width && img.height ? img.width / img.height : 1;
+        const w = baseW * (layer.scale || 1.0);
+        const h = w / aspect;
+        expCtx.drawImage(img, -w / 2, -h / 2, w, h);
+      } else if (layer.type === 'text' && layer.text) {
+        const fontSize = ((layer.fontSize || 12) * 4) * (layer.scale || 1.0);
+        expCtx.font = `bold ${fontSize}px "${layer.fontFamily || 'Roboto'}", sans-serif`;
+        expCtx.textAlign = 'center';
+        expCtx.textBaseline = 'middle';
+        expCtx.fillStyle = layer.textColor || '#000000';
+        expCtx.fillText(layer.text, 0, 0);
+      } else if (layer.type === 'shape') {
+        const w = (layer.width || 300) * (layer.scale || 1.0);
+        const h = (layer.height || (layer.shapeType === 'circle' ? w : 200)) * (layer.scale || 1.0);
+        const shape = layer.shapeType || 'rectangle';
+        const fill = layer.fillColor || '#ffffff';
+        const stroke = layer.strokeColor || '#000000';
+        const strokeW = (layer.strokeWidth || 0) * (layer.scale || 1.0);
+
+        expCtx.fillStyle = fill;
+        expCtx.strokeStyle = stroke;
+        expCtx.lineWidth = strokeW;
+
+        if (shape === 'rectangle') {
+          expCtx.beginPath();
+          expCtx.rect(-w / 2, -h / 2, w, h);
+          expCtx.fill();
+          if (strokeW > 0) expCtx.stroke();
+        } else if (shape === 'circle') {
+          expCtx.beginPath();
+          expCtx.arc(0, 0, w / 2, 0, Math.PI * 2);
+          expCtx.fill();
+          if (strokeW > 0) expCtx.stroke();
+        } else if (shape === 'star') {
+          expCtx.beginPath();
+          const spikes = 5;
+          const outerRadius = w / 2;
+          const innerRadius = outerRadius * 0.45;
+          let rot = (Math.PI / 2) * 3;
+          const step = Math.PI / spikes;
+          expCtx.moveTo(0, -outerRadius);
+          for (let i = 0; i < spikes; i++) {
+            expCtx.lineTo(Math.cos(rot) * outerRadius, Math.sin(rot) * outerRadius);
+            rot += step;
+            expCtx.lineTo(Math.cos(rot) * innerRadius, Math.sin(rot) * innerRadius);
+            rot += step;
+          }
+          expCtx.lineTo(0, -outerRadius);
+          expCtx.closePath();
+          expCtx.fill();
+          if (strokeW > 0) expCtx.stroke();
+        } else if (shape === 'triangle') {
+          expCtx.beginPath();
+          expCtx.moveTo(0, -h / 2);
+          expCtx.lineTo(w / 2, h / 2);
+          expCtx.lineTo(-w / 2, h / 2);
+          expCtx.closePath();
+          expCtx.fill();
+          if (strokeW > 0) expCtx.stroke();
+        } else if (shape === 'badge') {
+          expCtx.beginPath();
+          expCtx.moveTo(0, -h / 2);
+          expCtx.lineTo(w / 2, -h / 3);
+          expCtx.lineTo(w / 2, h / 6);
+          expCtx.quadraticCurveTo(w / 2, h / 2, 0, h / 2);
+          expCtx.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 6);
+          expCtx.lineTo(-w / 2, -h / 3);
+          expCtx.closePath();
+          expCtx.fill();
+          if (strokeW > 0) expCtx.stroke();
+        }
+      }
+
+      expCtx.restore();
+    });
+
+    return exportCanvas.toDataURL('image/png');
   }
 
   dispose() {

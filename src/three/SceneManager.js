@@ -21,8 +21,8 @@ if (typeof window !== 'undefined') {
  * while the interior of the shirt is always solid, clean garment fabric color.
  * Eliminates see-through bleed and mirrored reflections inside the collar/hem.
  */
-function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity, fabricMicroNormalMap = null) {
-  material.customProgramCacheKey = () => 'inside-fabric-shader-v11';
+function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity, fabricMicroNormalMap = null, isFlippedFacing = true) {
+  material.customProgramCacheKey = () => `inside-fabric-shader-v12-${isFlippedFacing ? 'flip' : 'norm'}`;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uInsideColor = { value: new THREE.Color(getInsideColor()) };
     shader.uniforms.uAcidWash = { value: 0.0 };
@@ -44,6 +44,9 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
       uniform float uHasFabricMicroNormal;
     ` + shader.fragmentShader;
 
+    const exteriorCheck = isFlippedFacing ? '!gl_FrontFacing' : 'gl_FrontFacing';
+    const interiorCheck = isFlippedFacing ? 'gl_FrontFacing' : '!gl_FrontFacing';
+
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <map_fragment>',
       `
@@ -62,7 +65,7 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
       }
 
       #ifdef USE_MAP
-        if (!gl_FrontFacing) {
+        if (${exteriorCheck}) {
           // Exterior fabric: render texture map and graphics
           vec4 sampledDiffuseColor = texture2D( map, vMapUv );
           #ifdef DECODE_VIDEO_TEXTURE
@@ -94,8 +97,9 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
           diffuseColor.rgb = uInsideColor;
         }
       #else
-        diffuseColor.rgb = uInsideColor;
-        if (uKnitProgress < 0.999) {
+        if (${interiorCheck}) {
+          diffuseColor.rgb = uInsideColor;
+        } else if (uKnitProgress < 0.999) {
           float distEdge = uKnitProgress - knitCoordY;
           if (distEdge < 0.035) {
             #ifdef USE_UV
@@ -139,7 +143,7 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
  * Photorealistic 3D Scene Manager using the official VirtualThreads 3D T-shirt model.
  */
 export class SceneManager {
-  constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'regular_tee') {
+  constructor(canvasContainer, onLoaded = () => {}, initialGarmentType = 'oversized_tee') {
     this.container = canvasContainer;
     this.width = Math.max(canvasContainer.clientWidth || 0, (typeof window !== 'undefined' ? window.innerWidth : 800) || 800);
     this.height = Math.max(canvasContainer.clientHeight || 0, (typeof window !== 'undefined' ? window.innerHeight : 600) || 600);
@@ -272,6 +276,7 @@ export class SceneManager {
     this.recordingMotion = 'showcase360';
     this.recordingDuration = 5;
     this.recordingAngularSpeed = 0;
+    this.recordingElapsedSec = 0;
     this.onRecordingFrame = null;
     this.preRecordState = null;
 
@@ -311,6 +316,17 @@ export class SceneManager {
     this.comparisonShirtMesh = null;
     this.comparisonShirtMaterial = null;
     this.savedCameraState = null;
+
+    // Fit state for t-shirt family (oversized vs regular)
+    this.currentTshirtFit = (initialGarmentType === 'regular_tee') ? 'regular' : 'oversized';
+    this._hasAppliedFit = false;
+    this.originalTshirtStaticPositions = null;
+    this.originalTshirtWavesPositions = null;
+    this.originalTshirtWalkingPositions = null;
+
+    // Custom background image from device
+    this.customBgImage = null;
+    this.customBgTexture = null;
 
     // 7. Lighting
     this.lights = {};
@@ -567,6 +583,9 @@ export class SceneManager {
           if (this.tshirtStatic.geometry && this.tshirtStatic.geometry.attributes.uv && !this.tshirtStatic.geometry.attributes.uv2) {
             this.tshirtStatic.geometry.attributes.uv2 = this.tshirtStatic.geometry.attributes.uv;
           }
+          if (!this.originalTshirtStaticPositions && this.tshirtStatic.geometry?.attributes?.position) {
+            this.originalTshirtStaticPositions = new Float32Array(this.tshirtStatic.geometry.attributes.position.array);
+          }
           this.tshirtStatic.material = this.shirtMaterial;
           this.tshirtStatic.castShadow = true;
           this.tshirtStatic.receiveShadow = true;
@@ -589,6 +608,9 @@ export class SceneManager {
           if (this.tshirtWaves.geometry && this.tshirtWaves.geometry.attributes.uv && !this.tshirtWaves.geometry.attributes.uv2) {
             this.tshirtWaves.geometry.attributes.uv2 = this.tshirtWaves.geometry.attributes.uv;
           }
+          if (!this.originalTshirtWavesPositions && this.tshirtWaves.geometry?.attributes?.position) {
+            this.originalTshirtWavesPositions = new Float32Array(this.tshirtWaves.geometry.attributes.position.array);
+          }
           this.tshirtWaves.material = this.shirtMaterial;
           this.tshirtWaves.castShadow = true;
           this.tshirtWaves.receiveShadow = true;
@@ -602,6 +624,9 @@ export class SceneManager {
         if (this.tshirtWalking) {
           if (this.tshirtWalking.geometry && this.tshirtWalking.geometry.attributes.uv && !this.tshirtWalking.geometry.attributes.uv2) {
             this.tshirtWalking.geometry.attributes.uv2 = this.tshirtWalking.geometry.attributes.uv;
+          }
+          if (!this.originalTshirtWalkingPositions && this.tshirtWalking.geometry?.attributes?.position) {
+            this.originalTshirtWalkingPositions = new Float32Array(this.tshirtWalking.geometry.attributes.position.array);
           }
           this.tshirtWalking.material = this.shirtMaterial;
           this.tshirtWalking.castShadow = true;
@@ -694,75 +719,14 @@ export class SceneManager {
   createRegularFitGeometry(sourceGeometry) {
     const geo = sourceGeometry.clone();
     const pos = geo.attributes.position;
-    const count = pos.count;
-
-    function smoothstep(min, max, value) {
-      if (min === max) return value >= min ? 1 : 0;
-      const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-      return t * t * (3 - 2 * t);
-    }
-
-    for (let i = 0; i < count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-
-      const absX = Math.abs(x);
-      const signX = Math.sign(x) || 1;
-
-      // 1. Neckline protection weight: keep collar opening natural and clean around neck
-      const neckDist = Math.hypot(absX * 1.15, z + 360);
-      const neckWeight = smoothstep(60, 115, neckDist);
-
-      // 2. Torso width: classic tailored silhouette with subtle natural waist shaping
-      const waistShape = Math.exp(-Math.pow((z - 220) / 110, 2)) * 0.04;
-      const torsoScaleX = 0.90 - waistShape;
-
-      // 3. Shoulder & Sleeve: standard natural shoulder placement, conventional mid-bicep sleeve
-      const isShoulder = smoothstep(70, 200, absX) * smoothstep(-100, -330, z);
-      const isSleeve = smoothstep(180, 360, absX) * smoothstep(140, -100, z);
-
-      let scaleX = torsoScaleX;
-      scaleX = scaleX * (1.0 - isShoulder * 0.05);
-      scaleX = scaleX * (1.0 - isSleeve * 0.08);
-      scaleX = 1.0 * (1.0 - neckWeight) + scaleX * neckWeight;
-
-      let newX = signX * absX * scaleX;
-
-      // 4. Depth (Y): moderate torso and sleeve depth (closer tailored drape, non-baggy)
-      const scaleY = 0.88 + (1.0 - neckWeight) * 0.12;
-      let newY = y * scaleY;
-
-      // 5. Vertical (Z) shaping:
-      let newZ = z;
-
-      // Natural shoulder slope towards deltoids
-      const shoulderSlope = 16 * isShoulder;
-      newZ += shoulderSlope;
-
-      // Conventional sleeve lift (lifts hem to classic mid-bicep)
-      const sleeveLift = -26 * isSleeve;
-      newZ += sleeveLift;
-
-      // Slimmer sleeve circumference
-      if (isSleeve > 0.01) {
-        const armProg = Math.max(0, Math.min(1.0, (absX - 180) / 170));
-        const axisZ = -110 + armProg * 150;
-        const axisY = 5 + armProg * 15;
-        const radZ = newZ - axisZ;
-        const radY = newY - axisY;
-        const sleeveRadiusScale = 1.0 - (0.16 * isSleeve);
-        newZ = axisZ + radZ * sleeveRadiusScale;
-        newY = axisY + radY * sleeveRadiusScale;
-      }
-
-      // Standard body length (hem sitting at natural hip level)
-      const hemWeight = smoothstep(0, 360, z) * (1.0 - isSleeve);
-      newZ -= (z * 0.06) * hemWeight;
-
-      pos.setXYZ(i, newX, newY, newZ);
-    }
-
+    this.deformTshirtPositions(
+      sourceGeometry.attributes.position.array,
+      pos.array,
+      'regular',
+      1.0,
+      0.0
+    );
+    pos.needsUpdate = true;
     geo.computeVertexNormals();
     geo.computeBoundingBox();
     geo.computeBoundingSphere();
@@ -772,9 +736,8 @@ export class SceneManager {
   getActiveMesh() {
     const t = this.garmentType || 'oversized_tee';
     if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
-      const activeSide = this.designManager?.getActiveLayer()?.side;
-      if (activeSide === 'back' && this.hoodieDecalMeshBack) return this.hoodieDecalMeshBack;
-      return this.hoodieDecalMeshFront || this.realHoodieRoot;
+      const hoodieMesh = this.realHoodieRoot?.getObjectByName('Hoodie');
+      return hoodieMesh || this.realHoodieRoot;
     }
     if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
     if (this.animationMode === 'walking' && this.tshirtWalking) return this.tshirtWalking;
@@ -845,7 +808,10 @@ export class SceneManager {
           const uv = intersects[0].uv;
           const hitX = Math.round(uv.x * 2048);
           const hitY = Math.round(uv.y * 2048);
-          const hitSide = hitX < 1024 ? 'front' : 'back';
+          const isHoodieFamily = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
+          const hitSide = isHoodieFamily
+            ? (intersects[0].point.z < 0 ? 'back' : 'front')
+            : (hitX < 1024 ? 'front' : 'back');
 
           const sideLayers = this.designManager.layers.filter(l => (l.side || 'front') === hitSide);
           if (sideLayers.length > 0) {
@@ -1028,6 +994,28 @@ export class SceneManager {
           }
         }, 380);
 
+        // If direct UV hit on mesh, also snap to raycast position
+        const rect = dom.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const mesh = this.getActiveMesh();
+        if (mesh && !e.altKey && this.designGestureMode === 'move') {
+          const intersects = this.raycaster.intersectObject(mesh, false);
+          if (intersects.length > 0 && intersects[0].uv) {
+            const uv = intersects[0].uv;
+            const x = Math.round(uv.x * 2048);
+            const y = Math.round(uv.y * 2048);
+            const isHoodieFamily = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
+            const side = isHoodieFamily
+              ? (intersects[0].point.z < 0 ? 'back' : 'front')
+              : (x < 1024 ? 'front' : 'back');
+            this.dragStart.startX = x;
+            this.dragStart.startY = y;
+            this.dragStart.side = side;
+            this.designManager.updateLayer(activeLayer.id, { x, y, side }, true);
+          }
+        }
       }
     });
 
@@ -1052,22 +1040,48 @@ export class SceneManager {
           return;
         }
 
-        // Move mode: translate coordinates across front or back UV layout
-        const isBackView = this.camera.position.z < 0;
-        const factorX = isBackView ? -2.2 : 2.2;
-        const factorY = 2.2;
+        // Move mode: direct 3D raycast surface tracking with delta fallback
+        const isHoodieFamily = (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie');
+        const mesh = this.getActiveMesh();
+        let hitProcessed = false;
 
-        let newX = Math.round(this.dragStart.startX + deltaX * factorX);
-        let newY = Math.round(this.dragStart.startY + deltaY * factorY);
-
-        if (this.dragStart.side === 'front') {
-          newX = Math.max(100, Math.min(924, newX));
-        } else {
-          newX = Math.max(1124, Math.min(1948, newX));
+        if (mesh) {
+          const rect = dom.getBoundingClientRect();
+          this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          this.raycaster.setFromCamera(this.mouse, this.camera);
+          const intersects = this.raycaster.intersectObject(mesh, false);
+          if (intersects.length > 0 && intersects[0].uv) {
+            const uv = intersects[0].uv;
+            const hitX = Math.round(uv.x * 2048);
+            const hitY = Math.round(uv.y * 2048);
+            const hitSide = isHoodieFamily
+              ? (intersects[0].point.z < 0 ? 'back' : 'front')
+              : (hitX < 1024 ? 'front' : 'back');
+            this.designManager.updateLayer(this.dragStart.layerId, { x: hitX, y: hitY, side: hitSide }, true);
+            hitProcessed = true;
+          }
         }
-        newY = Math.max(200, Math.min(1848, newY));
 
-        this.designManager.updateLayer(this.dragStart.layerId, { x: newX, y: newY }, true);
+        if (!hitProcessed) {
+          const isBackView = this.camera.position.z < 0;
+          const factorX = isBackView ? -2.2 : 2.2;
+          const factorY = 2.2;
+
+          let newX = Math.round(this.dragStart.startX + deltaX * factorX);
+          let newY = Math.round(this.dragStart.startY + deltaY * factorY);
+
+          if (!isHoodieFamily) {
+            if (this.dragStart.side === 'front') {
+              newX = Math.max(100, Math.min(924, newX));
+            } else {
+              newX = Math.max(1124, Math.min(1948, newX));
+            }
+          }
+          newY = Math.max(100, Math.min(1948, newY));
+
+          this.designManager.updateLayer(this.dragStart.layerId, { x: newX, y: newY }, true);
+        }
       }
     });
 
@@ -1180,6 +1194,40 @@ export class SceneManager {
     const ambLight = new THREE.AmbientLight(0xffffff, ambIntensity);
     this.scene.add(ambLight);
     this.lights.amb = ambLight;
+
+    // Apply custom background image texture if custom mode is selected
+    if (preset === 'custom' && this.customBgTexture) {
+      this.scene.background = this.customBgTexture;
+    } else if (preset !== 'custom' && this.scene.background === this.customBgTexture) {
+      this.scene.background = null;
+    }
+  }
+
+  setCustomBackgroundImage(imageUrl) {
+    this.customBgImage = imageUrl;
+    if (imageUrl) {
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+      loader.load(
+        imageUrl,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          this.customBgTexture = texture;
+          if (this.backdropMode === 'custom') {
+            this.scene.background = texture;
+          }
+        },
+        undefined,
+        (err) => {
+          console.warn('Failed to load custom background texture:', err);
+        }
+      );
+    } else {
+      this.customBgTexture = null;
+      if (this.backdropMode === 'custom') {
+        this.scene.background = null;
+      }
+    }
   }
 
   setCustomBackground(dataUrl, onDone) {
@@ -1274,7 +1322,7 @@ export class SceneManager {
   }
 
   getActiveGarmentRoot() {
-    const t = this.garmentType || 'regular_tee';
+    const t = this.garmentType || 'oversized_tee';
     if (t === 'hoodie' || t === 'zip_hoodie') {
       return this.realHoodieRoot;
     }
@@ -1319,7 +1367,9 @@ export class SceneManager {
       } else {
         // Reached top: keep fully woven
         updateShaderKnit(1.0);
-        if (activeRoot) activeRoot.scale.set(1, 1, 1);
+        if (activeRoot) {
+          activeRoot.scale.set(1, 1, 1);
+        }
       }
     };
     requestAnimationFrame(knitInterval);
@@ -1529,10 +1579,10 @@ export class SceneManager {
     shadowCanvas.width = 256;
     shadowCanvas.height = 256;
     const ctx = shadowCanvas.getContext('2d');
-    const grad = ctx.createRadialGradient(128, 128, 15, 128, 128, 120);
-    grad.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
-    grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.30)');
-    grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.08)');
+    const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 125);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.38)');
+    grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.18)');
+    grad.addColorStop(0.70, 'rgba(0, 0, 0, 0.04)');
     grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 256, 256);
@@ -1542,7 +1592,7 @@ export class SceneManager {
     const shadowMat = new THREE.MeshBasicMaterial({
       map: shadowTexture,
       transparent: true,
-      opacity: 0.60,
+      opacity: 0.40,
       depthWrite: false
     });
 
@@ -1554,19 +1604,33 @@ export class SceneManager {
   }
 
   auditSceneMaterialsAndStrayPieces() {
-    const strayNames = ['env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport', 'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017'];
+    // Explicitly identify and hide stray meshes, detached cuffs, floating collar rings, and bottom discs
+    const strayNames = [
+      'env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport',
+      'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017',
+      'attachment_sweatshirt_left_arm', 'attachment_sweatshirt_left_cuff',
+      'attachment_sweatshirt_right_arm', 'attachment_sweatshirt_right_cuff',
+      'attachment_sweatshirt_crew_collar', 'attachment_sweatshirt_waist_hem'
+    ];
     const issuesFound = [];
 
     this.scene.traverse((obj) => {
       if (obj.isMesh && obj !== this.contactShadow && obj !== this.comparisonContactShadow) {
-        const name = obj.name || '';
-        const isStray = strayNames.some(s => name === s || name.includes(s));
+        const name = (obj.name || '').toLowerCase();
+        const isPoloMesh = name.includes('polo');
+        const isStray = !isPoloMesh && (strayNames.some(s => name === s.toLowerCase() || name.includes(s.toLowerCase())) ||
+          (name.includes('cuff') && !name.includes('hoodie')) ||
+          (name.includes('sleeve_extension')) ||
+          (name.includes('crew_collar') && !name.includes('hoodie')) ||
+          (name.includes('waist_hem') && !name.includes('hoodie')) ||
+          (name.includes('bottom_disc')) ||
+          (name.includes('collar_ring')));
         if (isStray) {
           obj.visible = false;
           if (obj.parent && obj.parent !== this.scene) {
             try { obj.parent.remove(obj); } catch (e) {}
           }
-          issuesFound.push({ type: 'Stray leftover pattern piece hidden & removed', name: obj.name });
+          issuesFound.push({ type: 'Floating collar/bottom disc/stray piece hidden & removed', name: obj.name });
           return;
         }
 
@@ -1800,58 +1864,106 @@ export class SceneManager {
     this.attachmentsGroup.scale.set(1, 1, 1);
     this.attachmentsGroup.visible = false;
 
-    const fabMat = this.fabricMaterial || this.shirtMaterial;
+    this.setupPoloAttachments();
 
-    // 1. Sweatshirt: Authentic streetwear long sleeves, ribbed cuffs, waistband, and crewneck collar
-    this.sweatshirtGroup = new THREE.Group();
-    this.sweatshirtGroup.name = 'garment_sweatshirt_attachments';
-    this.sweatshirtGroup.visible = false;
-    this.crewCollarGroup = this.sweatshirtGroup;
-
-    // Seamless left & right long sleeve extensions connecting directly inside drop-shoulder sleeve openings
-    const armGeom = new THREE.CylinderGeometry(0.40, 0.52, 2.20, 24);
-    
-    // Left sleeve extension & ribbed cuff
-    const leftArm = new THREE.Mesh(armGeom, fabMat);
-    leftArm.name = 'attachment_sweatshirt_left_arm';
-    leftArm.position.set(-4.08, 0.42, 0.04);
-    leftArm.rotation.set(0.10, 0, 0.65);
-    
-    const cuffGeom = new THREE.CylinderGeometry(0.35, 0.38, 0.45, 24);
-    const leftCuff = new THREE.Mesh(cuffGeom, fabMat);
-    leftCuff.name = 'attachment_sweatshirt_left_cuff';
-    leftCuff.position.set(-4.95, -0.38, 0.04);
-    leftCuff.rotation.set(0.10, 0, 0.65);
-
-    // Right sleeve extension & ribbed cuff
-    const rightArm = new THREE.Mesh(armGeom, fabMat);
-    rightArm.name = 'attachment_sweatshirt_right_arm';
-    rightArm.position.set(4.08, 0.42, 0.04);
-    rightArm.rotation.set(0.10, 0, -0.65);
-
-    const rightCuff = new THREE.Mesh(cuffGeom, fabMat);
-    rightCuff.name = 'attachment_sweatshirt_right_cuff';
-    rightCuff.position.set(4.95, -0.38, 0.04);
-    rightCuff.rotation.set(0.10, 0, -0.65);
-
-    // Ribbed crewneck collar rim sitting flush on neckline (Y = 3.20)
-    const crewGeom = new THREE.TorusGeometry(1.22, 0.10, 20, 48);
-    crewGeom.rotateX(Math.PI * 0.45);
-    const crewMesh = new THREE.Mesh(crewGeom, fabMat);
-    crewMesh.name = 'attachment_sweatshirt_crew_collar';
-    crewMesh.position.set(0, 3.20, 0.08);
-
-    // Ribbed bottom hem waistband sitting flush at bottom hem (Y = -4.18)
-    const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 32);
-    const waistHem = new THREE.Mesh(waistGeom, fabMat);
-    waistHem.name = 'attachment_sweatshirt_waist_hem';
-    waistHem.position.set(0, -4.18, 0.0);
-    waistHem.scale.set(1.0, 1.0, 0.52);
-
-    this.sweatshirtGroup.add(leftArm, leftCuff, rightArm, rightCuff, crewMesh, waistHem);
-    this.attachmentsGroup.add(this.sweatshirtGroup);
     this.scene.add(this.attachmentsGroup);
     this.applyGarmentTypeVisibility();
+  }
+
+  setupPoloAttachments() {
+    const fabMat = this.shirtMaterial || this.fabricMaterial;
+
+    this.poloGroup = new THREE.Group();
+    this.poloGroup.name = 'garment_polo_attachments';
+    this.poloGroup.position.set(0, -0.427445, 0);
+    this.poloGroup.visible = false;
+
+    // 1. Turned-down continuous collar band contouring the neck from back to front
+    const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.48, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
+    poloCollarCurve.rotateX(-0.16);
+    const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
+    poloCollarMesh.name = 'attachment_polo_collar';
+    poloCollarMesh.position.set(0, 3.24, 0.06);
+
+    // 2. Left and right folded lapel wings laying flat against upper chest
+    const lapelShape = new THREE.Shape();
+    lapelShape.moveTo(0, 0);
+    lapelShape.lineTo(0.82, -0.92);
+    lapelShape.lineTo(0.20, -1.02);
+    lapelShape.lineTo(-0.06, -0.15);
+    lapelShape.closePath();
+    const extrudeSettings = { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 };
+    const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
+
+    const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
+    leftLapel.name = 'attachment_polo_left_lapel';
+    leftLapel.position.set(-0.14, 3.20, 0.95);
+    leftLapel.rotation.set(0.20, 0.10, -0.18);
+
+    const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
+    rightLapel.name = 'attachment_polo_right_lapel';
+    rightLapel.position.set(0.14, 3.20, 0.95);
+    rightLapel.rotation.set(0.20, -0.10, 0.18);
+    rightLapel.scale.set(-1, 1, 1);
+
+    // 3. Front center placket with stitch welt
+    const placketGeom = new THREE.BoxGeometry(0.44, 1.62, 0.045);
+    const placketMesh = new THREE.Mesh(placketGeom, fabMat);
+    placketMesh.name = 'attachment_polo_placket';
+    placketMesh.position.set(0, 2.14, 0.96);
+    placketMesh.rotation.set(0.14, 0, 0);
+
+    // Bottom box-stitch placket tab
+    const placketTabGeom = new THREE.BoxGeometry(0.48, 0.22, 0.055);
+    const placketTabMesh = new THREE.Mesh(placketTabGeom, fabMat);
+    placketTabMesh.name = 'attachment_polo_placket_tab';
+    placketTabMesh.position.set(0, 1.34, 0.88);
+    placketTabMesh.rotation.set(0.14, 0, 0);
+
+    // 4. Pearlescent buttons (3-button authentic polo placket)
+    const buttonMat = new THREE.MeshStandardMaterial({
+      name: 'polo_button_material',
+      color: 0xf4f4f4,
+      roughness: 0.22,
+      metalness: 0.12
+    });
+    const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
+    buttonGeom.rotateX(Math.PI / 2 + 0.14);
+
+    const b1 = new THREE.Mesh(buttonGeom, buttonMat);
+    b1.name = 'attachment_polo_button_1';
+    b1.position.set(0, 2.70, 1.00);
+    const b2 = new THREE.Mesh(buttonGeom, buttonMat);
+    b2.name = 'attachment_polo_button_2';
+    b2.position.set(0, 2.14, 0.98);
+    const b3 = new THREE.Mesh(buttonGeom, buttonMat);
+    b3.name = 'attachment_polo_button_3';
+    b3.position.set(0, 1.58, 0.94);
+
+    // 5. Ribbed sleeve cuffs
+    const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
+    const leftPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    leftPoloCuff.name = 'attachment_polo_cuff_left';
+    leftPoloCuff.position.set(-3.25, 1.38, 0.06);
+    leftPoloCuff.rotation.set(0, 0, -0.58);
+
+    const rightPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    rightPoloCuff.name = 'attachment_polo_cuff_right';
+    rightPoloCuff.position.set(3.25, 1.38, 0.06);
+    rightPoloCuff.rotation.set(0, 0, 0.58);
+
+    this.poloGroup.add(
+      poloCollarMesh,
+      leftLapel,
+      rightLapel,
+      placketMesh,
+      placketTabMesh,
+      b1, b2, b3,
+      leftPoloCuff,
+      rightPoloCuff
+    );
+
+    this.attachmentsGroup.add(this.poloGroup);
   }
 
   loadHoodieModel(onDone) {
@@ -1882,15 +1994,17 @@ export class SceneManager {
 
     this.hoodieFabricMaterial = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(this.garmentColor || '#ffffff'),
+      map: this.designManager.texture,
       normalMap: hoodieNormal,
-      normalScale: new THREE.Vector2(0.32, 0.32),
+      normalScale: new THREE.Vector2(0.28, 0.28),
       roughness: 1.0,
       metalness: 0.0,
       sheen: 0.0,
       clearcoat: 0.0,
+      reflectivity: 0.05,
       side: THREE.DoubleSide
     });
-    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor, null, this.fabricMicroNormalMap);
+    applyInsideFabricShader(this.hoodieFabricMaterial, () => this.garmentColor, null, this.fabricMicroNormalMap, false);
 
     gltfLoader.load(
       getAssetUrl('/models/virtualthreads_hoodie.glb'),
@@ -1958,53 +2072,9 @@ export class SceneManager {
           this.hoodieInvSpine2M0 = this.hoodieSpine2M0.clone().invert();
         }
 
-        // Decals rig group that follows chest bone during animation
+        // Attachments rig group that follows chest bone during animation
         this.hoodieDecalsGroup = new THREE.Group();
         this.hoodieDecalsGroup.name = 'hoodie_decals_group';
-
-        // Front Chest Decal Mesh (curved flush to front chest surface)
-        const frontDecalGeom = new THREE.PlaneGeometry(2.7, 2.4, 16, 16);
-        const fPos = frontDecalGeom.attributes.position;
-        for (let i = 0; i < fPos.count; i++) {
-          const x = fPos.getX(i);
-          const y = fPos.getY(i);
-          fPos.setZ(i, (x * x) * 0.035 - (y * y) * 0.01);
-        }
-        frontDecalGeom.computeVertexNormals();
-
-        // Calibrated UV mapping (centered at 480 front, 1528 back)
-        const fUvs = frontDecalGeom.attributes.uv;
-        for (let i = 0; i < fUvs.count; i++) {
-          const u = fUvs.getX(i);
-          const v = fUvs.getY(i);
-          fUvs.setXY(i, 0.0344 + u * 0.40, 0.5906 - v * 0.40);
-        }
-        fUvs.needsUpdate = true;
-
-        this.hoodieDecalMeshFront = new THREE.Mesh(frontDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshFront.position.set(0, 1.02, 1.38);
-        this.hoodieDecalMeshFront.rotation.set(-0.25, 0, 0);
-        this.hoodieDecalMeshFront.renderOrder = 2;
-        this.hoodieDecalMeshFront.visible = false;
-        this.hoodieDecalsGroup.add(this.hoodieDecalMeshFront);
-
-        // Back Torso Decal Mesh (smooth planar flush to back torso surface below hood)
-        const backDecalGeom = new THREE.PlaneGeometry(2.7, 2.4);
-
-        const bUvs = backDecalGeom.attributes.uv;
-        for (let i = 0; i < bUvs.count; i++) {
-          const u = bUvs.getX(i);
-          const v = bUvs.getY(i);
-          bUvs.setXY(i, 0.5461 + u * 0.40, 0.5906 - v * 0.40);
-        }
-        bUvs.needsUpdate = true;
-
-        this.hoodieDecalMeshBack = new THREE.Mesh(backDecalGeom, this.decalMaterial);
-        this.hoodieDecalMeshBack.position.set(0, 0.85, -1.08);
-        this.hoodieDecalMeshBack.rotation.set(0.04, Math.PI, 0);
-        this.hoodieDecalMeshBack.renderOrder = 2;
-        this.hoodieDecalMeshBack.visible = false;
-        this.hoodieDecalsGroup.add(this.hoodieDecalMeshBack);
 
         // Front Center Metallic Zipper (for Zip Hoodie - strictly follows chest bone during walk & pose)
         const zipMat = new THREE.MeshStandardMaterial({
@@ -2056,7 +2126,7 @@ export class SceneManager {
   }
 
   applyGarmentTypeVisibility() {
-    const t = this.garmentType || 'regular_tee';
+    const t = this.garmentType || 'oversized_tee';
     const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
     const isTshirtFamily = !isHoodieFamily;
 
@@ -2102,39 +2172,27 @@ export class SceneManager {
       this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
-    // Upper body t-shirt scaling & positioning
+    // Upper body t-shirt scaling & fit geometry
     if (this.tshirtStatic) {
       if (t === 'cropped_tee') {
         // High-waisted boxy streetwear crop: wide drop-shoulder with clean raised hem
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
-      } else if (t === 'sweatshirt') {
-        // Heavyweight fleece boxy drape matching long-sleeve sweatshirt attachments
-        this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0104);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
+        this.applyTshirtFit('oversized');
       } else {
-        // Both regular_tee and oversized_tee use authentic 1:1 scale (0.0100, 0.0100, 0.0100).
-        // Their visible silhouette distinction is driven by the authentic 3D geometry vertices.
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
+        const fit = (t === 'regular_tee' || t === 'polo') ? 'regular' : 'oversized';
+        this.applyTshirtFit(fit);
       }
     }
 
-    // Adapt animations to selected fit silhouette
-    const isRegular = (t === 'regular_tee');
+    // Maintain native animation transforms (vertex buffers are deformed directly)
     if (this.tshirtWalking) {
-      if (isRegular) {
-        this.tshirtWalking.scale.set(0.88, 0.86, 0.94);
-      } else {
-        this.tshirtWalking.scale.set(1.0, 1.0, 1.0);
-      }
+      this.tshirtWalking.scale.set(1.0, 1.0, 1.0);
     }
     if (this.tshirtWaves) {
-      if (isRegular) {
-        this.tshirtWaves.scale.set(0.88, 0.86, 0.94);
-      } else {
-        this.tshirtWaves.scale.set(1.0, 1.0, 1.0);
-      }
+      this.tshirtWaves.scale.set(1.0, 1.0, 1.0);
     }
 
     // Real models visibility
@@ -2142,18 +2200,157 @@ export class SceneManager {
       this.realHoodieRoot.visible = isHoodieFamily;
     }
 
-    // Attachments visibility: strictly show sweatshirt attachments for sweatshirt
-    const isSweatshirt = (t === 'sweatshirt');
+    // Attachments visibility
+    const isPolo = (t === 'polo');
     if (this.attachmentsGroup) {
-      this.attachmentsGroup.visible = isSweatshirt;
+      this.attachmentsGroup.visible = isPolo;
     }
-    if (this.sweatshirtGroup) {
-      this.sweatshirtGroup.visible = isSweatshirt;
+    if (this.poloGroup) {
+      this.poloGroup.visible = isPolo;
     }
     if (this.hoodieZipperMesh) {
       this.hoodieZipperMesh.visible = (t === 'zip_hoodie');
     }
     this.updateDecalVisibility();
+  }
+
+  /**
+   * Deforms t-shirt geometry vertices for Regular Fit:
+   * Keeps the identical oversized body silhouette, chest width, waist, length, drape and shoulders,
+   * while shortening the sleeves to a clean short-sleeve length.
+   */
+  deformTshirtPositions(src, dst, fit = 'regular', unitScale = 1.0, zShift = 0.0) {
+    const isRegular = fit === 'regular';
+    const invScale = 1.0 / unitScale;
+
+    function smoothstep(min, max, value) {
+      if (min === max) return value >= min ? 1 : 0;
+      const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+      return t * t * (3 - 2 * t);
+    }
+
+    for (let i = 0; i < src.length; i += 3) {
+      const x = src[i];
+      const y = src[i + 1];
+      const z = src[i + 2];
+
+      if (!isRegular) {
+        // Pristine authentic drop-shoulder oversized streetwear silhouette
+        dst[i] = x;
+        dst[i + 1] = y;
+        dst[i + 2] = z;
+        continue;
+      }
+
+      // Convert to normalized millimeter space relative to shirt origin
+      const xMm = x * invScale;
+      const yMm = y * invScale;
+      const zMm = (z - zShift) * invScale;
+
+      const absX = Math.abs(xMm);
+      const signX = Math.sign(xMm) || 1;
+
+      let newX = absX;
+      let newY = yMm;
+      let newZ = zMm;
+
+      // Shorten only the sleeves:
+      // Preserves torso, shoulders, collar, chest, waist, and length identical to the oversized silhouette.
+      // Retracts sleeve along arm angle into a clean short-sleeve length.
+      if (absX > 200 && zMm > -320 && zMm < 115) {
+        const isSleeveZone = smoothstep(200, 240, absX) * (1.0 - smoothstep(85, 115, zMm));
+        if (isSleeveZone > 0) {
+          const prog = Math.min(1.0, Math.max(0, (absX - 210) / 135));
+          const factor = prog * prog * (3 - 2 * prog) * isSleeveZone;
+          newX -= factor * 76.0;
+          newZ -= factor * 85.0;
+          newY *= (1.0 - factor * 0.05);
+        }
+      }
+
+      const finalX = signX * newX * unitScale;
+      const finalY = newY * unitScale;
+      const finalZ = (newZ * unitScale) + zShift;
+
+      dst[i] = finalX;
+      dst[i + 1] = finalY;
+      dst[i + 2] = finalZ;
+    }
+  }
+
+  /**
+   * Applies the selected fit to all t-shirt meshes (static, waves, walking).
+   * Modifies vertex buffer positions directly, recomputing normals and bounding volumes.
+   */
+  applyTshirtFit(fit = 'oversized') {
+    const isRegular = (fit === 'regular' || this.garmentType === 'regular_tee');
+    const targetFit = isRegular ? 'regular' : 'oversized';
+
+    if (this.currentTshirtFit === targetFit && this._hasAppliedFit) {
+      return;
+    }
+
+    const targetGeometry = isRegular ? this.tshirtRegularGeometry : this.tshirtOversizedGeometry;
+    if (this.tshirtStatic && targetGeometry && this.tshirtStatic.geometry !== targetGeometry) {
+      this.tshirtStatic.geometry = targetGeometry;
+    }
+
+    // 1. Static high-resolution master mesh (62,760 vertices, millimeter space)
+    if (this.tshirtStatic && this.originalTshirtStaticPositions) {
+      const posAttr = this.tshirtStatic.geometry.attributes.position;
+      this.deformTshirtPositions(
+        this.originalTshirtStaticPositions,
+        posAttr.array,
+        targetFit,
+        1.0
+      );
+      posAttr.needsUpdate = true;
+      this.tshirtStatic.geometry.computeVertexNormals();
+      this.tshirtStatic.geometry.computeBoundingBox();
+      this.tshirtStatic.geometry.computeBoundingSphere();
+    }
+
+    // 2. Wind Waves animated mesh (16,753 vertices, millimeter space)
+    if (this.tshirtWaves && this.originalTshirtWavesPositions) {
+      const posAttr = this.tshirtWaves.geometry.attributes.position;
+      this.deformTshirtPositions(
+        this.originalTshirtWavesPositions,
+        posAttr.array,
+        targetFit,
+        1.0
+      );
+      posAttr.needsUpdate = true;
+      this.tshirtWaves.geometry.computeVertexNormals();
+      this.tshirtWaves.geometry.computeBoundingBox();
+      this.tshirtWaves.geometry.computeBoundingSphere();
+    }
+
+    // 3. Walking Runway animated mesh (16,753 vertices, meter space with Z offset -1.28m)
+    if (this.tshirtWalking && this.originalTshirtWalkingPositions) {
+      const posAttr = this.tshirtWalking.geometry.attributes.position;
+      this.deformTshirtPositions(
+        this.originalTshirtWalkingPositions,
+        posAttr.array,
+        targetFit,
+        0.001,
+        -1.28
+      );
+      posAttr.needsUpdate = true;
+      this.tshirtWalking.geometry.computeVertexNormals();
+      this.tshirtWalking.geometry.computeBoundingBox();
+      this.tshirtWalking.geometry.computeBoundingSphere();
+    }
+
+    this.currentTshirtFit = targetFit;
+    this._hasAppliedFit = true;
+  }
+
+  /**
+   * Set t-shirt fit directly ('regular' | 'oversized')
+   */
+  setTshirtFit(fit) {
+    const targetType = (fit === 'regular') ? 'regular_tee' : 'oversized_tee';
+    this.setGarmentType(targetType);
   }
 
   updateDecalVisibility() {
@@ -2232,7 +2429,6 @@ export class SceneManager {
     if (this.mixer) {
       Object.values(this.actions).forEach((a) => a.stop());
     }
-
     if (mode === 'static') {
       if (this.tshirtStatic) this.tshirtStatic.visible = true;
       if (this.tshirtWaves) this.tshirtWaves.visible = false;
@@ -2535,10 +2731,12 @@ export class SceneManager {
     }
 
     // High-precision clock delta
+    // During video recording, use exact deterministic fixed delta for silky-smooth 60/30 FPS motion pacing
+    const fixedRecordingDelta = 1.0 / (this.recordingFps || 30);
     const rawDelta = this.clock.getDelta();
-    // Do not strictly cap delta during video recording to ensure animation doesn't play in slow motion if frame rate drops
-    const maxDelta = this.isRecordingVideo ? 0.33 : 0.05;
-    const delta = Math.min(Math.max(rawDelta, 0.001), maxDelta);
+    const delta = this.isRecordingVideo
+      ? fixedRecordingDelta
+      : Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     // Smooth material preset transition (color, sheenColor, roughness, sheen, normalScale)
     if (this.targetMaterialProps && (this.shirtMaterial || this.fabricMaterial || this.hoodieFabricMaterial)) {
@@ -2690,11 +2888,11 @@ export class SceneManager {
       }
     }
 
-    // Video recording showcase motion: smooth continuous 360° spin loop based on elapsed time
+    // Video recording showcase motion: smooth continuous 360° spin loop based on deterministic elapsed time
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
-      const elapsedSec = (performance.now() - (this.recordingStartTime || performance.now())) / 1000;
+      this.recordingElapsedSec = (this.recordingElapsedSec || 0) + delta;
       const totalDuration = this.recordingDuration || 5;
-      const progress = Math.min(1.0, elapsedSec / totalDuration);
+      const progress = Math.min(1.0, this.recordingElapsedSec / totalDuration);
       const loops = totalDuration >= 15 ? 2 : 1;
       const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 
@@ -2753,6 +2951,7 @@ export class SceneManager {
     this.recordingDuration = durationSeconds;
     this.recordingMotion = motion;
     this.recordingFrame = 0;
+    this.recordingElapsedSec = 0;
     this.onRecordingFrame = onFrame;
     this.recordingStartTime = performance.now();
 
@@ -2766,11 +2965,14 @@ export class SceneManager {
 
     // Set 3D scene background to solid color or custom device background during recording
     this.originalSceneBackground = this.scene.background;
-    if (this.backdropMode === 'custom' && this.customBackgroundTexture) {
-      this.scene.background = this.customBackgroundTexture;
+    const activeCustomTex = this.customBackgroundTexture || this.customBgTexture;
+    if (this.backdropMode === 'custom' && activeCustomTex) {
+      this.scene.background = activeCustomTex;
       const imgW = this.customBackgroundImage?.naturalWidth || this.customBackgroundImage?.width || targetW;
       const imgH = this.customBackgroundImage?.naturalHeight || this.customBackgroundImage?.height || targetH;
-      this.fitTextureCover(this.customBackgroundTexture, imgW, imgH, targetW, targetH);
+      if (typeof this.fitTextureCover === 'function') {
+        this.fitTextureCover(activeCustomTex, imgW, imgH, targetW, targetH);
+      }
     } else {
       this.scene.background = new THREE.Color(solidBg);
     }
@@ -2819,6 +3021,7 @@ export class SceneManager {
     this.isRecordingVideo = false;
     this.onRecordingFrame = null;
     this.recordingFrame = 0;
+    this.recordingElapsedSec = 0;
 
     // Restore background if modified
     if (this.originalSceneBackground !== undefined) {
@@ -2860,11 +3063,14 @@ export class SceneManager {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
-    if (!isTransparent && this.backdropMode === 'custom' && this.customBackgroundTexture) {
-      this.scene.background = this.customBackgroundTexture;
+    const activeCustomTex = this.customBackgroundTexture || this.customBgTexture;
+    if (!isTransparent && this.backdropMode === 'custom' && activeCustomTex) {
+      this.scene.background = activeCustomTex;
       const imgW = this.customBackgroundImage?.naturalWidth || this.customBackgroundImage?.width || width;
       const imgH = this.customBackgroundImage?.naturalHeight || this.customBackgroundImage?.height || height;
-      this.fitTextureCover(this.customBackgroundTexture, imgW, imgH, width, height);
+      if (typeof this.fitTextureCover === 'function') {
+        this.fitTextureCover(activeCustomTex, imgW, imgH, width, height);
+      }
     } else if (isTransparent) {
       this.scene.background = null;
     } else {

@@ -104,7 +104,30 @@ export class CanvasVideoRecorder {
           ? this.sceneManager.recordingCanvas
           : this.canvas;
 
-        const stream = captureCanvas.captureStream ? captureCanvas.captureStream(targetFps) : null;
+        let stream = null;
+        let capturedTrack = null;
+        let useManualFrameRequest = false;
+
+        // Attempt deterministic frame-by-frame capture using track.requestFrame if supported
+        try {
+          if (captureCanvas.captureStream) {
+            const candidateStream = captureCanvas.captureStream(0);
+            const tracks = candidateStream ? candidateStream.getVideoTracks() : [];
+            if (tracks && tracks.length > 0 && typeof tracks[0].requestFrame === 'function') {
+              stream = candidateStream;
+              capturedTrack = tracks[0];
+              useManualFrameRequest = true;
+            }
+          }
+        } catch (e) {
+          useManualFrameRequest = false;
+        }
+
+        // Fallback to standard captureStream(targetFps) if manual frame capture is unavailable
+        if (!useManualFrameRequest || !stream) {
+          stream = captureCanvas.captureStream ? captureCanvas.captureStream(targetFps) : null;
+        }
+
         if (!stream) {
           if (this.sceneManager && this.sceneManager.stopVideoRecording) {
             this.sceneManager.stopVideoRecording();
@@ -116,7 +139,7 @@ export class CanvasVideoRecorder {
         const selectedMime = CanvasVideoRecorder.getSupportedMimeType(preferredFormat);
         const options = {
           mimeType: selectedMime,
-          videoBitsPerSecond: 16000000 // 16 Mbps for high-motion clarity
+          videoBitsPerSecond: 8000000 // 8 Mbps: pristine 1080p clarity with smooth hardware encoding
         };
 
         this.recordedChunks = [];
@@ -132,6 +155,9 @@ export class CanvasVideoRecorder {
 
         const cleanup = () => {
           this.isRecording = false;
+          if (this.sceneManager) {
+            this.sceneManager.onRecordingFrame = null;
+          }
           if (screenWakeLock) {
             screenWakeLock.release().catch(() => {});
             screenWakeLock = null;
@@ -189,27 +215,51 @@ export class CanvasVideoRecorder {
 
         this.isRecording = true;
         const totalDurationMs = Math.max(1, durationSeconds * 1000);
+        const totalTargetFrames = Math.max(1, Math.round(durationSeconds * targetFps));
+        let recordedFrameCount = 0;
         const startTime = performance.now();
 
-        // High-precision smooth progress updater
-        this.progressTimer = setInterval(() => {
-          if (!this.isRecording) {
-            clearInterval(this.progressTimer);
-            return;
-          }
-          const elapsedMs = performance.now() - startTime;
-          const pct = Math.min(99, Math.round((elapsedMs / totalDurationMs) * 100));
-          const sec = Math.min(durationSeconds, elapsedMs / 1000);
-          onProgress(pct, sec);
-        }, 60);
+        // Connect scene manager frame render callback for exact frame submission and smooth progress
+        if (this.sceneManager) {
+          this.sceneManager.onRecordingFrame = () => {
+            if (!this.isRecording) return;
+            if (useManualFrameRequest && capturedTrack) {
+              try {
+                capturedTrack.requestFrame();
+              } catch (e) {}
+            }
+            recordedFrameCount++;
+            const pct = Math.min(99, Math.round((recordedFrameCount / totalTargetFrames) * 100));
+            const sec = Math.min(durationSeconds, +(recordedFrameCount / targetFps).toFixed(1));
+            onProgress(pct, sec);
 
-        // Start continuous recording (no micro-timeslicing to allow optimal hardware compression)
+            if (recordedFrameCount >= totalTargetFrames) {
+              this.stopEarly();
+            }
+          };
+        }
+
+        // Timer-based progress updater for standard captureStream fallback
+        if (!useManualFrameRequest) {
+          this.progressTimer = setInterval(() => {
+            if (!this.isRecording) {
+              clearInterval(this.progressTimer);
+              return;
+            }
+            const elapsedMs = performance.now() - startTime;
+            const pct = Math.min(99, Math.round((elapsedMs / totalDurationMs) * 100));
+            const sec = Math.min(durationSeconds, +(elapsedMs / 1000).toFixed(1));
+            onProgress(pct, sec);
+          }, 50);
+        }
+
+        // Start continuous recording
         this.mediaRecorder.start();
 
-        // Exact timer to conclude recording at requested duration
+        // Safety fallback timer to conclude recording
         this.stopTimeout = setTimeout(() => {
           this.stopEarly();
-        }, totalDurationMs + 50);
+        }, totalDurationMs + 100);
       } catch (err) {
         this.isRecording = false;
         if (this.sceneManager && this.sceneManager.stopVideoRecording) {
