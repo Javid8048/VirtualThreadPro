@@ -681,36 +681,8 @@ export function SidebarLeft({
                 <span className="text-[11px] font-mono text-gray-500 dark:text-studio-400 uppercase">{garmentColor}</span>
               </div>
 
-              {/* Blue vs Black Comparison Toggle */}
-              <div className="pt-2 border-t border-gray-100 dark:border-studio-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !isComparisonMode;
-                    onToggleComparison(next);
-                    if (next) setIsBlackTweakOpen(true);
-                  }}
-                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-semibold border flex items-center justify-between transition-all ${
-                    isComparisonMode
-                      ? 'bg-brand-500 text-white border-transparent shadow-xs'
-                      : 'border-gray-200 dark:border-studio-700 text-gray-700 dark:text-studio-200 hover:bg-gray-50 dark:hover:bg-studio-800'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="flex items-center -space-x-1">
-                      <span className="size-3 rounded-full bg-[#192848] border border-white/40" />
-                      <span className="size-3 rounded-full bg-[#24272e] border border-white/40" />
-                    </span>
-                    <span>Compare Blue vs Black</span>
-                  </span>
-                  <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full ${isComparisonMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-studio-700 text-gray-600 dark:text-studio-300'}`}>
-                    {isComparisonMode ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-              </div>
-
               {/* Tweakable Controls for Black Preset */}
-              <div className="pt-1.5">
+              <div className="pt-2 border-t border-gray-100 dark:border-studio-800">
                 <button
                   type="button"
                   onClick={() => setIsBlackTweakOpen(!isBlackTweakOpen)}
