@@ -1819,18 +1819,15 @@ export class SceneManager {
     // Explicitly identify and hide stray meshes, detached cuffs, floating collar rings, and bottom discs
     const strayNames = [
       'env_sphere', 'cameradefault_bg', 'camrotate_bg', 'camrotatezoom_bg', '3Dmodelexport',
-      'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017',
-      'attachment_sweatshirt_left_arm', 'attachment_sweatshirt_left_cuff',
-      'attachment_sweatshirt_right_arm', 'attachment_sweatshirt_right_cuff',
-      'attachment_sweatshirt_crew_collar', 'attachment_sweatshirt_waist_hem'
+      'Plane.002', 'Plane.003', 'Plane.004', 'Plane.017'
     ];
     const issuesFound = [];
 
     this.scene.traverse((obj) => {
       if (obj.isMesh && obj !== this.contactShadow && obj !== this.comparisonContactShadow) {
         const name = (obj.name || '').toLowerCase();
-        const isPoloMesh = name.includes('polo');
-        const isStray = !isPoloMesh && (strayNames.some(s => name === s.toLowerCase() || name.includes(s.toLowerCase())) ||
+        const isGarmentAttachmentMesh = name.includes('polo') || name.includes('sweatshirt');
+        const isStray = !isGarmentAttachmentMesh && (strayNames.some(s => name === s.toLowerCase() || name.includes(s.toLowerCase())) ||
           (name.includes('cuff') && !name.includes('hoodie')) ||
           (name.includes('sleeve_extension')) ||
           (name.includes('crew_collar') && !name.includes('hoodie')) ||
@@ -2078,6 +2075,7 @@ export class SceneManager {
     this.attachmentsGroup.visible = false;
 
     this.setupPoloAttachments();
+    this.setupSweatshirtAttachments();
 
     this.scene.add(this.attachmentsGroup);
     this.applyGarmentTypeVisibility();
@@ -2233,6 +2231,101 @@ export class SceneManager {
     );
 
     this.attachmentsGroup.add(this.poloGroup);
+  }
+
+  setupSweatshirtAttachments() {
+    this.sweatshirtGroup = new THREE.Group();
+    this.sweatshirtGroup.name = 'garment_sweatshirt_attachments';
+    this.sweatshirtGroup.position.set(0, -0.427445, 0);
+    this.sweatshirtGroup.visible = false;
+
+    // High tactile 2x2 ribbed knit canvas texture
+    let sweatRibMat;
+    if (typeof document !== 'undefined') {
+      const ribCanvas = document.createElement('canvas');
+      ribCanvas.width = 128;
+      ribCanvas.height = 128;
+      const rCtx = ribCanvas.getContext('2d');
+      rCtx.fillStyle = '#ffffff';
+      rCtx.fillRect(0, 0, 128, 128);
+      // Vertical athletic rib wales
+      rCtx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      for (let rx = 0; rx < 128; rx += 8) {
+        rCtx.fillRect(rx, 0, 3, 128);
+      }
+      const ribTex = new THREE.CanvasTexture(ribCanvas);
+      ribTex.wrapS = THREE.RepeatWrapping;
+      ribTex.wrapT = THREE.RepeatWrapping;
+      ribTex.repeat.set(16, 2);
+
+      sweatRibMat = new THREE.MeshPhysicalMaterial({
+        name: 'sweatshirt_rib_material',
+        color: new THREE.Color(this.garmentColor || '#ffffff'),
+        map: ribTex,
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.15,
+        side: THREE.DoubleSide
+      });
+    } else {
+      sweatRibMat = new THREE.MeshPhysicalMaterial({
+        name: 'sweatshirt_rib_material',
+        color: new THREE.Color(this.garmentColor || '#ffffff'),
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.15,
+        side: THREE.DoubleSide
+      });
+    }
+
+    // 1. Turned continuous ribbed crewneck collar rim contouring neckline
+    const collarCurve = new THREE.CylinderGeometry(1.22, 1.34, 0.38, 36, 1, false);
+    collarCurve.rotateX(-0.16);
+    const sweatCollarMesh = new THREE.Mesh(collarCurve, sweatRibMat);
+    sweatCollarMesh.name = 'attachment_sweatshirt_crew_collar';
+    sweatCollarMesh.position.set(0, 3.24, 0.06);
+
+    // 2. Athletic V-notch triangular collar gusset at front neck center
+    const vShape = new THREE.Shape();
+    vShape.moveTo(-0.22, 0.16);
+    vShape.lineTo(0.22, 0.16);
+    vShape.lineTo(0, -0.22);
+    vShape.closePath();
+    const extrudeSettings = { depth: 0.02, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.008, bevelThickness: 0.008 };
+    const vGeom = new THREE.ExtrudeGeometry(vShape, extrudeSettings);
+    const vMesh = new THREE.Mesh(vGeom, sweatRibMat);
+    vMesh.name = 'attachment_sweatshirt_v_notch';
+    vMesh.position.set(0, 2.92, 0.95);
+    vMesh.rotation.set(0.18, 0, 0);
+
+    // 3. Ribbed sleeve cuffs / bands
+    const cuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.32, 32, 1, true);
+    const leftSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
+    leftSweatCuff.name = 'attachment_sweatshirt_cuff_left';
+    leftSweatCuff.position.set(-3.25, 1.38, 0.06);
+    leftSweatCuff.rotation.set(0, 0, -0.58);
+
+    const rightSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
+    rightSweatCuff.name = 'attachment_sweatshirt_cuff_right';
+    rightSweatCuff.position.set(3.25, 1.38, 0.06);
+    rightSweatCuff.rotation.set(0, 0, 0.58);
+
+    // 4. Ribbed bottom hem waistband
+    const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 36, 1, false);
+    const waistHem = new THREE.Mesh(waistGeom, sweatRibMat);
+    waistHem.name = 'attachment_sweatshirt_waist_hem';
+    waistHem.position.set(0, -4.18, 0.0);
+    waistHem.scale.set(1.0, 1.0, 0.52);
+
+    this.sweatshirtGroup.add(
+      sweatCollarMesh,
+      vMesh,
+      leftSweatCuff,
+      rightSweatCuff,
+      waistHem
+    );
+
+    this.attachmentsGroup.add(this.sweatshirtGroup);
   }
 
   loadHoodieModel(onDone) {
@@ -2434,6 +2527,10 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
         this.applyTshirtFit('oversized');
+      } else if (t === 'sweatshirt' || t === 'sweat_tshirt') {
+        this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0103);
+        this.tshirtStatic.position.set(0, -0.427445, 0);
+        this.applyTshirtFit('oversized');
       } else {
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
@@ -2459,11 +2556,15 @@ export class SceneManager {
 
     // Attachments visibility
     const isPolo = (t === 'polo');
+    const isSweatshirt = (t === 'sweatshirt' || t === 'sweat_tshirt');
     if (this.attachmentsGroup) {
-      this.attachmentsGroup.visible = isPolo;
+      this.attachmentsGroup.visible = isPolo || isSweatshirt;
     }
     if (this.poloGroup) {
       this.poloGroup.visible = isPolo;
+    }
+    if (this.sweatshirtGroup) {
+      this.sweatshirtGroup.visible = isSweatshirt;
     }
     if (this.hoodieZipperMesh) {
       this.hoodieZipperMesh.visible = (t === 'zip_hoodie');

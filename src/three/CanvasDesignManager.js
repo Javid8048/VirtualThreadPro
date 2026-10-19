@@ -407,6 +407,49 @@ export class CanvasDesignManager {
     ctx.fillRect(0, 1975, S, S - 1975);
   }
 
+  /**
+   * Renders athletic French terry sweat t-shirt / sweatshirt details:
+   * Authentic athletic V-notch triangle twin-stitch at front center neckline.
+   */
+  drawSweatshirtDetails(ctx, S) {
+    ctx.save();
+    const vx = 488;
+    const vy = 605;
+    const vw = 38;
+    const vh = 60;
+
+    // Outer V stitch groove
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.16)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(vx - vw, vy);
+    ctx.lineTo(vx, vy + vh);
+    ctx.lineTo(vx + vw, vy);
+    ctx.stroke();
+
+    // Inner parallel stitch
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(vx - vw + 6, vy);
+    ctx.lineTo(vx, vy + vh - 8);
+    ctx.lineTo(vx + vw - 6, vy);
+    ctx.stroke();
+
+    // Subtle highlight stitch for 3D ridge depth
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(vx - vw + 2, vy + 2);
+    ctx.lineTo(vx, vy + vh + 2);
+    ctx.lineTo(vx + vw - 2, vy + 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   render() {
     const ctx = this.ctx;
     const dCtx = this.decalCtx;
@@ -426,6 +469,9 @@ export class CanvasDesignManager {
     } else {
       ctx.fillStyle = this.garmentColor;
       ctx.fillRect(0, 0, S, S);
+      if (this.garmentType === 'sweatshirt' || this.garmentType === 'sweat_tshirt') {
+        this.drawSweatshirtDetails(ctx, S);
+      }
     }
 
     // 2. Micro textile weave texture overlay for authentic tactile cotton feel
@@ -435,7 +481,7 @@ export class CanvasDesignManager {
     if (this.fabricPattern) {
       ctx.save();
       // Subtle weave shading for matte woven cotton depth
-      ctx.globalAlpha = this.fabricFinish === 'heavy_terry' ? 0.12 : 0.06;
+      ctx.globalAlpha = (this.fabricFinish === 'heavy_terry' || this.garmentType === 'sweatshirt' || this.garmentType === 'sweat_tshirt') ? 0.12 : 0.06;
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = this.fabricPattern;
       ctx.fillRect(0, 0, S, S);

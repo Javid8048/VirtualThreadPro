@@ -37,6 +37,17 @@ export const GARMENT_PRODUCTS = [
     popular: true
   },
   {
+    id: 'sweatshirt',
+    title: 'SWEAT T-SHIRT STUDIO',
+    badge: 'STUDIO READY',
+    badgeType: 'studio',
+    category: 'Tops',
+    description: 'Heavyweight streetwear French terry sweat t-shirt featuring a thick ribbed crewneck collar with athletic V-notch stitch, ribbed sleeve bands, and ribbed hem.',
+    features: ['Heavyweight French Terry', 'Ribbed Crewneck & V-Notch', 'Ribbed Sleeve Bands & Hem'],
+    imageBg: 'from-emerald-900/30 to-slate-950/40',
+    popular: true
+  },
+  {
     id: 'hoodie',
     title: 'OVERSIZED HOODIE STUDIO',
     badge: 'STUDIO READY',
@@ -74,7 +85,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 5 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 7 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
