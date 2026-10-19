@@ -96,30 +96,7 @@ export class CanvasDesignManager {
   }
 
   setGarmentColor(hex) {
-    const wasDark = isGarmentDark(this.garmentColor);
-    const isNowDark = isGarmentDark(hex);
     this.garmentColor = hex;
-
-    // Automatically adapt print contrast when garment color crosses dark/light boundary
-    if (wasDark !== isNowDark) {
-      this.layers.forEach((l) => {
-        if (l.type === 'text') {
-          if (isNowDark && (l.textColor === '#000000' || !l.textColor)) {
-            l.textColor = '#ffffff';
-          } else if (!isNowDark && l.textColor === '#ffffff') {
-            l.textColor = '#000000';
-          }
-        } else if (l.type === 'image' && l.presetSvg) {
-          svgToImage(l.presetSvg, hex).then(({ img, dataUrl }) => {
-            l.image = img;
-            l.dataUrl = dataUrl;
-            this.scheduleRender();
-            this.notify();
-          }).catch(console.error);
-        }
-      });
-    }
-
     this.render();
     this.notify();
   }

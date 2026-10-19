@@ -91,7 +91,8 @@ function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity,
             }
           }
 
-          diffuseColor *= sampledDiffuseColor;
+          // Direct diffuse assignment ensures graphic colors are never modulated or tinted by garment color
+          diffuseColor = sampledDiffuseColor;
         } else {
           // Pure, pristine interior lining: strictly solid fabric color, zero bleed-through
           diffuseColor.rgb = uInsideColor;
@@ -431,6 +432,7 @@ export class SceneManager {
     // Clean, 100% photorealistic matte cotton cloth material with dynamic canvas
     this.shirtMaterial = new THREE.MeshPhysicalMaterial({
       map: this.designManager.texture,
+      color: new THREE.Color(0xffffff),
       roughness: 0.95,
       metalness: 0.0,
       sheen: 0.35,
@@ -1469,8 +1471,13 @@ export class SceneManager {
       const mName = (mat.name || '').toLowerCase();
       if (mName.includes('slider') || mName.includes('metal') || mName.includes('button')) return;
 
+      const hasDynamicCanvas = (mat === this.shirtMaterial || mat === this.fabricMaterial || mat.map === this.designManager?.texture);
       if (colorObj && mat.color) {
-        mat.color.copy(colorObj);
+        if (hasDynamicCanvas) {
+          mat.color.setHex(0xffffff);
+        } else {
+          mat.color.copy(colorObj);
+        }
       }
       if (roughness !== undefined && mat.roughness !== undefined) {
         mat.roughness = roughness;
