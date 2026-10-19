@@ -2179,13 +2179,7 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
         this.applyTshirtFit('oversized');
-      } else if (t === 'oversized_tee') {
-        // Oversized Fit: relaxed boxy streetwear drop-shoulder silhouette
-        this.tshirtStatic.scale.set(0.0106, 0.0102, 0.0105);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
-        this.applyTshirtFit('oversized');
       } else {
-        // Regular Fit T-Shirt: authentic standard fit matching reference design, shape, fit, and sleeves
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
         const fit = (t === 'regular_tee' || t === 'polo') ? 'regular' : 'oversized';
