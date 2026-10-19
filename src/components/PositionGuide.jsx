@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Share2, Layers } from 'lucide-react';
+import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Share2 } from 'lucide-react';
 
 export function PositionGuide({
   isOpen,
@@ -1004,45 +1004,7 @@ export function PositionGuide({
           </div>
         </div>
 
-        {/* ROW 4: Print Finishes & Texture Selector (Screen / 3D Puff / Embroidery / Metallic Foil / Gloss) */}
-        {activeLayer && (
-          <div className="flex items-center justify-between px-3.5 py-1.5 bg-gray-50/80 dark:bg-studio-850/80 border-b border-gray-200/80 dark:border-studio-750 text-[10px] gap-1 overflow-x-auto scrollbar-none">
-            <span className="font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <Layers className="size-3 text-brand-500" />
-              <span>Finish:</span>
-            </span>
-            <div className="flex items-center gap-1 shrink-0">
-              {[
-                { id: 'screen', label: 'Screen Print' },
-                { id: 'puff', label: '3D Puff' },
-                { id: 'embroidery', label: 'Embroidery' },
-                { id: 'metallic', label: 'Metallic Foil' },
-                { id: 'gloss', label: 'Gloss Silicone' }
-              ].map((f) => {
-                const isActive = (activeLayer.printType || 'screen') === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      if (designManager && activeLayerId) {
-                        designManager.updateLayer(activeLayerId, { printType: f.id }, true);
-                        showFeedback(`Applied ${f.label} finish`);
-                      }
-                    }}
-                    className={`px-2 py-0.5 rounded-md font-bold whitespace-nowrap transition-all ${
-                      isActive
-                        ? 'bg-black dark:bg-brand-500 text-white shadow-xs'
-                        : 'bg-white dark:bg-studio-800 text-gray-600 dark:text-studio-300 border border-gray-200 dark:border-studio-700 hover:bg-gray-100 dark:hover:bg-studio-750'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+
 
         {/* Transient Feedback Message Banner */}
         {feedbackMessage && (

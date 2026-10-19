@@ -783,6 +783,14 @@ export class SceneManager {
       side: THREE.DoubleSide
     });
 
+    applyInsideFabricShader(
+      this.regularTeeMaterial,
+      () => this.garmentColor || '#ffffff',
+      () => this.acidWashIntensity || 0,
+      this.fabricMicroNormalMap,
+      false
+    );
+
     const finalizeMesh = (mesh) => {
       this.regularTeeRoot = new THREE.Group();
       this.regularTeeRoot.name = 'regular_tee_root';
@@ -795,6 +803,13 @@ export class SceneManager {
 
       if (this.regularTeeMesh.geometry && this.regularTeeMesh.geometry.attributes.uv && !this.regularTeeMesh.geometry.attributes.uv2) {
         this.regularTeeMesh.geometry.attributes.uv2 = this.regularTeeMesh.geometry.attributes.uv;
+      }
+
+      if (!this.originalRegularTeePositions && this.regularTeeMesh.geometry?.attributes?.position) {
+        this.originalRegularTeePositions = new Float32Array(this.regularTeeMesh.geometry.attributes.position.array);
+      }
+      if (!this.originalRegularTeeNormals && this.regularTeeMesh.geometry?.attributes?.normal) {
+        this.originalRegularTeeNormals = new Float32Array(this.regularTeeMesh.geometry.attributes.normal.array);
       }
 
       // Proportions, scale and positioning matching reference application and centered in viewport
@@ -1461,7 +1476,10 @@ export class SceneManager {
   }
 
   getActiveGarmentRoot() {
-    const t = this.garmentType || 'oversized_tee';
+    const t = this.garmentType || 'regular_tee';
+    if (t === 'regular_tee') {
+      return this.regularTeeRoot;
+    }
     if (t === 'hoodie' || t === 'zip_hoodie') {
       return this.realHoodieRoot;
     }
@@ -1473,11 +1491,19 @@ export class SceneManager {
     this.knitTime = 0;
     this.knitProgress = 0.0;
     const updateShaderKnit = (p) => {
-      [this.shirtMaterial, this.hoodieFabricMaterial, this.fabricMaterial, this.decalMaterial].forEach((mat) => {
+      [this.shirtMaterial, this.hoodieFabricMaterial, this.fabricMaterial, this.decalMaterial, this.regularTeeMaterial].forEach((mat) => {
         if (mat?.userData?.shader?.uniforms?.uKnitProgress) {
           mat.userData.shader.uniforms.uKnitProgress.value = p;
         }
       });
+      if (this.regularTeeDecalsGroup) {
+        this.regularTeeDecalsGroup.children.forEach((c) => {
+          if (c.material) {
+            c.material.opacity = p > 0.85 ? Math.min(1.0, (p - 0.85) / 0.15) : 0.0;
+            c.material.transparent = true;
+          }
+        });
+      }
     };
     updateShaderKnit(0.0);
 
@@ -2684,6 +2710,7 @@ export class SceneManager {
     }
 
     if (mode !== 'knit') {
+      if (this.regularTeeRoot) this.regularTeeRoot.scale.set(12.0, 12.0, 12.0);
       if (this.tshirtPivot) this.tshirtPivot.scale.set(1, 1, 1);
       if (this.realHoodieRoot) this.realHoodieRoot.scale.set(1, 1, 1);
     }
@@ -2692,6 +2719,22 @@ export class SceneManager {
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
+    }
+    if (mode !== 'walking' && mode !== 'rotate_walk' && mode !== 'waves') {
+      if (this.regularTeeRoot) {
+        this.regularTeeRoot.position.set(0, 1.25, 0);
+        this.regularTeeRoot.rotation.x = 0;
+        this.regularTeeRoot.rotation.z = 0;
+      }
+      if (this.regularTeeMesh?.geometry && this.originalRegularTeePositions) {
+        const pos = this.regularTeeMesh.geometry.attributes.position;
+        pos.array.set(this.originalRegularTeePositions);
+        pos.needsUpdate = true;
+        if (this.originalRegularTeeNormals && this.regularTeeMesh.geometry.attributes.normal) {
+          this.regularTeeMesh.geometry.attributes.normal.array.set(this.originalRegularTeeNormals);
+          this.regularTeeMesh.geometry.attributes.normal.needsUpdate = true;
+        }
+      }
     }
 
     if (this.hoodieMixer) {
@@ -3018,6 +3061,7 @@ export class SceneManager {
       updateKnitTime(this.hoodieFabricMaterial);
       updateKnitTime(this.fabricMaterial);
       updateKnitTime(this.decalMaterial);
+      updateKnitTime(this.regularTeeMaterial);
 
       const waveX = Math.sin(this.knitTime) * 0.024;
       const waveY = Math.cos(this.knitTime * 0.85) * 0.016;
@@ -3025,7 +3069,11 @@ export class SceneManager {
 
       const activeRoot = this.getActiveGarmentRoot();
       if (activeRoot) {
-        activeRoot.scale.set(1 + waveX, 1 + waveY, 1 + waveZ);
+        if (this.garmentType === 'regular_tee') {
+          activeRoot.scale.set(12.0 * (1 + waveX), 12.0 * (1 + waveY), 12.0 * (1 + waveZ));
+        } else {
+          activeRoot.scale.set(1 + waveX, 1 + waveY, 1 + waveZ);
+        }
       }
 
       // Micro fabric normal map weave tension oscillation
@@ -3038,6 +3086,10 @@ export class SceneManager {
         const nH = 0.28 + knitPulse * 0.18;
         this.hoodieFabricMaterial.normalScale.set(nH, nH);
       }
+      if (this.regularTeeMaterial && this.regularTeeMaterial.normalScale) {
+        const nR = 0.22 + knitPulse * 0.16;
+        this.regularTeeMaterial.normalScale.set(nR, nR);
+      }
     } else {
       const resetKnit = (mat) => {
         if (mat?.userData?.shader?.uniforms?.uKnitProgress) {
@@ -3048,7 +3100,70 @@ export class SceneManager {
       resetKnit(this.hoodieFabricMaterial);
       resetKnit(this.fabricMaterial);
       resetKnit(this.decalMaterial);
+      resetKnit(this.regularTeeMaterial);
+    }
 
+    // Regular Tee dynamic cloth animations (walk runway stride & aerodynamic wind waves)
+    if (this.garmentType === 'regular_tee' && this.regularTeeRoot && this.regularTeeMesh) {
+      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
+        const speed = (this.walkSpeed || 1.0) * 4.6;
+        this.regularTeeAnimTime = (this.regularTeeAnimTime || 0) + delta * speed;
+        const t = this.regularTeeAnimTime;
+
+        // Natural runway walk vertical bounce rhythm
+        const bounce = Math.abs(Math.sin(t)) * 0.045;
+        this.regularTeeRoot.position.y = 1.25 + bounce - 0.02;
+
+        // Hip & torso lateral sway
+        this.regularTeeRoot.rotation.z = Math.sin(t * 0.5) * 0.035;
+
+        // Forward/backward stride pitch
+        this.regularTeeRoot.rotation.x = Math.sin(t) * 0.02;
+
+        // Dynamic cloth movement during walking
+        if (this.regularTeeMesh.geometry && this.originalRegularTeePositions) {
+          const pos = this.regularTeeMesh.geometry.attributes.position;
+          const orig = this.originalRegularTeePositions;
+          const count = pos.count;
+          const walkWaveT = t * 1.5;
+          for (let i = 0; i < count; i++) {
+            const ox = orig[i * 3];
+            const oy = orig[i * 3 + 1];
+            const oz = orig[i * 3 + 2];
+            const hemWeight = Math.max(0.1, Math.min(1.0, 0.5 - oy));
+            const waveZ = Math.sin(walkWaveT + oy * 8.0 + ox * 4.0) * 0.003 * hemWeight;
+            pos.setXYZ(i, ox, oy, oz + waveZ);
+          }
+          pos.needsUpdate = true;
+        }
+      } else if (this.animationMode === 'waves') {
+        const speed = (this.walkSpeed || 1.0) * 5.2;
+        this.regularTeeAnimTime = (this.regularTeeAnimTime || 0) + delta * speed;
+        const t = this.regularTeeAnimTime;
+
+        // Gentle ambient body sway in the wind
+        this.regularTeeRoot.position.y = 1.25 + Math.sin(t * 0.4) * 0.015;
+        this.regularTeeRoot.rotation.x = Math.sin(t * 0.5) * 0.012;
+        this.regularTeeRoot.rotation.z = Math.cos(t * 0.3) * 0.015;
+
+        // High fidelity cloth ripple simulation on regular tee vertices
+        if (this.regularTeeMesh.geometry && this.originalRegularTeePositions) {
+          const pos = this.regularTeeMesh.geometry.attributes.position;
+          const orig = this.originalRegularTeePositions;
+          const count = pos.count;
+          for (let i = 0; i < count; i++) {
+            const ox = orig[i * 3];
+            const oy = orig[i * 3 + 1];
+            const oz = orig[i * 3 + 2];
+            const hemWeight = Math.max(0.15, Math.min(1.0, 0.6 - oy));
+            const waveZ = (Math.sin(t * 3.5 + oy * 12.0 + ox * 6.0) * 0.006 + Math.cos(t * 2.0 + ox * 10.0) * 0.003) * hemWeight;
+            const waveX = Math.sin(t * 2.8 + oy * 10.0) * 0.0025 * hemWeight;
+            pos.setXYZ(i, ox + waveX, oy, oz + waveZ);
+          }
+          pos.needsUpdate = true;
+          this.regularTeeMesh.geometry.computeVertexNormals();
+        }
+      }
     }
 
     // Turntable rotation of garment (when active and not running showcase360 spin)
@@ -3090,21 +3205,23 @@ export class SceneManager {
     }
 
     // Camera animation modes (Verge3D replication)
+    const camTargetY = (this.garmentType === 'regular_tee') ? 0.75 : 0;
     if (this.cameraAnimationMode === 'rotate') {
       this.cameraAngle += delta * 0.55;
-      const r = 24.5;
+      const r = (this.garmentType === 'regular_tee') ? 16.5 : 24.5;
       this.camera.position.x = Math.sin(this.cameraAngle) * r;
       this.camera.position.z = Math.cos(this.cameraAngle) * r;
-      this.camera.position.y = 0;
-      this.camera.lookAt(0, 0, 0);
+      this.camera.position.y = camTargetY;
+      this.camera.lookAt(0, camTargetY, 0);
     } else if (this.cameraAnimationMode === 'rotatezoom') {
       this.cameraAngle += delta * 0.55;
       this.cameraZoomTime += delta * 0.75;
-      const r = 24.5 + Math.sin(this.cameraZoomTime) * 6.5;
+      const baseR = (this.garmentType === 'regular_tee') ? 16.5 : 24.5;
+      const r = baseR + Math.sin(this.cameraZoomTime) * 4.5;
       this.camera.position.x = Math.sin(this.cameraAngle) * r;
       this.camera.position.z = Math.cos(this.cameraAngle) * r;
-      this.camera.position.y = Math.sin(this.cameraZoomTime * 0.5) * 2.5;
-      this.camera.lookAt(0, 0, 0);
+      this.camera.position.y = camTargetY + Math.sin(this.cameraZoomTime * 0.5) * 1.8;
+      this.camera.lookAt(0, camTargetY, 0);
     } else {
       this.controls.update();
     }
