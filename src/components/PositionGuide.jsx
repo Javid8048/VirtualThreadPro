@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Sparkles, Share2, Layers, Square, Circle, Star, Triangle, Shield, Shapes } from 'lucide-react';
-import { PresetGraphicsModal } from './PresetGraphicsModal';
+import { Pencil, X, Check, Download, Maximize2, Minimize2, ZoomIn, ZoomOut, Share2, Layers } from 'lucide-react';
 
 export function PositionGuide({
   isOpen,
@@ -24,11 +23,7 @@ export function PositionGuide({
   const [fontSize, setFontSize] = useState(12);
   const [fontFamily, setFontFamily] = useState('Roboto');
   const [textInput, setTextInput] = useState('VIRTUAL THREADS');
-  const [shapeFillColor, setShapeFillColor] = useState('#ffffff');
-  const [shapeStrokeColor, setShapeStrokeColor] = useState('#000000');
-  const [shapeStrokeWidth, setShapeStrokeWidth] = useState(4);
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [presetModalOpen, setPresetModalOpen] = useState(false);
 
   // Layers list and drag/resize state
   const [layers, setLayers] = useState([]);
@@ -101,8 +96,6 @@ export function PositionGuide({
   const garmentColorInputRef = useRef(null);
   const textColorInputRef = useRef(null);
   const textInputRef = useRef(null);
-  const shapeFillInputRef = useRef(null);
-  const shapeStrokeInputRef = useRef(null);
   const containerRef = useRef(null);
   const activeIdRef = useRef(null);
 
@@ -126,10 +119,6 @@ export function PositionGuide({
             setTextColor(active.textColor || '#000000');
             setFontSize(active.fontSize || 12);
             setFontFamily(active.fontFamily || 'Roboto');
-          } else if (active.type === 'shape') {
-            setShapeFillColor(active.fillColor || '#ffffff');
-            setShapeStrokeColor(active.strokeColor || '#000000');
-            setShapeStrokeWidth(active.strokeWidth ?? 4);
           }
         }
       } else {
@@ -149,73 +138,6 @@ export function PositionGuide({
     if (onCameraChange) {
       const cam = side === 'left_sleeve' ? 'left' : (side === 'right_sleeve' ? 'right' : side);
       onCameraChange(cam);
-    }
-  };
-
-  const handleAddShape = (shapeType = 'rectangle') => {
-    if (!designManager) return;
-    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
-    let cx = 480, cy = 920;
-    if (selectedSide === 'back') {
-      cx = isHoodie ? 416 : 1528;
-      cy = isHoodie ? 1530 : 920;
-    } else if (selectedSide === 'left_sleeve') {
-      cx = 1660; cy = 770;
-    } else if (selectedSide === 'right_sleeve') {
-      cx = 1660; cy = 1520;
-    } else {
-      cx = isHoodie ? 430 : 480;
-      cy = isHoodie ? 730 : 920;
-    }
-
-    const defaultFills = {
-      rectangle: '#ffffff',
-      circle: '#ffffff',
-      star: '#f59e0b',
-      triangle: '#ef4444',
-      badge: '#3b82f6'
-    };
-
-    const newLayer = designManager.addLayer({
-      type: 'shape',
-      shapeType: shapeType,
-      side: selectedSide,
-      fillColor: defaultFills[shapeType] || shapeFillColor || '#ffffff',
-      strokeColor: shapeStrokeColor || '#000000',
-      strokeWidth: shapeStrokeWidth ?? 4,
-      x: cx,
-      y: cy,
-      scale: 1.0,
-      rotation: 0,
-      printType: 'screen'
-    });
-    if (newLayer) {
-      setActiveLayerId(newLayer.id);
-      showFeedback(`Added ${shapeType} shape`);
-    }
-  };
-
-  const handleShapeFillChange = (e) => {
-    const color = e.target.value;
-    setShapeFillColor(color);
-    if (designManager && activeLayerId) {
-      designManager.updateLayer(activeLayerId, { fillColor: color });
-    }
-  };
-
-  const handleShapeStrokeChange = (e) => {
-    const color = e.target.value;
-    setShapeStrokeColor(color);
-    if (designManager && activeLayerId) {
-      designManager.updateLayer(activeLayerId, { strokeColor: color });
-    }
-  };
-
-  const handleShapeStrokeWidthChange = (e) => {
-    const width = Math.max(0, Math.min(30, parseInt(e.target.value, 10) || 0));
-    setShapeStrokeWidth(width);
-    if (designManager && activeLayerId) {
-      designManager.updateLayer(activeLayerId, { strokeWidth: width });
     }
   };
 
@@ -354,30 +276,6 @@ export function PositionGuide({
     };
     reader.readAsDataURL(file);
     e.target.value = '';
-  };
-
-  // Preset graphic decal handler (positions cleanly on chest area)
-  const handleSelectPresetGraphic = (item) => {
-    if (!designManager) return;
-    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
-    const centerX = isHoodie ? (selectedSide === 'back' ? 416 : 430) : (selectedSide === 'back' ? 1528 : 480);
-    const centerY = isHoodie ? (selectedSide === 'back' ? 1530 : 730) : (selectedSide === 'back' ? 1528 : 720);
-    const newLayer = designManager.addLayer({
-      type: 'image',
-      side: selectedSide,
-      image: item.image,
-      x: centerX,
-      y: centerY,
-      scale: 1.0,
-      rotation: 0,
-      printType: 'screen',
-      presetSvg: item.svg,
-      presetName: item.name
-    });
-    if (newLayer) {
-      setActiveLayerId(newLayer.id);
-      showFeedback(`Added "${item.name}" sticker to ${selectedSide.toUpperCase()}`);
-    }
   };
 
   // Generate shareable design link (encodes garment, color, and layers)
@@ -1022,7 +920,7 @@ export function PositionGuide({
           </select>
         </div>
 
-        {/* ROW 3: Upload Design Button | Stickers & Badges | History | Save / Share */}
+        {/* ROW 3: Upload Design Button | History | Save / Share */}
         <div className="flex items-center justify-between px-3.5 py-2 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-200 dark:border-studio-750 gap-1.5 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-1.5">
             {/* Solid Dark Navy Pill Upload Button */}
@@ -1038,17 +936,6 @@ export function PositionGuide({
               className="min-h-[44px] sm:min-h-0 sm:h-7 px-3 rounded-full bg-[#0a0f1d] hover:bg-[#1a233a] dark:bg-brand-600 dark:hover:bg-brand-500 text-white text-xs sm:text-[11px] font-bold shadow transition-all active:scale-95 shrink-0 flex items-center justify-center"
             >
               Upload
-            </button>
-
-            {/* Streetwear Stickers & Badges Preset Library Button */}
-            <button
-              type="button"
-              onClick={() => setPresetModalOpen(true)}
-              className="min-h-[44px] sm:min-h-0 sm:h-7 px-2.5 rounded-full bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 text-xs sm:text-[11px] font-bold shadow-2xs transition-all active:scale-95 shrink-0 flex items-center gap-1"
-              title="Browse streetwear stickers, barcodes, and badges"
-            >
-              <Sparkles className="size-3 text-amber-500" />
-              <span>Stickers</span>
             </button>
           </div>
 
@@ -1117,37 +1004,6 @@ export function PositionGuide({
           </div>
         </div>
 
-        {/* ROW 3.5: Add Shapes Row (Rectangle, Circle, Star, Triangle, Badge) */}
-        <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#f8f9fa] dark:bg-studio-850 border-b border-gray-100 dark:border-studio-750 text-xs">
-          <span className="font-bold text-[10px] uppercase text-gray-500 dark:text-studio-400 flex items-center gap-1 shrink-0">
-            <Shapes className="size-3 text-brand-500" />
-            <span>Shapes:</span>
-          </span>
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {[
-              { type: 'rectangle', label: 'Square', icon: Square },
-              { type: 'circle', label: 'Circle', icon: Circle },
-              { type: 'star', label: 'Star', icon: Star },
-              { type: 'triangle', label: 'Triangle', icon: Triangle },
-              { type: 'badge', label: 'Badge', icon: Shield }
-            ].map((s) => {
-              const IconComp = s.icon;
-              return (
-                <button
-                  key={s.type}
-                  type="button"
-                  onClick={() => handleAddShape(s.type)}
-                  className="px-2 py-1 rounded-lg bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 hover:border-brand-500 text-gray-700 dark:text-studio-200 text-[10px] font-bold flex items-center gap-1 shadow-2xs active:scale-95 transition-all"
-                  title={`Add ${s.label} Shape`}
-                >
-                  <IconComp className="size-2.5 text-brand-500" />
-                  <span className="hidden sm:inline">{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* ROW 4: Print Finishes & Texture Selector (Screen / 3D Puff / Embroidery / Metallic Foil / Gloss) */}
         {activeLayer && (
           <div className="flex items-center justify-between px-3.5 py-1.5 bg-gray-50/80 dark:bg-studio-850/80 border-b border-gray-200/80 dark:border-studio-750 text-[10px] gap-1 overflow-x-auto scrollbar-none">
@@ -1184,65 +1040,6 @@ export function PositionGuide({
                   </button>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* ROW 4.5: Active Shape Properties (Fill, Stroke Color, Stroke Width) */}
-        {activeLayer && activeLayer.type === 'shape' && (
-          <div className="flex items-center justify-between px-3.5 py-1.5 bg-brand-50/50 dark:bg-brand-950/25 border-b border-brand-200/50 dark:border-brand-800/30 text-xs">
-            <span className="font-bold text-[10px] uppercase text-brand-600 dark:text-brand-400 flex items-center gap-1 shrink-0">
-              <span>Shape Style:</span>
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Fill:</span>
-                <input
-                  ref={shapeFillInputRef}
-                  type="color"
-                  value={shapeFillColor}
-                  onChange={handleShapeFillChange}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => shapeFillInputRef.current?.click()}
-                  className="size-5 rounded-full border border-gray-300 dark:border-studio-600 shadow-2xs cursor-pointer"
-                  style={{ backgroundColor: shapeFillColor }}
-                  title="Change Shape Fill Color"
-                />
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Border:</span>
-                <input
-                  ref={shapeStrokeInputRef}
-                  type="color"
-                  value={shapeStrokeColor}
-                  onChange={handleShapeStrokeChange}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => shapeStrokeInputRef.current?.click()}
-                  className="size-5 rounded-full border border-gray-300 dark:border-studio-600 shadow-2xs cursor-pointer"
-                  style={{ backgroundColor: shapeStrokeColor }}
-                  title="Change Shape Stroke Color"
-                />
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">Width:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="30"
-                  value={shapeStrokeWidth}
-                  onChange={handleShapeStrokeWidthChange}
-                  className="w-10 h-6 px-1 text-[11px] font-bold text-center bg-white dark:bg-studio-800 border border-gray-300 dark:border-studio-700 rounded"
-                  title="Border Stroke Width"
-                />
-              </div>
             </div>
           </div>
         )}
@@ -1657,15 +1454,6 @@ export function PositionGuide({
           <span className="font-semibold text-gray-500 uppercase">{selectedSide} Panel</span>
         </div>
       </div>
-
-      {/* Preset Streetwear Graphics Modal */}
-      <PresetGraphicsModal
-        isOpen={presetModalOpen}
-        onClose={() => setPresetModalOpen(false)}
-        onSelectGraphic={handleSelectPresetGraphic}
-        selectedSide={selectedSide}
-        garmentColor={activeGarmentColor}
-      />
 
     </aside>
   );

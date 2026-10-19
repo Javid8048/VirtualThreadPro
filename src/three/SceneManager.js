@@ -321,8 +321,11 @@ export class SceneManager {
     this.currentTshirtFit = (initialGarmentType === 'regular_tee') ? 'regular' : 'oversized';
     this._hasAppliedFit = false;
     this.originalTshirtStaticPositions = null;
+    this.originalTshirtStaticNormals = null;
     this.originalTshirtWavesPositions = null;
+    this.originalTshirtWavesNormals = null;
     this.originalTshirtWalkingPositions = null;
+    this.originalTshirtWalkingNormals = null;
 
     // Custom background image from device
     this.customBgImage = null;
@@ -586,6 +589,9 @@ export class SceneManager {
           if (!this.originalTshirtStaticPositions && this.tshirtStatic.geometry?.attributes?.position) {
             this.originalTshirtStaticPositions = new Float32Array(this.tshirtStatic.geometry.attributes.position.array);
           }
+          if (!this.originalTshirtStaticNormals && this.tshirtStatic.geometry?.attributes?.normal) {
+            this.originalTshirtStaticNormals = new Float32Array(this.tshirtStatic.geometry.attributes.normal.array);
+          }
           this.tshirtStatic.material = this.shirtMaterial;
           this.tshirtStatic.castShadow = true;
           this.tshirtStatic.receiveShadow = true;
@@ -594,11 +600,11 @@ export class SceneManager {
           this.tshirtStatic.scale.set(0.01, 0.01, 0.01);
           this.tshirtStatic.visible = true;
 
-          // Cache base oversized geometry and generate tailored regular fit geometry
+          // Cache authentic geometries for oversized and regular fits
           if (this.tshirtStatic.geometry) {
             this.tshirtOversizedGeometry = this.tshirtStatic.geometry.clone();
             this.tshirtOversizedGeometry.name = 'tshirt_geometry_oversized';
-            this.tshirtRegularGeometry = this.createRegularFitGeometry(this.tshirtOversizedGeometry);
+            this.tshirtRegularGeometry = this.tshirtStatic.geometry.clone();
             this.tshirtRegularGeometry.name = 'tshirt_geometry_regular';
           }
         }
@@ -610,6 +616,9 @@ export class SceneManager {
           }
           if (!this.originalTshirtWavesPositions && this.tshirtWaves.geometry?.attributes?.position) {
             this.originalTshirtWavesPositions = new Float32Array(this.tshirtWaves.geometry.attributes.position.array);
+          }
+          if (!this.originalTshirtWavesNormals && this.tshirtWaves.geometry?.attributes?.normal) {
+            this.originalTshirtWavesNormals = new Float32Array(this.tshirtWaves.geometry.attributes.normal.array);
           }
           this.tshirtWaves.material = this.shirtMaterial;
           this.tshirtWaves.castShadow = true;
@@ -627,6 +636,9 @@ export class SceneManager {
           }
           if (!this.originalTshirtWalkingPositions && this.tshirtWalking.geometry?.attributes?.position) {
             this.originalTshirtWalkingPositions = new Float32Array(this.tshirtWalking.geometry.attributes.position.array);
+          }
+          if (!this.originalTshirtWalkingNormals && this.tshirtWalking.geometry?.attributes?.normal) {
+            this.originalTshirtWalkingNormals = new Float32Array(this.tshirtWalking.geometry.attributes.normal.array);
           }
           this.tshirtWalking.material = this.shirtMaterial;
           this.tshirtWalking.castShadow = true;
@@ -718,18 +730,6 @@ export class SceneManager {
 
   createRegularFitGeometry(sourceGeometry) {
     const geo = sourceGeometry.clone();
-    const pos = geo.attributes.position;
-    this.deformTshirtPositions(
-      sourceGeometry.attributes.position.array,
-      pos.array,
-      'regular',
-      1.0,
-      0.0
-    );
-    pos.needsUpdate = true;
-    geo.computeVertexNormals();
-    geo.computeBoundingBox();
-    geo.computeBoundingSphere();
     return geo;
   }
 
@@ -2179,7 +2179,13 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
         this.applyTshirtFit('oversized');
+      } else if (t === 'oversized_tee') {
+        // Oversized Fit: relaxed boxy streetwear drop-shoulder silhouette
+        this.tshirtStatic.scale.set(0.0106, 0.0102, 0.0105);
+        this.tshirtStatic.position.set(0, -0.427445, 0);
+        this.applyTshirtFit('oversized');
       } else {
+        // Regular Fit T-Shirt: authentic standard fit matching reference design, shape, fit, and sleeves
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
         const fit = (t === 'regular_tee' || t === 'polo') ? 'regular' : 'oversized';
@@ -2215,72 +2221,17 @@ export class SceneManager {
   }
 
   /**
-   * Deforms t-shirt geometry vertices for Regular Fit:
-   * Keeps the identical oversized body silhouette, chest width, waist, length, drape and shoulders,
-   * while shortening the sleeves to a clean short-sleeve length.
+   * Preserves authentic t-shirt master geometry matching the reference design, shape, fit, and sleeves.
    */
   deformTshirtPositions(src, dst, fit = 'regular', unitScale = 1.0, zShift = 0.0) {
-    const isRegular = fit === 'regular';
-    const invScale = 1.0 / unitScale;
-
-    function smoothstep(min, max, value) {
-      if (min === max) return value >= min ? 1 : 0;
-      const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-      return t * t * (3 - 2 * t);
-    }
-
-    for (let i = 0; i < src.length; i += 3) {
-      const x = src[i];
-      const y = src[i + 1];
-      const z = src[i + 2];
-
-      if (!isRegular) {
-        // Pristine authentic drop-shoulder oversized streetwear silhouette
-        dst[i] = x;
-        dst[i + 1] = y;
-        dst[i + 2] = z;
-        continue;
-      }
-
-      // Convert to normalized millimeter space relative to shirt origin
-      const xMm = x * invScale;
-      const yMm = y * invScale;
-      const zMm = (z - zShift) * invScale;
-
-      const absX = Math.abs(xMm);
-      const signX = Math.sign(xMm) || 1;
-
-      let newX = absX;
-      let newY = yMm;
-      let newZ = zMm;
-
-      // Shorten only the sleeves:
-      // Preserves torso, shoulders, collar, chest, waist, and length identical to the oversized silhouette.
-      // Retracts sleeve along arm angle into a clean short-sleeve length.
-      if (absX > 200 && zMm > -320 && zMm < 115) {
-        const isSleeveZone = smoothstep(200, 240, absX) * (1.0 - smoothstep(85, 115, zMm));
-        if (isSleeveZone > 0) {
-          const prog = Math.min(1.0, Math.max(0, (absX - 210) / 135));
-          const factor = prog * prog * (3 - 2 * prog) * isSleeveZone;
-          newX -= factor * 76.0;
-          newZ -= factor * 85.0;
-          newY *= (1.0 - factor * 0.05);
-        }
-      }
-
-      const finalX = signX * newX * unitScale;
-      const finalY = newY * unitScale;
-      const finalZ = (newZ * unitScale) + zShift;
-
-      dst[i] = finalX;
-      dst[i + 1] = finalY;
-      dst[i + 2] = finalZ;
+    for (let i = 0; i < src.length; i++) {
+      dst[i] = src[i];
     }
   }
 
   /**
    * Applies the selected fit to all t-shirt meshes (static, waves, walking).
-   * Modifies vertex buffer positions directly, recomputing normals and bounding volumes.
+   * Restores authentic coordinates and normals from the master model.
    */
   applyTshirtFit(fit = 'oversized') {
     const isRegular = (fit === 'regular' || this.garmentType === 'regular_tee');
@@ -2298,14 +2249,12 @@ export class SceneManager {
     // 1. Static high-resolution master mesh (62,760 vertices, millimeter space)
     if (this.tshirtStatic && this.originalTshirtStaticPositions) {
       const posAttr = this.tshirtStatic.geometry.attributes.position;
-      this.deformTshirtPositions(
-        this.originalTshirtStaticPositions,
-        posAttr.array,
-        targetFit,
-        1.0
-      );
+      posAttr.array.set(this.originalTshirtStaticPositions);
       posAttr.needsUpdate = true;
-      this.tshirtStatic.geometry.computeVertexNormals();
+      if (this.originalTshirtStaticNormals && this.tshirtStatic.geometry.attributes.normal) {
+        this.tshirtStatic.geometry.attributes.normal.array.set(this.originalTshirtStaticNormals);
+        this.tshirtStatic.geometry.attributes.normal.needsUpdate = true;
+      }
       this.tshirtStatic.geometry.computeBoundingBox();
       this.tshirtStatic.geometry.computeBoundingSphere();
     }
@@ -2313,14 +2262,12 @@ export class SceneManager {
     // 2. Wind Waves animated mesh (16,753 vertices, millimeter space)
     if (this.tshirtWaves && this.originalTshirtWavesPositions) {
       const posAttr = this.tshirtWaves.geometry.attributes.position;
-      this.deformTshirtPositions(
-        this.originalTshirtWavesPositions,
-        posAttr.array,
-        targetFit,
-        1.0
-      );
+      posAttr.array.set(this.originalTshirtWavesPositions);
       posAttr.needsUpdate = true;
-      this.tshirtWaves.geometry.computeVertexNormals();
+      if (this.originalTshirtWavesNormals && this.tshirtWaves.geometry.attributes.normal) {
+        this.tshirtWaves.geometry.attributes.normal.array.set(this.originalTshirtWavesNormals);
+        this.tshirtWaves.geometry.attributes.normal.needsUpdate = true;
+      }
       this.tshirtWaves.geometry.computeBoundingBox();
       this.tshirtWaves.geometry.computeBoundingSphere();
     }
@@ -2328,15 +2275,12 @@ export class SceneManager {
     // 3. Walking Runway animated mesh (16,753 vertices, meter space with Z offset -1.28m)
     if (this.tshirtWalking && this.originalTshirtWalkingPositions) {
       const posAttr = this.tshirtWalking.geometry.attributes.position;
-      this.deformTshirtPositions(
-        this.originalTshirtWalkingPositions,
-        posAttr.array,
-        targetFit,
-        0.001,
-        -1.28
-      );
+      posAttr.array.set(this.originalTshirtWalkingPositions);
       posAttr.needsUpdate = true;
-      this.tshirtWalking.geometry.computeVertexNormals();
+      if (this.originalTshirtWalkingNormals && this.tshirtWalking.geometry.attributes.normal) {
+        this.tshirtWalking.geometry.attributes.normal.array.set(this.originalTshirtWalkingNormals);
+        this.tshirtWalking.geometry.attributes.normal.needsUpdate = true;
+      }
       this.tshirtWalking.geometry.computeBoundingBox();
       this.tshirtWalking.geometry.computeBoundingSphere();
     }
