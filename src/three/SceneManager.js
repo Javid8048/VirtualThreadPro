@@ -219,7 +219,7 @@ export class SceneManager {
 
     // 5. Canvas Design Manager (Optimized 2048x2048 texture with 60 FPS RAF scheduling)
     this.designManager = new CanvasDesignManager('#ffffff');
-    this.designManager.setGarmentType(this.getGarmentFamily(initialGarmentType));
+    this.designManager.setGarmentType(initialGarmentType);
     this.designManager.subscribe(() => this.updateDecalVisibility());
 
     // 6. 3D Model references & animations
@@ -1661,7 +1661,7 @@ export class SceneManager {
     const applyToMaterial = (mat) => {
       if (!mat || mat === this.decalMaterial) return;
       const mName = (mat.name || '').toLowerCase();
-      if (mName.includes('slider') || mName.includes('metal') || mName.includes('button')) return;
+      if (mName.includes('slider') || mName.includes('metal') || mName.includes('button') || mName.includes('polo_')) return;
 
       const hasDynamicCanvas = (mat === this.shirtMaterial || mat === this.fabricMaterial || mat.map === this.designManager?.texture);
       if (colorObj && mat.color) {
@@ -2026,7 +2026,7 @@ export class SceneManager {
   setGarmentType(type, onComplete) {
     this.garmentType = type || 'oversized_tee';
     if (this.designManager && this.designManager.setGarmentType) {
-      this.designManager.setGarmentType(this.getGarmentFamily(this.garmentType));
+      this.designManager.setGarmentType(this.garmentType);
     }
 
     const family = this.getGarmentFamily(this.garmentType);
@@ -2084,17 +2084,48 @@ export class SceneManager {
   }
 
   setupPoloAttachments() {
-    const fabMat = this.shirtMaterial || this.fabricMaterial;
-
     this.poloGroup = new THREE.Group();
     this.poloGroup.name = 'garment_polo_attachments';
     this.poloGroup.position.set(0, -0.427445, 0);
     this.poloGroup.visible = false;
 
-    // 1. Turned-down continuous collar band contouring the neck from back to front
+    // 1. Turned-down continuous rib collar band contouring the neck with gold tipping trim
+    let poloCollarMat;
+    if (typeof document !== 'undefined') {
+      const collarCanvas = document.createElement('canvas');
+      collarCanvas.width = 512;
+      collarCanvas.height = 256;
+      const cCtx = collarCanvas.getContext('2d');
+      cCtx.fillStyle = '#1a243f'; // Deep navy
+      cCtx.fillRect(0, 0, 512, 256);
+      cCtx.fillStyle = '#ffd000'; // Vibrant gold/yellow tipping trim
+      cCtx.fillRect(0, 230, 512, 26);
+      const collarTex = new THREE.CanvasTexture(collarCanvas);
+      collarTex.wrapS = THREE.RepeatWrapping;
+      collarTex.wrapT = THREE.ClampToEdgeWrapping;
+
+      poloCollarMat = new THREE.MeshPhysicalMaterial({
+        name: 'polo_collar_material',
+        map: collarTex,
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.1,
+        side: THREE.DoubleSide
+      });
+    } else {
+      poloCollarMat = new THREE.MeshPhysicalMaterial({
+        name: 'polo_collar_material',
+        color: 0x1a243f,
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.1,
+        side: THREE.DoubleSide
+      });
+    }
+
     const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.48, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
     poloCollarCurve.rotateX(-0.16);
-    const poloCollarMesh = new THREE.Mesh(poloCollarCurve, fabMat);
+    const poloCollarMesh = new THREE.Mesh(poloCollarCurve, poloCollarMat);
     poloCollarMesh.name = 'attachment_polo_collar';
     poloCollarMesh.position.set(0, 3.24, 0.06);
 
@@ -2108,37 +2139,54 @@ export class SceneManager {
     const extrudeSettings = { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 };
     const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
 
-    const leftLapel = new THREE.Mesh(lapelGeom, fabMat);
+    const poloLapelMat = new THREE.MeshPhysicalMaterial({
+      name: 'polo_lapel_material',
+      color: 0x1a243f,
+      roughness: 0.96,
+      metalness: 0.0,
+      sheen: 0.1,
+      side: THREE.DoubleSide
+    });
+
+    const leftLapel = new THREE.Mesh(lapelGeom, poloLapelMat);
     leftLapel.name = 'attachment_polo_left_lapel';
     leftLapel.position.set(-0.14, 3.20, 0.95);
     leftLapel.rotation.set(0.20, 0.10, -0.18);
 
-    const rightLapel = new THREE.Mesh(lapelGeom, fabMat);
+    const rightLapel = new THREE.Mesh(lapelGeom, poloLapelMat);
     rightLapel.name = 'attachment_polo_right_lapel';
     rightLapel.position.set(0.14, 3.20, 0.95);
     rightLapel.rotation.set(0.20, -0.10, 0.18);
     rightLapel.scale.set(-1, 1, 1);
 
     // 3. Front center placket with stitch welt
+    const poloPlacketMat = new THREE.MeshPhysicalMaterial({
+      name: 'polo_placket_material',
+      color: 0x1a243f,
+      roughness: 0.96,
+      metalness: 0.0,
+      sheen: 0.1
+    });
+
     const placketGeom = new THREE.BoxGeometry(0.44, 1.62, 0.045);
-    const placketMesh = new THREE.Mesh(placketGeom, fabMat);
+    const placketMesh = new THREE.Mesh(placketGeom, poloPlacketMat);
     placketMesh.name = 'attachment_polo_placket';
     placketMesh.position.set(0, 2.14, 0.96);
     placketMesh.rotation.set(0.14, 0, 0);
 
     // Bottom box-stitch placket tab
     const placketTabGeom = new THREE.BoxGeometry(0.48, 0.22, 0.055);
-    const placketTabMesh = new THREE.Mesh(placketTabGeom, fabMat);
+    const placketTabMesh = new THREE.Mesh(placketTabGeom, poloPlacketMat);
     placketTabMesh.name = 'attachment_polo_placket_tab';
     placketTabMesh.position.set(0, 1.34, 0.88);
     placketTabMesh.rotation.set(0.14, 0, 0);
 
-    // 4. Pearlescent buttons (3-button authentic polo placket)
+    // 4. Buttons (authentic dark polo placket buttons)
     const buttonMat = new THREE.MeshStandardMaterial({
       name: 'polo_button_material',
-      color: 0xf4f4f4,
-      roughness: 0.22,
-      metalness: 0.12
+      color: 0x1c2438,
+      roughness: 0.32,
+      metalness: 0.18
     });
     const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
     buttonGeom.rotateX(Math.PI / 2 + 0.14);
@@ -2153,14 +2201,22 @@ export class SceneManager {
     b3.name = 'attachment_polo_button_3';
     b3.position.set(0, 1.58, 0.94);
 
-    // 5. Ribbed sleeve cuffs
+    // 5. Ribbed sleeve cuffs in crisp white
+    const poloCuffMat = new THREE.MeshPhysicalMaterial({
+      name: 'polo_cuff_material',
+      color: 0xffffff,
+      roughness: 0.96,
+      metalness: 0.0,
+      side: THREE.DoubleSide
+    });
+
     const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
-    const leftPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    const leftPoloCuff = new THREE.Mesh(poloCuffGeom, poloCuffMat);
     leftPoloCuff.name = 'attachment_polo_cuff_left';
     leftPoloCuff.position.set(-3.25, 1.38, 0.06);
     leftPoloCuff.rotation.set(0, 0, -0.58);
 
-    const rightPoloCuff = new THREE.Mesh(poloCuffGeom, fabMat);
+    const rightPoloCuff = new THREE.Mesh(poloCuffGeom, poloCuffMat);
     rightPoloCuff.name = 'attachment_polo_cuff_right';
     rightPoloCuff.position.set(3.25, 1.38, 0.06);
     rightPoloCuff.rotation.set(0, 0, 0.58);

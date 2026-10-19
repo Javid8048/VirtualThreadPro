@@ -184,7 +184,11 @@ export class CanvasDesignManager {
   }
 
   setGarmentType(type) {
-    this.garmentType = type;
+    if (this.garmentType !== type) {
+      this.garmentType = type;
+      this.render();
+      this.notify();
+    }
   }
 
   updateLayer(id, updates, immediate = false) {
@@ -333,6 +337,76 @@ export class CanvasDesignManager {
     this.fabricPattern = this.ctx.createPattern(pCanvas, 'repeat');
   }
 
+  /**
+   * Renders the authentic Polo Shirt 3 design from Sketchfab reference:
+   * Deep navy shoulder yoke, 5 bold chest rugby block stripes (white, navy, yellow, navy, yellow),
+   * clean white body with alternating navy & yellow pinstripes, and matching sleeve stripes with white cuffs.
+   */
+  drawPoloDesign(ctx, S) {
+    const navy = '#1a243f';
+    const yellow = '#ffd000';
+    const bodyBase = this.garmentColor || '#ffffff';
+
+    // 1. Solid base body fill
+    ctx.fillStyle = bodyBase;
+    ctx.fillRect(0, 0, S, S);
+
+    // 2. Deep navy shoulder yoke and collar base (Y: 0 to 720)
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 0, S, 720);
+
+    // 3. Bold rugby chest block stripes across front & back (Y: 720 to 1100)
+    // White / bodyBase band
+    ctx.fillStyle = bodyBase;
+    ctx.fillRect(0, 720, S, 75);
+    // Navy band
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 795, S, 75);
+    // Vibrant Golden Yellow band
+    ctx.fillStyle = yellow;
+    ctx.fillRect(0, 870, S, 75);
+    // Navy band
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 945, S, 75);
+    // Vibrant Golden Yellow band
+    ctx.fillStyle = yellow;
+    ctx.fillRect(0, 1020, S, 80);
+
+    // 4. Alternating thin pinstripes on lower body & back (Y: 1100 to 1660)
+    const pinstripes = [
+      { y: 1180, color: navy },
+      { y: 1255, color: yellow },
+      { y: 1330, color: navy },
+      { y: 1405, color: yellow },
+      { y: 1480, color: navy },
+      { y: 1555, color: yellow },
+      { y: 1630, color: navy }
+    ];
+    pinstripes.forEach((stripe) => {
+      ctx.fillStyle = stripe.color;
+      ctx.fillRect(0, stripe.y, S, 14);
+    });
+
+    // 5. Sleeves (Y: 1720 to 2048)
+    // Sleeve cap / upper sleeve (Navy continuous with shoulder yoke)
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 1720, S, 50);
+    // Matching block stripes down the sleeves
+    ctx.fillStyle = bodyBase;
+    ctx.fillRect(0, 1770, S, 40);
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 1810, S, 40);
+    ctx.fillStyle = yellow;
+    ctx.fillRect(0, 1850, S, 40);
+    ctx.fillStyle = navy;
+    ctx.fillRect(0, 1890, S, 40);
+    ctx.fillStyle = yellow;
+    ctx.fillRect(0, 1930, S, 45);
+    // Crisp white ribbed sleeve cuffs
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 1975, S, S - 1975);
+  }
+
   render() {
     const ctx = this.ctx;
     const dCtx = this.decalCtx;
@@ -346,9 +420,13 @@ export class CanvasDesignManager {
       dCtx.imageSmoothingQuality = 'high';
     }
 
-    // 1. Fill base garment color (pure, plain and clean) for t-shirt full UV map
-    ctx.fillStyle = this.garmentColor;
-    ctx.fillRect(0, 0, S, S);
+    // 1. Fill base garment color or polo rugby stripes
+    if (this.garmentType === 'polo') {
+      this.drawPoloDesign(ctx, S);
+    } else {
+      ctx.fillStyle = this.garmentColor;
+      ctx.fillRect(0, 0, S, S);
+    }
 
     // 2. Micro textile weave texture overlay for authentic tactile cotton feel
     if (!this.fabricPattern) {

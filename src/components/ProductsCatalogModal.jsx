@@ -31,9 +31,9 @@ export const GARMENT_PRODUCTS = [
     badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Tops',
-    description: 'Classic tailored polo shirt with folded rib collar, 3-button front placket, and ribbed sleeve cuffs.',
-    features: ['Ribbed Folded Collar', '3-Button Placket', 'Ribbed Sleeve Bands'],
-    imageBg: 'from-emerald-900/30 to-teal-950/40',
+    description: 'Polo Shirt 3 - Athletic rugby block stripe polo featuring deep navy ribbed collar with gold tipping, 3-button placket, bold chest stripes, and crisp white cuffs.',
+    features: ['Ribbed Collar with Gold Tipping', '3-Button Placket', 'Rugby Block Stripes', 'Ribbed White Cuffs'],
+    imageBg: 'from-blue-950/40 to-slate-900/50',
     popular: true
   },
   {
