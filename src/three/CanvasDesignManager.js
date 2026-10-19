@@ -383,11 +383,12 @@ export class CanvasDesignManager {
       ctx.restore();
     }
 
-    // 2. Only render to decalCanvas if the active garment actually uses 3D floating decals (hoodie, pants, cap)
+    // 2. Only render to decalCanvas if the active garment actually uses 3D floating decals (hoodie, pants, cap, regular tee)
     const isDecalGarment = this.garmentType && (
       this.garmentType === 'hoodie' ||
       this.garmentType === 'zip_hoodie' ||
-      this.garmentType === 'hanging_hoodie'
+      this.garmentType === 'hanging_hoodie' ||
+      this.garmentType === 'regular_tee'
     );
 
     if (isDecalGarment && dCtx) {

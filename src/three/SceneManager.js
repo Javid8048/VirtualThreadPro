@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -232,18 +234,27 @@ export class SceneManager {
     // On-demand model loading status
     this.modelsLoading = {
       tshirt: false,
+      regular_tee: false,
       hoodie: false,
       pants: false,
       cap: false
     };
     this.modelsLoaded = {
       tshirt: false,
+      regular_tee: false,
       hoodie: false,
       pants: false,
       cap: false
     };
     this.tshirtCallbacks = [];
+    this.regularTeeCallbacks = [];
     this.hoodieCallbacks = [];
+
+    // Authentic Regular T-shirt 3D Model
+    this.regularTeeRoot = null;
+    this.regularTeeMesh = null;
+    this.regularTeeMaterial = null;
+    this.regularTeeDecalsGroup = null;
 
     // Real 3D Garment Models (Hoodie GLB)
     this.realHoodieRoot = null;
@@ -495,7 +506,8 @@ export class SceneManager {
   }
 
   getGarmentFamily(type) {
-    const t = type || this.garmentType || 'oversized_tee';
+    const t = type || this.garmentType || 'regular_tee';
+    if (t === 'regular_tee') return 'regular_tee';
     if (t === 'hoodie' || t === 'zip_hoodie') return 'hoodie';
     return 'tshirt';
   }
@@ -514,6 +526,12 @@ export class SceneManager {
 
     if (family === 'hoodie') {
       this.loadHoodieModel(() => {
+        this.applyGarmentTypeVisibility();
+        this.triggerLoadedIfReady();
+        if (onComplete) onComplete();
+      });
+    } else if (family === 'regular_tee') {
+      this.loadRegularTeeModel(() => {
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
         if (onComplete) onComplete();
@@ -735,8 +753,127 @@ export class SceneManager {
     return geo;
   }
 
+  loadRegularTeeModel(onDone) {
+    if (this.modelsLoaded.regular_tee) {
+      if (onDone) onDone();
+      return;
+    }
+    if (this.modelsLoading.regular_tee) {
+      if (onDone) this.regularTeeCallbacks.push(onDone);
+      return;
+    }
+    this.modelsLoading.regular_tee = true;
+    if (onDone) this.regularTeeCallbacks.push(onDone);
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath(getAssetUrl('/draco/gltf/'));
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+
+    // Dedicated soft matte textile finish for regular t-shirt
+    this.regularTeeMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(this.garmentColor || '#ffffff'),
+      roughness: 0.98,
+      metalness: 0.0,
+      sheen: 0.15,
+      sheenRoughness: 0.75,
+      clearcoat: 0.0,
+      normalMap: this.jerseyNormalMap || null,
+      normalScale: new THREE.Vector2(0.22, 0.22),
+      side: THREE.DoubleSide
+    });
+
+    const finalizeMesh = (mesh) => {
+      this.regularTeeRoot = new THREE.Group();
+      this.regularTeeRoot.name = 'regular_tee_root';
+
+      this.regularTeeMesh = mesh;
+      this.regularTeeMesh.name = 'regular_tee_mesh';
+      this.regularTeeMesh.material = this.regularTeeMaterial;
+      this.regularTeeMesh.castShadow = true;
+      this.regularTeeMesh.receiveShadow = true;
+
+      if (this.regularTeeMesh.geometry && this.regularTeeMesh.geometry.attributes.uv && !this.regularTeeMesh.geometry.attributes.uv2) {
+        this.regularTeeMesh.geometry.attributes.uv2 = this.regularTeeMesh.geometry.attributes.uv;
+      }
+
+      // Proportions, scale and positioning matching reference application and centered in viewport
+      this.regularTeeRoot.scale.set(12.0, 12.0, 12.0);
+      this.regularTeeRoot.position.set(0, 1.25, 0);
+      this.regularTeeRoot.rotation.set(0, 0, 0);
+      this.regularTeeRoot.add(this.regularTeeMesh);
+
+      // Decals group for authentic design and logo placement
+      this.regularTeeDecalsGroup = new THREE.Group();
+      this.regularTeeDecalsGroup.name = 'regular_tee_decals_group';
+      this.regularTeeRoot.add(this.regularTeeDecalsGroup);
+
+      this.scene.add(this.regularTeeRoot);
+      this.modelsLoaded.regular_tee = true;
+      this.modelsLoading.regular_tee = false;
+
+      this.applyGarmentTypeVisibility();
+      this.updateRegularTeeDecals();
+      this.triggerLoadedIfReady();
+
+      const cbs = [...this.regularTeeCallbacks];
+      this.regularTeeCallbacks = [];
+      cbs.forEach(cb => cb());
+    };
+
+    const fallbackLoad = () => {
+      fetch(getAssetUrl('/models/tshirt-tdesigner-geo.json'))
+        .then(res => res.json())
+        .then(geoData => {
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(geoData.positions, 3));
+          geo.setAttribute('normal', new THREE.Float32BufferAttribute(geoData.normals, 3));
+          geo.setAttribute('uv', new THREE.Float32BufferAttribute(geoData.uvs, 2));
+          geo.setAttribute('uv2', new THREE.Float32BufferAttribute(geoData.uvs, 2));
+          geo.setIndex(new THREE.Uint32BufferAttribute(geoData.indices, 1));
+          geo.computeVertexNormals();
+
+          const mesh = new THREE.Mesh(geo, this.regularTeeMaterial);
+          finalizeMesh(mesh);
+        })
+        .catch(err => {
+          console.warn('Fallback regular tee load error:', err);
+          this.modelsLoaded.regular_tee = true;
+          this.modelsLoading.regular_tee = false;
+          const cbs = [...this.regularTeeCallbacks];
+          this.regularTeeCallbacks = [];
+          cbs.forEach(cb => cb());
+        });
+    };
+
+    gltfLoader.load(
+      getAssetUrl('/models/tshirt-tdesigner.glb'),
+      (gltf) => {
+        let foundMesh = null;
+        gltf.scene.traverse((child) => {
+          if (child.isMesh && !foundMesh) {
+            foundMesh = child;
+          }
+        });
+        if (foundMesh) {
+          finalizeMesh(foundMesh);
+        } else {
+          fallbackLoad();
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn('Loading via DRACO GLB had error, switching to fast geometry asset:', err);
+        fallbackLoad();
+      }
+    );
+  }
+
   getActiveMesh() {
-    const t = this.garmentType || 'oversized_tee';
+    const t = this.garmentType || 'regular_tee';
+    if (t === 'regular_tee') {
+      return this.regularTeeMesh || this.regularTeeRoot;
+    }
     if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
       const hoodieMesh = this.realHoodieRoot?.getObjectByName('Hoodie');
       return hoodieMesh || this.realHoodieRoot;
@@ -1505,6 +1642,7 @@ export class SceneManager {
       }
     };
 
+    applyToMaterial(this.regularTeeMaterial);
     applyToMaterial(this.shirtMaterial);
     applyToMaterial(this.fabricMaterial);
     applyToMaterial(this.hoodieFabricMaterial);
@@ -1522,6 +1660,7 @@ export class SceneManager {
       });
     };
 
+    updateMeshColors(this.regularTeeRoot);
     updateMeshColors(this.gltfScene);
     updateMeshColors(this.realHoodieRoot);
     updateMeshColors(this.attachmentsGroup);
@@ -2133,68 +2272,51 @@ export class SceneManager {
   }
 
   applyGarmentTypeVisibility() {
-    const t = this.garmentType || 'oversized_tee';
+    const t = this.garmentType || 'regular_tee';
     const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
-    const isTshirtFamily = !isHoodieFamily;
+    const isRegularTee = (t === 'regular_tee');
+    const isOversizedTshirtFamily = !isHoodieFamily && !isRegularTee;
 
-    // Select authentic garment geometry matching selected fit
-    if (this.tshirtStatic) {
-      const isRegular = (t === 'regular_tee');
-      const targetGeometry = isRegular ? this.tshirtRegularGeometry : this.tshirtOversizedGeometry;
-      if (targetGeometry && this.tshirtStatic.geometry !== targetGeometry) {
-        this.tshirtStatic.geometry = targetGeometry;
-        this.tshirtStatic.geometry.attributes.position.needsUpdate = true;
-        if (this.tshirtStatic.geometry.attributes.normal) {
-          this.tshirtStatic.geometry.attributes.normal.needsUpdate = true;
-        }
-        this.tshirtStatic.geometry.computeBoundingBox();
-        this.tshirtStatic.geometry.computeBoundingSphere();
-      }
-      if (this.comparisonShirtMesh && targetGeometry && this.comparisonShirtMesh.geometry !== targetGeometry) {
-        this.comparisonShirtMesh.geometry = targetGeometry;
-        this.comparisonShirtMesh.geometry.attributes.position.needsUpdate = true;
-        if (this.comparisonShirtMesh.geometry.attributes.normal) {
-          this.comparisonShirtMesh.geometry.attributes.normal.needsUpdate = true;
-        }
-      }
+    // Authentic regular t-shirt model visibility
+    if (this.regularTeeRoot) {
+      this.regularTeeRoot.visible = isRegularTee;
     }
 
-    // Show high-res upper body shirt mesh for all t-shirt family garments
+    // Upper body shirt meshes for oversized t-shirt family garments
     if (this.gltfScene) {
-      this.gltfScene.visible = isTshirtFamily;
+      this.gltfScene.visible = isOversizedTshirtFamily;
     }
     if (this.tshirtPivot) {
-      this.tshirtPivot.visible = isTshirtFamily;
+      this.tshirtPivot.visible = isOversizedTshirtFamily;
       if (this.animationMode !== 'knit') {
         this.tshirtPivot.scale.set(1, 1, 1);
       }
     }
     if (this.tshirtStatic) {
-      this.tshirtStatic.visible = isTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
+      this.tshirtStatic.visible = isOversizedTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
     }
     if (this.tshirtWaves) {
-      this.tshirtWaves.visible = isTshirtFamily && this.animationMode === 'waves';
+      this.tshirtWaves.visible = isOversizedTshirtFamily && this.animationMode === 'waves';
     }
     if (this.tshirtWalking) {
-      this.tshirtWalking.visible = isTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
+      this.tshirtWalking.visible = isOversizedTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
-    // Upper body t-shirt scaling & fit geometry
-    if (this.tshirtStatic) {
+    // Upper body oversized t-shirt scaling & fit geometry
+    if (this.tshirtStatic && isOversizedTshirtFamily) {
       if (t === 'cropped_tee') {
-        // High-waisted boxy streetwear crop: wide drop-shoulder with clean raised hem
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
         this.applyTshirtFit('oversized');
       } else {
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
-        const fit = (t === 'regular_tee' || t === 'polo') ? 'regular' : 'oversized';
+        const fit = (t === 'polo') ? 'regular' : 'oversized';
         this.applyTshirtFit(fit);
       }
     }
 
-    // Maintain native animation transforms (vertex buffers are deformed directly)
+    // Maintain native animation transforms
     if (this.tshirtWalking) {
       this.tshirtWalking.scale.set(1.0, 1.0, 1.0);
     }
@@ -2304,6 +2426,116 @@ export class SceneManager {
 
     if (this.hoodieDecalMeshFront) this.hoodieDecalMeshFront.visible = hasFront;
     if (this.hoodieDecalMeshBack) this.hoodieDecalMeshBack.visible = hasBack;
+
+    this.updateRegularTeeDecals();
+  }
+
+  updateRegularTeeDecals() {
+    if (!this.regularTeeMesh || !this.regularTeeDecalsGroup) return;
+
+    while (this.regularTeeDecalsGroup.children.length > 0) {
+      const child = this.regularTeeDecalsGroup.children[0];
+      this.regularTeeDecalsGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (child.material.map && child.material.map !== this.designManager?.texture && child.material.map !== this.designManager?.decalTexture) {
+          child.material.map.dispose();
+        }
+        child.material.dispose();
+      }
+    }
+
+    if (!this.designManager || !this.designManager.layers || this.designManager.layers.length === 0) {
+      return;
+    }
+
+    this.designManager.layers.forEach((layer) => {
+      const side = layer.side || 'front';
+      const isFront = (side === 'front');
+      const isBack = (side === 'back');
+      if (!isFront && !isBack) return;
+
+      let posX, posY, posZ;
+      let rot;
+
+      if (isFront) {
+        const xNorm = ((layer.x !== undefined ? layer.x : 480) - 480) / 480;
+        const yNorm = ((layer.y !== undefined ? layer.y : 720) - 720) / 720;
+        posX = xNorm * 0.15;
+        posY = 0.08 - yNorm * 0.12;
+        posZ = 0.13;
+        rot = new THREE.Euler(0, 0, (layer.rotation || 0) * Math.PI / 180);
+      } else {
+        const xNorm = ((layer.x !== undefined ? layer.x : 1528) - 1528) / 480;
+        const yNorm = ((layer.y !== undefined ? layer.y : 1528) - 1528) / 720;
+        posX = -xNorm * 0.15;
+        posY = 0.08 - yNorm * 0.12;
+        posZ = -0.13;
+        rot = new THREE.Euler(0, Math.PI, -(layer.rotation || 0) * Math.PI / 180);
+      }
+
+      const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1.0;
+      const decalSize = Math.max(0.04, Math.min(0.35, layerScale * 0.12));
+
+      let texture = null;
+      let aspect = 1.0;
+
+      if (layer.type === 'image' && layer.image) {
+        texture = new THREE.Texture(layer.image);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+        aspect = (layer.image.width && layer.image.height) ? (layer.image.width / layer.image.height) : 1.0;
+      } else if (layer.type === 'text') {
+        const textCanvas = document.createElement('canvas');
+        textCanvas.width = 1024;
+        textCanvas.height = 512;
+        const tCtx = textCanvas.getContext('2d');
+        tCtx.clearRect(0, 0, 1024, 512);
+        tCtx.fillStyle = layer.textColor || '#000000';
+        tCtx.textAlign = 'center';
+        tCtx.textBaseline = 'middle';
+        const fontSize = Math.max(24, Math.min(180, (layer.fontSize || 12) * 5));
+        tCtx.font = `bold ${fontSize}px ${layer.fontFamily || 'sans-serif'}`;
+        tCtx.fillText(layer.text || 'CUSTOM TEXT', 512, 256);
+
+        texture = new THREE.CanvasTexture(textCanvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        aspect = 2.0;
+      }
+
+      if (!texture) return;
+
+      let sizeX = decalSize;
+      let sizeY = decalSize / aspect;
+      if (aspect < 1) {
+        sizeY = decalSize;
+        sizeX = decalSize * aspect;
+      }
+
+      const sizeVec = new THREE.Vector3(sizeX, sizeY, 0.18);
+
+      try {
+        const decalGeo = new DecalGeometry(this.regularTeeMesh, new THREE.Vector3(posX, posY, posZ), rot, sizeVec);
+        const decalMat = new THREE.MeshStandardMaterial({
+          map: texture,
+          transparent: true,
+          roughness: 0.98,
+          metalness: 0.0,
+          side: THREE.FrontSide,
+          depthTest: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -4.0,
+          polygonOffsetUnits: -4.0
+        });
+
+        const decalMesh = new THREE.Mesh(decalGeo, decalMat);
+        decalMesh.renderOrder = 2;
+        this.regularTeeDecalsGroup.add(decalMesh);
+      } catch (err) {
+        console.warn('Regular tee decal projection error:', err);
+      }
+    });
   }
 
   inspectSceneMeshes(label = 'Scene Inspection') {
@@ -2456,6 +2688,7 @@ export class SceneManager {
       if (this.realHoodieRoot) this.realHoodieRoot.scale.set(1, 1, 1);
     }
     if (mode !== 'turntable' && mode !== 'rotate_walk') {
+      if (this.regularTeeRoot) this.regularTeeRoot.rotation.y = 0;
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = 0;
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = 0;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = 0;
@@ -2822,6 +3055,9 @@ export class SceneManager {
     const isShowcaseSpin = this.isRecordingVideo && this.recordingMotion === 'showcase360';
     if (!isShowcaseSpin && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
       const turnStep = delta * (this.turntableSpeed || 0.8) * 1.5;
+      if (this.regularTeeRoot && this.garmentType === 'regular_tee') {
+        this.regularTeeRoot.rotation.y += turnStep;
+      }
       if (this.tshirtPivot) {
         this.tshirtPivot.rotation.y += turnStep;
       }
@@ -2841,6 +3077,9 @@ export class SceneManager {
       const loops = totalDuration >= 15 ? 2 : 1;
       const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 
+      if (this.regularTeeRoot && this.garmentType === 'regular_tee') {
+        this.regularTeeRoot.rotation.y = targetAngle;
+      }
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = targetAngle;
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
         this.realHoodieRoot.rotation.y = targetAngle;
@@ -2987,6 +3226,7 @@ export class SceneManager {
 
     // Restore rotation to pre-recording base angle
     if (this.recordingBaseAngle !== undefined) {
+      if (this.regularTeeRoot) this.regularTeeRoot.rotation.y = this.recordingBaseAngle;
       if (this.tshirtPivot) this.tshirtPivot.rotation.y = this.recordingBaseAngle;
       if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = this.recordingBaseAngle;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = this.recordingBaseAngle;
@@ -3048,6 +3288,7 @@ export class SceneManager {
     // Save garment mesh transforms to ensure neutral flat pose
     const originalTransforms = [];
     const rootsToReset = [
+      this.regularTeeRoot,
       this.tshirtPivot,
       this.realHoodieRoot,
       this.attachmentsGroup
@@ -3062,7 +3303,9 @@ export class SceneManager {
         posY: r.position.y
       });
       r.rotation.set(0, 0, 0);
-      r.position.y = 0;
+      if (r !== this.regularTeeRoot) {
+        r.position.y = 0;
+      }
     });
 
     // Framing per garment
@@ -3076,6 +3319,10 @@ export class SceneManager {
       camZ = 16.5;
       camY = 0.65;
       targetY = 0.15;
+    } else if (this.garmentType === 'regular_tee') {
+      camZ = 14.5;
+      camY = 0.75;
+      targetY = 0.75;
     }
 
     if (side === 'back') {
@@ -3099,6 +3346,8 @@ export class SceneManager {
     // Temporarily hide decals during base garment snapshot so base garment remains clean
     const prevDecalVis = this.decalMaterial.opacity;
     this.decalMaterial.opacity = 0;
+    const prevDecalsGroupVis = this.regularTeeDecalsGroup ? this.regularTeeDecalsGroup.visible : true;
+    if (this.regularTeeDecalsGroup) this.regularTeeDecalsGroup.visible = false;
 
     const prevMap = this.shirtMaterial?.map;
     if (this.shirtMaterial) {
@@ -3115,6 +3364,7 @@ export class SceneManager {
     const dataUrl = this.renderer.domElement.toDataURL('image/png');
 
     this.decalMaterial.opacity = prevDecalVis;
+    if (this.regularTeeDecalsGroup) this.regularTeeDecalsGroup.visible = prevDecalsGroupVis;
     this.scene.background = originalBg;
 
     if (this.shirtMaterial) {
@@ -3195,6 +3445,15 @@ export class SceneManager {
     }
     if (this.renderer) {
       this.renderer.dispose();
+    }
+    if (this.regularTeeRoot) {
+      this.scene.remove(this.regularTeeRoot);
+      if (this.regularTeeMesh && this.regularTeeMesh.geometry) {
+        this.regularTeeMesh.geometry.dispose();
+      }
+      if (this.regularTeeMaterial) {
+        this.regularTeeMaterial.dispose();
+      }
     }
     if (this.designManager && this.designManager.dispose) {
       this.designManager.dispose();
