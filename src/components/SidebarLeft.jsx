@@ -14,38 +14,7 @@ const COLOR_SWATCHES = [
   { name: 'Acid Washed', hex: '#2b2d35' }
 ];
 
-export const DEFAULT_INTERNET_BACKGROUNDS = [
-  {
-    id: 'concrete_studio',
-    name: 'Minimal Concrete',
-    thumbnail: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=140&q=75',
-    url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1920&q=80'
-  },
-  {
-    id: 'warm_loft',
-    name: 'Warm Loft',
-    thumbnail: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=140&q=75',
-    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1920&q=80'
-  },
-  {
-    id: 'cyber_neon',
-    name: 'Tokyo Cyber',
-    thumbnail: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=140&q=75',
-    url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1920&q=80'
-  },
-  {
-    id: 'white_cyclorama',
-    name: 'White Studio',
-    thumbnail: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=140&q=75',
-    url: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1920&q=80'
-  },
-  {
-    id: 'urban_warehouse',
-    name: 'Urban Loft',
-    thumbnail: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=140&q=75',
-    url: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&w=1920&q=80'
-  }
-];
+export const DEFAULT_INTERNET_BACKGROUNDS = [];
 
 export function SidebarLeft({
   garmentColor,
@@ -973,54 +942,6 @@ export function SidebarLeft({
                 </button>
               </div>
 
-              {/* Curated Internet Background Presets */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400">
-                  <span>Internet Presets</span>
-                  <span className="text-[9px] text-brand-500 font-mono">5 STYLES</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {DEFAULT_INTERNET_BACKGROUNDS.map((preset) => {
-                    const activeBg = customBackground || customBgImage;
-                    const isSelected = backdropMode === 'custom' && activeBg === preset.url;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          if (onSelectPresetBg) onSelectPresetBg(preset.url);
-                          else if (onCustomBackgroundUpload) onCustomBackgroundUpload(preset.url);
-                        }}
-                        className={`group relative overflow-hidden rounded-xl border p-1 text-left transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500'
-                            : 'border-gray-200 dark:border-studio-750 hover:border-gray-300 dark:hover:border-studio-600 bg-gray-50/50 dark:bg-studio-850/50'
-                        }`}
-                        title={preset.name}
-                      >
-                        <img
-                          src={preset.thumbnail}
-                          alt={preset.name}
-                          crossOrigin="anonymous"
-                          className="size-7 rounded-lg object-cover shrink-0 border border-black/10 dark:border-white/10"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-bold text-gray-800 dark:text-studio-200 truncate leading-tight">
-                            {preset.name}
-                          </div>
-                          {isSelected && (
-                            <div className="text-[9px] font-semibold text-brand-500 flex items-center gap-0.5">
-                              <Check className="size-2.5" />
-                              <span>Active</span>
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Hidden Global Input for Background File Selection */}
               <input
                 ref={bgFileInputRef}
@@ -1049,7 +970,7 @@ export function SidebarLeft({
                       </div>
                       <div className="min-w-0">
                         <div className="text-[11px] font-bold text-gray-900 dark:text-white truncate">
-                          {DEFAULT_INTERNET_BACKGROUNDS.find(b => b.url === (customBackground || customBgImage))?.name || 'Device Background'}
+                          Device Background
                         </div>
                         <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                           <Check className="size-2.5" />
