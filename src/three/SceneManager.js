@@ -18,15 +18,32 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * Calculates a slightly darker shade for the inside of garments.
+ * Multiplying in linear RGB by 0.72 preserves the exact hue and chroma
+ * of any chosen garment color while rendering an authentic interior shadow/lining.
+ */
+export function getDarkenedInsideColor(baseColor, factor = 0.72) {
+  let c;
+  try {
+    c = baseColor instanceof THREE.Color ? baseColor.clone() : new THREE.Color(baseColor || '#ffffff');
+  } catch (e) {
+    c = new THREE.Color(0xffffff);
+  }
+  c.multiplyScalar(factor);
+  return c;
+}
+
+/**
  * Inside Fabric Custom Shader Hook
  * Ensures external design prints / decals are strictly rendered on the FRONT faces,
  * while the interior of the shirt is always solid, clean garment fabric color.
  * Eliminates see-through bleed and mirrored reflections inside the collar/hem.
  */
 function applyInsideFabricShader(material, getInsideColor, getAcidWashIntensity, fabricMicroNormalMap = null, isFlippedFacing = true) {
-  material.customProgramCacheKey = () => `inside-fabric-shader-v12-${isFlippedFacing ? 'flip' : 'norm'}`;
+  material.customProgramCacheKey = () => `inside-fabric-shader-v13-${isFlippedFacing ? 'flip' : 'norm'}`;
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.uInsideColor = { value: new THREE.Color(getInsideColor()) };
+    const rawInsideColor = typeof getInsideColor === 'function' ? getInsideColor() : getInsideColor;
+    shader.uniforms.uInsideColor = { value: getDarkenedInsideColor(rawInsideColor || '#ffffff') };
     shader.uniforms.uAcidWash = { value: 0.0 };
     shader.uniforms.uKnitProgress = { value: 1.0 };
     shader.uniforms.uKnitTime = { value: 0.0 };
@@ -1676,7 +1693,7 @@ export class SceneManager {
       mat.needsUpdate = true;
 
       if (mat.userData?.shader?.uniforms?.uInsideColor && colorObj) {
-        mat.userData.shader.uniforms.uInsideColor.value.copy(colorObj);
+        mat.userData.shader.uniforms.uInsideColor.value.copy(getDarkenedInsideColor(colorObj));
       }
     };
 
@@ -1979,7 +1996,7 @@ export class SceneManager {
       if (overrides.color) {
         this.comparisonShirtMaterial.color.set(overrides.color);
         if (this.comparisonShirtMaterial.userData?.shader?.uniforms?.uInsideColor) {
-          this.comparisonShirtMaterial.userData.shader.uniforms.uInsideColor.value.set(overrides.color);
+          this.comparisonShirtMaterial.userData.shader.uniforms.uInsideColor.value.copy(getDarkenedInsideColor(overrides.color));
         }
       }
       if (overrides.roughness !== undefined) {
