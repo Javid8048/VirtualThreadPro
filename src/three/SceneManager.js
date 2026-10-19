@@ -531,6 +531,7 @@ export class SceneManager {
         if (onComplete) onComplete();
       });
     } else if (family === 'regular_tee') {
+      this.loadTshirtModel();
       this.loadRegularTeeModel(() => {
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
@@ -887,6 +888,8 @@ export class SceneManager {
   getActiveMesh() {
     const t = this.garmentType || 'regular_tee';
     if (t === 'regular_tee') {
+      if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
+      if ((this.animationMode === 'walking' || this.animationMode === 'rotate_walk') && this.tshirtWalking) return this.tshirtWalking;
       return this.regularTeeMesh || this.regularTeeRoot;
     }
     if (t === 'hoodie' || t === 'zip_hoodie' || t === 'hanging_hoodie') {
@@ -894,7 +897,7 @@ export class SceneManager {
       return hoodieMesh || this.realHoodieRoot;
     }
     if (this.animationMode === 'waves' && this.tshirtWaves) return this.tshirtWaves;
-    if (this.animationMode === 'walking' && this.tshirtWalking) return this.tshirtWalking;
+    if ((this.animationMode === 'walking' || this.animationMode === 'rotate_walk') && this.tshirtWalking) return this.tshirtWalking;
     return this.tshirtStatic;
   }
 
@@ -1478,6 +1481,8 @@ export class SceneManager {
   getActiveGarmentRoot() {
     const t = this.garmentType || 'regular_tee';
     if (t === 'regular_tee') {
+      const isWalkingOrWaves = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
+      if (isWalkingOrWaves) return this.tshirtPivot;
       return this.regularTeeRoot;
     }
     if (t === 'hoodie' || t === 'zip_hoodie') {
@@ -2302,18 +2307,21 @@ export class SceneManager {
     const isHoodieFamily = (t === 'hoodie' || t === 'zip_hoodie');
     const isRegularTee = (t === 'regular_tee');
     const isOversizedTshirtFamily = !isHoodieFamily && !isRegularTee;
+    const isWalkingOrWaves = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
 
-    // Authentic regular t-shirt model visibility
+    // Authentic regular t-shirt model visibility (active in static, turntable, and knit modes)
     if (this.regularTeeRoot) {
-      this.regularTeeRoot.visible = isRegularTee;
+      this.regularTeeRoot.visible = isRegularTee && !isWalkingOrWaves;
     }
 
-    // Upper body shirt meshes for oversized t-shirt family garments
+    // Upper body shirt meshes for oversized t-shirt family and regular t-shirt during walking/waves animation
+    const showTshirtMeshes = isOversizedTshirtFamily || (isRegularTee && isWalkingOrWaves);
+
     if (this.gltfScene) {
-      this.gltfScene.visible = isOversizedTshirtFamily;
+      this.gltfScene.visible = showTshirtMeshes;
     }
     if (this.tshirtPivot) {
-      this.tshirtPivot.visible = isOversizedTshirtFamily;
+      this.tshirtPivot.visible = showTshirtMeshes;
       if (this.animationMode !== 'knit') {
         this.tshirtPivot.scale.set(1, 1, 1);
       }
@@ -2322,10 +2330,10 @@ export class SceneManager {
       this.tshirtStatic.visible = isOversizedTshirtFamily && (this.animationMode === 'static' || this.animationMode === 'turntable' || this.animationMode === 'knit');
     }
     if (this.tshirtWaves) {
-      this.tshirtWaves.visible = isOversizedTshirtFamily && this.animationMode === 'waves';
+      this.tshirtWaves.visible = showTshirtMeshes && this.animationMode === 'waves';
     }
     if (this.tshirtWalking) {
-      this.tshirtWalking.visible = isOversizedTshirtFamily && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
+      this.tshirtWalking.visible = showTshirtMeshes && (this.animationMode === 'walking' || this.animationMode === 'rotate_walk');
     }
 
     // Upper body oversized t-shirt scaling & fit geometry
@@ -2340,6 +2348,8 @@ export class SceneManager {
         const fit = (t === 'polo') ? 'regular' : 'oversized';
         this.applyTshirtFit(fit);
       }
+    } else if (isRegularTee && isWalkingOrWaves) {
+      this.applyTshirtFit('regular');
     }
 
     // Maintain native animation transforms
@@ -2661,6 +2671,14 @@ export class SceneManager {
     // When static is clicked, all animation and camera animation should be off.
     this.cameraAnimationMode = 'none';
 
+    // Ensure animated apparel assets are ready when walking or waves animation is requested
+    if ((mode === 'walking' || mode === 'rotate_walk' || mode === 'waves') && !this.modelsLoaded.tshirt) {
+      this.loadTshirtModel(() => {
+        this.setAnimationMode(this.animationMode);
+      });
+      return;
+    }
+
     // Reset current actions
     if (this.mixer) {
       Object.values(this.actions).forEach((a) => a.stop());
@@ -2677,12 +2695,17 @@ export class SceneManager {
       const rootsToReset = [
         this.tshirtPivot,
         this.realHoodieRoot,
+        this.regularTeeRoot,
         this.attachmentsGroup
       ].filter(Boolean);
       rootsToReset.forEach((r) => {
-        r.position.set(0, 0, 0);
+        r.position.set(0, (r === this.regularTeeRoot ? 1.25 : 0), 0);
         r.rotation.set(0, 0, 0);
-        r.scale.set(1, 1, 1);
+        r.scale.set(
+          (r === this.regularTeeRoot ? 12.0 : 1),
+          (r === this.regularTeeRoot ? 12.0 : 1),
+          (r === this.regularTeeRoot ? 12.0 : 1)
+        );
       });
     } else if (mode === 'waves') {
       if (this.tshirtStatic) this.tshirtStatic.visible = false;
@@ -3136,77 +3159,14 @@ export class SceneManager {
       resetKnit(this.regularTeeMaterial);
     }
 
-    // Regular Tee dynamic cloth animations (walk runway stride & aerodynamic wind waves)
-    if (this.garmentType === 'regular_tee' && this.regularTeeRoot && this.regularTeeMesh) {
-      if (this.animationMode === 'walking' || this.animationMode === 'rotate_walk') {
-        const speed = (this.walkSpeed || 1.0) * 4.6;
-        this.regularTeeAnimTime = (this.regularTeeAnimTime || 0) + delta * speed;
-        const t = this.regularTeeAnimTime;
-
-        // Natural runway walk vertical bounce rhythm
-        const bounce = Math.abs(Math.sin(t)) * 0.045;
-        this.regularTeeRoot.position.y = 1.25 + bounce - 0.02;
-
-        // Hip & torso lateral sway
-        this.regularTeeRoot.rotation.z = Math.sin(t * 0.5) * 0.035;
-
-        // Forward/backward stride pitch
-        this.regularTeeRoot.rotation.x = Math.sin(t) * 0.02;
-
-        // Dynamic cloth movement during walking
-        if (this.regularTeeMesh.geometry && this.originalRegularTeePositions) {
-          const pos = this.regularTeeMesh.geometry.attributes.position;
-          const orig = this.originalRegularTeePositions;
-          const count = pos.count;
-          const walkWaveT = t * 1.5;
-          for (let i = 0; i < count; i++) {
-            const ox = orig[i * 3];
-            const oy = orig[i * 3 + 1];
-            const oz = orig[i * 3 + 2];
-            const hemWeight = Math.max(0.1, Math.min(1.0, 0.5 - oy));
-            const waveZ = Math.sin(walkWaveT + oy * 8.0 + ox * 4.0) * 0.003 * hemWeight;
-            pos.setXYZ(i, ox, oy, oz + waveZ);
-          }
-          pos.needsUpdate = true;
-        }
-      } else if (this.animationMode === 'waves') {
-        const speed = (this.walkSpeed || 1.0) * 5.2;
-        this.regularTeeAnimTime = (this.regularTeeAnimTime || 0) + delta * speed;
-        const t = this.regularTeeAnimTime;
-
-        // Gentle ambient body sway in the wind
-        this.regularTeeRoot.position.y = 1.25 + Math.sin(t * 0.4) * 0.015;
-        this.regularTeeRoot.rotation.x = Math.sin(t * 0.5) * 0.012;
-        this.regularTeeRoot.rotation.z = Math.cos(t * 0.3) * 0.015;
-
-        // High fidelity cloth ripple simulation on regular tee vertices
-        if (this.regularTeeMesh.geometry && this.originalRegularTeePositions) {
-          const pos = this.regularTeeMesh.geometry.attributes.position;
-          const orig = this.originalRegularTeePositions;
-          const count = pos.count;
-          for (let i = 0; i < count; i++) {
-            const ox = orig[i * 3];
-            const oy = orig[i * 3 + 1];
-            const oz = orig[i * 3 + 2];
-            const hemWeight = Math.max(0.15, Math.min(1.0, 0.6 - oy));
-            const waveZ = (Math.sin(t * 3.5 + oy * 12.0 + ox * 6.0) * 0.006 + Math.cos(t * 2.0 + ox * 10.0) * 0.003) * hemWeight;
-            const waveX = Math.sin(t * 2.8 + oy * 10.0) * 0.0025 * hemWeight;
-            pos.setXYZ(i, ox + waveX, oy, oz + waveZ);
-          }
-          pos.needsUpdate = true;
-          this.regularTeeMesh.geometry.computeVertexNormals();
-        }
-      }
-    }
-
     // Turntable rotation of garment (when active and not running showcase360 spin)
     const isShowcaseSpin = this.isRecordingVideo && this.recordingMotion === 'showcase360';
     if (!isShowcaseSpin && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
       const turnStep = delta * (this.turntableSpeed || 0.8) * 1.5;
-      if (this.regularTeeRoot && this.garmentType === 'regular_tee') {
+      if (this.regularTeeRoot && this.garmentType === 'regular_tee' && this.animationMode === 'turntable') {
         this.regularTeeRoot.rotation.y += turnStep;
       }
-      if (this.tshirtPivot) {
+      if (this.tshirtPivot && (this.garmentType !== 'regular_tee' || this.animationMode === 'rotate_walk')) {
         this.tshirtPivot.rotation.y += turnStep;
       }
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
@@ -3219,16 +3179,19 @@ export class SceneManager {
 
     // Video recording showcase motion: smooth continuous 360° spin loop based on deterministic elapsed time
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
+      const isMotionCycle = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
       this.recordingElapsedSec = (this.recordingElapsedSec || 0) + delta;
       const totalDuration = this.recordingDuration || 5;
       const progress = Math.min(1.0, this.recordingElapsedSec / totalDuration);
       const loops = totalDuration >= 15 ? 2 : 1;
       const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 
-      if (this.regularTeeRoot && this.garmentType === 'regular_tee') {
+      if (this.regularTeeRoot && this.garmentType === 'regular_tee' && !isMotionCycle) {
         this.regularTeeRoot.rotation.y = targetAngle;
       }
-      if (this.tshirtPivot) this.tshirtPivot.rotation.y = targetAngle;
+      if (this.tshirtPivot && (this.garmentType !== 'regular_tee' || isMotionCycle)) {
+        this.tshirtPivot.rotation.y = targetAngle;
+      }
       if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
         this.realHoodieRoot.rotation.y = targetAngle;
       }
@@ -3238,10 +3201,11 @@ export class SceneManager {
     }
 
     // Camera animation modes (Verge3D replication)
-    const camTargetY = (this.garmentType === 'regular_tee') ? 0.75 : 0;
+    const isMotionCycle = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
+    const camTargetY = (this.garmentType === 'regular_tee' && !isMotionCycle) ? 0.75 : 0;
     if (this.cameraAnimationMode === 'rotate') {
       this.cameraAngle += delta * 0.55;
-      const r = (this.garmentType === 'regular_tee') ? 16.5 : 24.5;
+      const r = (this.garmentType === 'regular_tee' && !isMotionCycle) ? 16.5 : 24.5;
       this.camera.position.x = Math.sin(this.cameraAngle) * r;
       this.camera.position.z = Math.cos(this.cameraAngle) * r;
       this.camera.position.y = camTargetY;
@@ -3249,7 +3213,7 @@ export class SceneManager {
     } else if (this.cameraAnimationMode === 'rotatezoom') {
       this.cameraAngle += delta * 0.55;
       this.cameraZoomTime += delta * 0.75;
-      const baseR = (this.garmentType === 'regular_tee') ? 16.5 : 24.5;
+      const baseR = (this.garmentType === 'regular_tee' && !isMotionCycle) ? 16.5 : 24.5;
       const r = baseR + Math.sin(this.cameraZoomTime) * 4.5;
       this.camera.position.x = Math.sin(this.cameraAngle) * r;
       this.camera.position.z = Math.cos(this.cameraAngle) * r;
