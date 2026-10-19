@@ -2475,93 +2475,126 @@ export class SceneManager {
       return;
     }
 
-    this.designManager.layers.forEach((layer) => {
-      const side = layer.side || 'front';
-      const isFront = (side === 'front');
-      const isBack = (side === 'back');
-      if (!isFront && !isBack) return;
+    // Save and temporarily set regularTeeMesh.matrixWorld to identity so DecalGeometry projects accurately in local space
+    const savedMatrixWorld = this.regularTeeMesh.matrixWorld.clone();
+    this.regularTeeMesh.matrixWorld.identity();
 
-      let posX, posY, posZ;
-      let rot;
+    const isDark = (() => {
+      const c = new THREE.Color(this.garmentColor || '#ffffff');
+      return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) < 0.45;
+    })();
 
-      if (isFront) {
-        const xNorm = ((layer.x !== undefined ? layer.x : 480) - 480) / 480;
-        const yNorm = ((layer.y !== undefined ? layer.y : 720) - 720) / 720;
-        posX = xNorm * 0.15;
-        posY = 0.08 - yNorm * 0.12;
-        posZ = 0.13;
-        rot = new THREE.Euler(0, 0, (layer.rotation || 0) * Math.PI / 180);
-      } else {
-        const xNorm = ((layer.x !== undefined ? layer.x : 1528) - 1528) / 480;
-        const yNorm = ((layer.y !== undefined ? layer.y : 1528) - 1528) / 720;
-        posX = -xNorm * 0.15;
-        posY = 0.08 - yNorm * 0.12;
-        posZ = -0.13;
-        rot = new THREE.Euler(0, Math.PI, -(layer.rotation || 0) * Math.PI / 180);
-      }
+    try {
+      this.designManager.layers.forEach((layer) => {
+        const side = layer.side || 'front';
+        const isFront = (side === 'front');
+        const isBack = (side === 'back');
+        if (!isFront && !isBack) return;
 
-      const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1.0;
-      const decalSize = Math.max(0.04, Math.min(0.35, layerScale * 0.12));
+        let posX, posY, posZ;
+        let rot;
 
-      let texture = null;
-      let aspect = 1.0;
+        if (isFront) {
+          const xNorm = ((layer.x !== undefined ? layer.x : 480) - 480) / 480;
+          const yNorm = ((layer.y !== undefined ? layer.y : 720) - 720) / 720;
+          posX = xNorm * 0.15;
+          posY = 0.08 - yNorm * 0.12;
+          posZ = 0.13;
+          rot = new THREE.Euler(0, 0, (layer.rotation || 0) * Math.PI / 180);
+        } else {
+          const xNorm = ((layer.x !== undefined ? layer.x : 1528) - 1528) / 480;
+          const yNorm = ((layer.y !== undefined ? layer.y : 1528) - 1528) / 720;
+          posX = -xNorm * 0.15;
+          posY = 0.08 - yNorm * 0.12;
+          posZ = -0.13;
+          rot = new THREE.Euler(0, Math.PI, -(layer.rotation || 0) * Math.PI / 180);
+        }
 
-      if (layer.type === 'image' && layer.image) {
-        texture = new THREE.Texture(layer.image);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.needsUpdate = true;
-        aspect = (layer.image.width && layer.image.height) ? (layer.image.width / layer.image.height) : 1.0;
-      } else if (layer.type === 'text') {
-        const textCanvas = document.createElement('canvas');
-        textCanvas.width = 1024;
-        textCanvas.height = 512;
-        const tCtx = textCanvas.getContext('2d');
-        tCtx.clearRect(0, 0, 1024, 512);
-        tCtx.fillStyle = layer.textColor || '#000000';
-        tCtx.textAlign = 'center';
-        tCtx.textBaseline = 'middle';
-        const fontSize = Math.max(24, Math.min(180, (layer.fontSize || 12) * 5));
-        tCtx.font = `bold ${fontSize}px ${layer.fontFamily || 'sans-serif'}`;
-        tCtx.fillText(layer.text || 'CUSTOM TEXT', 512, 256);
+        const layerScale = Number.isFinite(layer.scale) ? layer.scale : 1.0;
+        const decalSize = Math.max(0.04, Math.min(0.40, layerScale * 0.13));
 
-        texture = new THREE.CanvasTexture(textCanvas);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        aspect = 2.0;
-      }
+        let texture = null;
+        let aspect = 1.0;
 
-      if (!texture) return;
+        let imgSource = layer.image;
+        if (typeof imgSource === 'string' || (!imgSource && layer.dataUrl)) {
+          const srcUrl = typeof imgSource === 'string' ? imgSource : layer.dataUrl;
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            layer.image = img;
+            this.updateRegularTeeDecals();
+          };
+          img.src = srcUrl;
+          if (img.complete && img.naturalWidth > 0) {
+            imgSource = img;
+          }
+        } else if (imgSource instanceof HTMLImageElement && !imgSource.complete) {
+          imgSource.onload = () => {
+            this.updateRegularTeeDecals();
+          };
+          return;
+        }
 
-      let sizeX = decalSize;
-      let sizeY = decalSize / aspect;
-      if (aspect < 1) {
-        sizeY = decalSize;
-        sizeX = decalSize * aspect;
-      }
+        if (layer.type === 'image' && imgSource) {
+          texture = new THREE.Texture(imgSource);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.needsUpdate = true;
+          aspect = (imgSource.width && imgSource.height) ? (imgSource.width / imgSource.height) : 1.0;
+        } else if (layer.type === 'text') {
+          const textCanvas = document.createElement('canvas');
+          textCanvas.width = 1024;
+          textCanvas.height = 512;
+          const tCtx = textCanvas.getContext('2d');
+          tCtx.clearRect(0, 0, 1024, 512);
+          tCtx.fillStyle = layer.textColor || (isDark ? '#ffffff' : '#000000');
+          tCtx.textAlign = 'center';
+          tCtx.textBaseline = 'middle';
+          const fontSize = Math.max(24, Math.min(180, (layer.fontSize || 12) * 5));
+          tCtx.font = `bold ${fontSize}px ${layer.fontFamily || 'sans-serif'}`;
+          tCtx.fillText(layer.text || 'CUSTOM TEXT', 512, 256);
 
-      const sizeVec = new THREE.Vector3(sizeX, sizeY, 0.18);
+          texture = new THREE.CanvasTexture(textCanvas);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          aspect = 2.0;
+        }
 
-      try {
-        const decalGeo = new DecalGeometry(this.regularTeeMesh, new THREE.Vector3(posX, posY, posZ), rot, sizeVec);
-        const decalMat = new THREE.MeshStandardMaterial({
-          map: texture,
-          transparent: true,
-          roughness: 0.98,
-          metalness: 0.0,
-          side: THREE.FrontSide,
-          depthTest: true,
-          depthWrite: false,
-          polygonOffset: true,
-          polygonOffsetFactor: -4.0,
-          polygonOffsetUnits: -4.0
-        });
+        if (!texture) return;
 
-        const decalMesh = new THREE.Mesh(decalGeo, decalMat);
-        decalMesh.renderOrder = 2;
-        this.regularTeeDecalsGroup.add(decalMesh);
-      } catch (err) {
-        console.warn('Regular tee decal projection error:', err);
-      }
-    });
+        let sizeX = decalSize;
+        let sizeY = decalSize / aspect;
+        if (aspect < 1) {
+          sizeY = decalSize;
+          sizeX = decalSize * aspect;
+        }
+
+        const sizeVec = new THREE.Vector3(sizeX, sizeY, 0.25);
+
+        try {
+          const decalGeo = new DecalGeometry(this.regularTeeMesh, new THREE.Vector3(posX, posY, posZ), rot, sizeVec);
+          const decalMat = new THREE.MeshStandardMaterial({
+            map: texture,
+            transparent: true,
+            roughness: 0.98,
+            metalness: 0.0,
+            side: THREE.FrontSide,
+            depthTest: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -10.0,
+            polygonOffsetUnits: -10.0
+          });
+
+          const decalMesh = new THREE.Mesh(decalGeo, decalMat);
+          decalMesh.renderOrder = 2;
+          this.regularTeeDecalsGroup.add(decalMesh);
+        } catch (err) {
+          console.warn('Regular tee decal projection error:', err);
+        }
+      });
+    } finally {
+      this.regularTeeMesh.matrixWorld.copy(savedMatrixWorld);
+    }
   }
 
   inspectSceneMeshes(label = 'Scene Inspection') {
