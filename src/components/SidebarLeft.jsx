@@ -1,76 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, Settings, ChevronDown, ChevronRight, Video, Check, Wind, Play, Compass, Image as ImageIcon, Layers, Trash2, Plus, Type, Shirt, ShoppingBag, ArrowLeft, RotateCw, X, Sliders } from 'lucide-react';
 import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
-import { getAssetUrl } from '../utils/assets';
 
 const COLOR_SWATCHES = [
-  { name: 'Pure White (Lacoste Blanc)', hex: '#ffffff' },
-  { name: 'Lacoste Heritage Green', hex: '#002D18' },
-  { name: 'Lacoste Court Green', hex: '#06532A' },
-  { name: 'Lacoste Tennis Red', hex: '#D30018' },
-  { name: 'Lacoste Sunshine Yellow', hex: '#FCD757' },
-  { name: 'Lacoste Sky Blue', hex: '#8DC3DE' },
-  { name: 'Lacoste Navy', hex: '#1a243f' },
+  { name: 'Pure White', hex: '#ffffff' },
+  { name: 'Heritage Green', hex: '#002D18' },
+  { name: 'Court Green', hex: '#06532A' },
+  { name: 'Tennis Red', hex: '#D30018' },
+  { name: 'Sunshine Yellow', hex: '#FCD757' },
+  { name: 'Sky Blue', hex: '#8DC3DE' },
+  { name: 'Navy', hex: '#1a243f' },
   { name: 'Washed Black', hex: '#24272e' },
   { name: 'Heather Grey', hex: '#7a7d85' },
   { name: 'Vintage Cream', hex: '#f0ede6' }
-];
-
-export const LACOSTE_BADGES = [
-  {
-    id: 'crocodile_classic',
-    name: 'Classic Crocodile',
-    category: 'Crocodile',
-    src: '/lacoste_designs/lacoste_crocodile_official.svg',
-    defaultScale: 0.35,
-    defaultPrintType: 'embroidery',
-    desc: 'Official green embroidered crocodile with red tongue'
-  },
-  {
-    id: 'crocodile_white',
-    name: 'White Monochrome Crocodile',
-    category: 'Crocodile',
-    src: '/lacoste_designs/lacoste_crocodile_white.svg',
-    defaultScale: 0.35,
-    defaultPrintType: 'embroidery',
-    desc: 'Monochrome white tennis crocodile'
-  },
-  {
-    id: 'crocodile_noir',
-    name: 'Noir Matte Crocodile',
-    category: 'Crocodile',
-    src: '/lacoste_designs/lacoste_crocodile_noir.svg',
-    defaultScale: 0.35,
-    defaultPrintType: 'embroidery',
-    desc: 'Stealth noir crocodile emblem'
-  },
-  {
-    id: 'lacoste_1933_crest',
-    name: '1933 Heritage Crest',
-    category: 'Heritage',
-    src: '/lacoste_designs/lacoste_1933_crest.png',
-    defaultScale: 0.50,
-    defaultPrintType: 'embroidery',
-    desc: 'Vintage championship tennis crest'
-  },
-  {
-    id: 'roland_garros_stripe',
-    name: 'Roland Garros Racing Stripe',
-    category: 'Stripes',
-    src: '/lacoste_designs/roland_garros_stripe.png',
-    defaultScale: 0.85,
-    defaultPrintType: 'screen',
-    desc: 'French tricolor racing chest band'
-  },
-  {
-    id: 'lacoste_wordmark',
-    name: 'Lacoste Wordmark',
-    category: 'Typography',
-    src: '/lacoste_designs/lacoste_wordmark.svg',
-    defaultScale: 0.45,
-    defaultPrintType: 'screen',
-    desc: 'Official bold condensed serif wordmark'
-  }
 ];
 
 export const DEFAULT_INTERNET_BACKGROUNDS = [];
@@ -156,51 +98,6 @@ export function SidebarLeft({
 
   const toggleSection = (section) => {
     setOpenSection(openSection === section ? null : section);
-  };
-
-  const handleAddLacosteBadge = (badge) => {
-    if (!designManager) return;
-    const targetSide = activeSide || 'front';
-    const isFront = targetSide === 'front';
-    const isStripe = badge.id === 'roland_garros_stripe';
-    const isWordmark = badge.id === 'lacoste_wordmark';
-    const isHoodie = currentGarmentType === 'hoodie' || currentGarmentType === 'zip_hoodie';
-
-    let targetX, targetY;
-    if (isFront) {
-      if (isStripe) {
-        targetX = isHoodie ? 430 : 480;
-        targetY = isHoodie ? 740 : 820;
-      } else if (isWordmark) {
-        targetX = isHoodie ? 430 : 480;
-        targetY = isHoodie ? 730 : 700;
-      } else {
-        targetX = isHoodie ? 385 : 390;
-        targetY = isHoodie ? 680 : 640;
-      }
-    } else {
-      targetX = isHoodie ? 416 : 1528;
-      targetY = isHoodie ? 1530 : 1528;
-    }
-
-    const badgeUrl = getAssetUrl(badge.src);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      designManager.addLayer({
-        type: 'image',
-        side: targetSide,
-        image: img,
-        dataUrl: badgeUrl,
-        x: targetX,
-        y: targetY,
-        scale: badge.defaultScale || 0.40,
-        rotation: 0,
-        opacity: 1.0,
-        printType: badge.defaultPrintType || 'embroidery'
-      });
-    };
-    img.src = badgeUrl;
   };
 
 
@@ -419,35 +316,6 @@ export function SidebarLeft({
 
           {openSection === 'designs' && (
             <div className="pt-2 pb-1 space-y-3 animate-fadeIn">
-              {/* Lacoste Co-Creation Badges Picker */}
-              <div className="p-2 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Lacoste Badges & Graphics
-                  </span>
-                  <span className="text-[9px] font-mono text-emerald-500/70">1-Click</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {LACOSTE_BADGES.map((badge) => (
-                    <button
-                      key={badge.id}
-                      onClick={() => handleAddLacosteBadge(badge)}
-                      className="group/badge relative flex flex-col items-center justify-center p-2 rounded-xl bg-white dark:bg-studio-800/90 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-gray-200 dark:border-studio-700 hover:border-emerald-500/50 transition-all shadow-xs active:scale-95"
-                      title={`Add ${badge.name} (${badge.desc})`}
-                    >
-                      <img
-                        src={getAssetUrl(badge.src)}
-                        alt={badge.name}
-                        className="size-7 object-contain filter drop-shadow-sm group-hover/badge:scale-110 transition-transform pointer-events-none"
-                      />
-                      <span className="text-[8px] font-medium text-gray-700 dark:text-gray-300 group-hover/badge:text-emerald-500 truncate w-full text-center mt-1">
-                        {badge.name.replace(' Crocodile', '')}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
               {/* Front Layers Group */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 dark:text-studio-400 uppercase tracking-wider">
