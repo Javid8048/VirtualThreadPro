@@ -4,14 +4,36 @@ import { getAssetUrl } from '../utils/assets';
 
 export const GARMENT_PRODUCTS = [
   {
-    id: 'regular_tee',
-    title: 'REGULAR T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
+    id: 'classic_polo',
+    title: 'CLASSIC FIT POLO STUDIO',
+    badge: 'LACOSTE MEN',
     badgeType: 'studio',
     category: 'Tops',
-    description: 'Classic fitted everyday crewneck t-shirt with standard shoulder width, tailored torso, and conventional sleeves.',
-    features: ['Standard Shoulder Seam', 'Tailored Torso Silhouette', 'Conventional Sleeve Length'],
+    description: "Lacoste Men's Classic Fit Polo - Timeless French tennis silhouette crafted from breathable honeycomb cotton piqué with flat-knit ribbed collar, 2-button mother-of-pearl placket, and tennis side slits.",
+    features: ['Honeycomb Cotton Piqué', 'Flat-Knit Turned Collar', '2-Button Mother-of-Pearl', 'Tennis Side Slits'],
+    imageBg: 'from-emerald-950/40 to-teal-900/50',
+    popular: true
+  },
+  {
+    id: 'regular_tee',
+    title: 'REGULAR T-SHIRT STUDIO',
+    badge: 'LACOSTE MEN',
+    badgeType: 'studio',
+    category: 'Tops',
+    description: "Lacoste Men's Regular T-Shirt - Everyday essential crewneck t-shirt in combed cotton jersey with tailored chest proportions, standard sleeves, and fine ribbed collar.",
+    features: ['Combed Cotton Jersey', 'Tailored Proportions', 'Fine Ribbed Crewneck', 'Tennis Heritage Cut'],
     imageBg: 'from-sky-900/30 to-slate-950/40',
+    popular: true
+  },
+  {
+    id: 'relax_long_sleeve',
+    title: 'RELAX FIT LONG SLEEVE T-SHIRT STUDIO',
+    badge: 'LACOSTE MEN',
+    badgeType: 'studio',
+    category: 'Tops',
+    description: "Lacoste Men's Relax Fit Long Sleeve T-Shirt - Streetwear relaxed cut with dropped shoulders, elongated sleeves with ribbed wrist cuffs, and clean open hem drape.",
+    features: ['Relaxed Dropped Shoulders', 'Extended Long Sleeves', 'Ribbed Wrist Cuffs', 'Open Hem Streetwear Drape'],
+    imageBg: 'from-slate-900/40 to-zinc-950/50',
     popular: true
   },
   {
@@ -85,7 +107,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 7 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 9 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',

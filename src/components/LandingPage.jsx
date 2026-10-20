@@ -8,14 +8,16 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 7 },
-  { id: 'tshirts', label: 'T-Shirts & Tops', count: 5, ids: ['regular_tee', 'oversized_tee', 'polo', 'sweatshirt', 'cropped_tee'] },
+  { id: 'all', label: 'All Blanks', count: 9 },
+  { id: 'tshirts', label: 'T-Shirts & Tops', count: 7, ids: ['classic_polo', 'regular_tee', 'relax_long_sleeve', 'oversized_tee', 'polo', 'sweatshirt', 'cropped_tee'] },
   { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] }
 ];
 
 // Curated blank specifications
 const BLANK_SPECS = {
-  regular_tee: { gsm: '220 GSM', subtitle: 'Classic Combed Cotton · Standard Fit' },
+  classic_polo: { gsm: '240 GSM', subtitle: "Lacoste Men's Classic Fit · Honeycomb Piqué" },
+  regular_tee: { gsm: '220 GSM', subtitle: "Lacoste Men's Regular Fit · Combed Jersey" },
+  relax_long_sleeve: { gsm: '260 GSM', subtitle: "Lacoste Men's Relax Fit · Long Sleeve Cuffs" },
   oversized_tee: { gsm: '280 GSM', subtitle: 'Heavyweight Combed Cotton · Drop-Shoulder' },
   polo: { gsm: '260 GSM', subtitle: 'Athletic Rugby Stripe · Honeycomb Piqué' },
   sweatshirt: { gsm: '380 GSM', subtitle: 'Heavyweight French Terry · Structured Fit' },
