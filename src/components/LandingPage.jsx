@@ -8,21 +8,17 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 9 },
-  { id: 'tshirts', label: 'T-Shirts & Tops', count: 7, ids: ['classic_polo', 'regular_tee', 'relax_long_sleeve', 'oversized_tee', 'polo', 'sweatshirt', 'cropped_tee'] },
+  { id: 'all', label: 'All Blanks', count: 5 },
+  { id: 'tshirts', label: 'T-Shirts & Tops', count: 3, ids: ['regular_tee', 'oversized_tee', 'cropped_tee'] },
   { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] }
 ];
 
 // Curated blank specifications
 const BLANK_SPECS = {
-  classic_polo: { gsm: '240 GSM', subtitle: "Lacoste Men's Classic Fit · Honeycomb Piqué" },
-  regular_tee: { gsm: '220 GSM', subtitle: "Lacoste Men's Regular Fit · Combed Jersey" },
-  relax_long_sleeve: { gsm: '260 GSM', subtitle: "Lacoste Men's Relax Fit · Long Sleeve Cuffs" },
+  regular_tee: { gsm: '220 GSM', subtitle: 'Classic Combed Cotton · Standard Fit' },
   oversized_tee: { gsm: '280 GSM', subtitle: 'Heavyweight Combed Cotton · Drop-Shoulder' },
-  polo: { gsm: '260 GSM', subtitle: 'Athletic Rugby Stripe · Honeycomb Piqué' },
-  sweatshirt: { gsm: '380 GSM', subtitle: 'Heavyweight French Terry · Structured Fit' },
-  hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
   cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
+  hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
   zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' }
 };
 
@@ -277,7 +273,7 @@ export function LandingPage({
                 href="#studio-blanks-grid"
                 className="h-11 px-6 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
               >
-                <span>Explore 6 Blanks</span>
+                <span>Explore All 5 Blanks</span>
               </a>
             </div>
           </div>

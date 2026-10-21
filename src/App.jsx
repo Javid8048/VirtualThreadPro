@@ -14,13 +14,8 @@ import { SceneManager } from './three/SceneManager';
 import { ProjectManager } from './utils/projectManager';
 
 const garmentNameMap = {
-  classic_polo: 'Classic Fit Polo',
   regular_tee: 'Regular Tee',
-  relax_long_sleeve: 'Relax Fit Long Sleeve',
   oversized_tee: 'Oversized Tee',
-  polo: 'Polo T-Shirt',
-  sweatshirt: 'Sweat T-Shirt',
-  sweat_tshirt: 'Sweat T-Shirt',
   cropped_tee: 'Cropped Tee',
   hoodie: 'Hoodie',
   zip_hoodie: 'Zip Hoodie'

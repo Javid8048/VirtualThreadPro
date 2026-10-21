@@ -463,16 +463,9 @@ export class CanvasDesignManager {
       dCtx.imageSmoothingQuality = 'high';
     }
 
-    // 1. Fill base garment color or polo rugby stripes
-    if (this.garmentType === 'polo') {
-      this.drawPoloDesign(ctx, S);
-    } else {
-      ctx.fillStyle = this.garmentColor;
-      ctx.fillRect(0, 0, S, S);
-      if (this.garmentType === 'sweatshirt' || this.garmentType === 'sweat_tshirt') {
-        this.drawSweatshirtDetails(ctx, S);
-      }
-    }
+    // 1. Fill base garment color
+    ctx.fillStyle = this.garmentColor;
+    ctx.fillRect(0, 0, S, S);
 
     // 2. Micro textile weave texture overlay for authentic tactile cotton feel
     if (!this.fabricPattern) {

@@ -2074,11 +2074,6 @@ export class SceneManager {
     this.attachmentsGroup.scale.set(1, 1, 1);
     this.attachmentsGroup.visible = false;
 
-    this.setupPoloAttachments();
-    this.setupClassicPoloAttachments();
-    this.setupSweatshirtAttachments();
-    this.setupRelaxLongSleeveAttachments();
-
     this.scene.add(this.attachmentsGroup);
     this.applyGarmentTypeVisibility();
   }
@@ -2736,23 +2731,10 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0104, 0.0078, 0.0102);
         this.tshirtStatic.position.set(0, -0.427445 + 0.35, 0);
         this.applyTshirtFit('oversized');
-      } else if (t === 'sweatshirt' || t === 'sweat_tshirt') {
-        this.tshirtStatic.scale.set(0.0102, 0.0100, 0.0103);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
-        this.applyTshirtFit('oversized');
-      } else if (t === 'relax_long_sleeve') {
-        this.tshirtStatic.scale.set(0.0104, 0.0100, 0.0104);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
-        this.applyTshirtFit('oversized');
-      } else if (t === 'classic_polo') {
-        this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
-        this.applyTshirtFit('regular');
       } else {
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
-        const fit = (t === 'polo') ? 'regular' : 'oversized';
-        this.applyTshirtFit(fit);
+        this.applyTshirtFit('oversized');
       }
     } else if (isRegularTee && isWalkingOrWaves) {
       this.applyTshirtFit('regular');
@@ -2772,24 +2754,8 @@ export class SceneManager {
     }
 
     // Attachments visibility
-    const isPolo = (t === 'polo');
-    const isClassicPolo = (t === 'classic_polo');
-    const isSweatshirt = (t === 'sweatshirt' || t === 'sweat_tshirt');
-    const isRelaxLongSleeve = (t === 'relax_long_sleeve');
     if (this.attachmentsGroup) {
-      this.attachmentsGroup.visible = isPolo || isClassicPolo || isSweatshirt || isRelaxLongSleeve;
-    }
-    if (this.poloGroup) {
-      this.poloGroup.visible = isPolo;
-    }
-    if (this.classicPoloGroup) {
-      this.classicPoloGroup.visible = isClassicPolo;
-    }
-    if (this.sweatshirtGroup) {
-      this.sweatshirtGroup.visible = isSweatshirt;
-    }
-    if (this.relaxLongSleeveGroup) {
-      this.relaxLongSleeveGroup.visible = isRelaxLongSleeve;
+      this.attachmentsGroup.visible = false;
     }
     if (this.hoodieZipperMesh) {
       this.hoodieZipperMesh.visible = (t === 'zip_hoodie');

@@ -4,36 +4,14 @@ import { getAssetUrl } from '../utils/assets';
 
 export const GARMENT_PRODUCTS = [
   {
-    id: 'classic_polo',
-    title: 'CLASSIC FIT POLO STUDIO',
-    badge: 'LACOSTE MEN',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: "Lacoste Men's Classic Fit Polo - Timeless French tennis silhouette crafted from breathable honeycomb cotton piqué with flat-knit ribbed collar, 2-button mother-of-pearl placket, and tennis side slits.",
-    features: ['Honeycomb Cotton Piqué', 'Flat-Knit Turned Collar', '2-Button Mother-of-Pearl', 'Tennis Side Slits'],
-    imageBg: 'from-emerald-950/40 to-teal-900/50',
-    popular: true
-  },
-  {
     id: 'regular_tee',
     title: 'REGULAR T-SHIRT STUDIO',
-    badge: 'LACOSTE MEN',
+    badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Tops',
-    description: "Lacoste Men's Regular T-Shirt - Everyday essential crewneck t-shirt in combed cotton jersey with tailored chest proportions, standard sleeves, and fine ribbed collar.",
-    features: ['Combed Cotton Jersey', 'Tailored Proportions', 'Fine Ribbed Crewneck', 'Tennis Heritage Cut'],
+    description: 'Everyday essential crewneck t-shirt in combed cotton jersey with tailored chest proportions, standard sleeves, and fine ribbed collar.',
+    features: ['Combed Cotton Jersey', 'Tailored Proportions', 'Fine Ribbed Crewneck', 'Standard Sleeves'],
     imageBg: 'from-sky-900/30 to-slate-950/40',
-    popular: true
-  },
-  {
-    id: 'relax_long_sleeve',
-    title: 'RELAX FIT LONG SLEEVE T-SHIRT STUDIO',
-    badge: 'LACOSTE MEN',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: "Lacoste Men's Relax Fit Long Sleeve T-Shirt - Streetwear relaxed cut with dropped shoulders, elongated sleeves with ribbed wrist cuffs, and clean open hem drape.",
-    features: ['Relaxed Dropped Shoulders', 'Extended Long Sleeves', 'Ribbed Wrist Cuffs', 'Open Hem Streetwear Drape'],
-    imageBg: 'from-slate-900/40 to-zinc-950/50',
     popular: true
   },
   {
@@ -48,26 +26,15 @@ export const GARMENT_PRODUCTS = [
     popular: true
   },
   {
-    id: 'polo',
-    title: 'POLO T-SHIRT STUDIO',
+    id: 'cropped_tee',
+    title: 'CROPPED, BOXY T-SHIRT STUDIO',
     badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Tops',
-    description: 'Polo Shirt 3 - Athletic rugby block stripe polo featuring deep navy ribbed collar with gold tipping, 3-button placket, bold chest stripes, and crisp white cuffs.',
-    features: ['Ribbed Collar with Gold Tipping', '3-Button Placket', 'Rugby Block Stripes', 'Ribbed White Cuffs'],
-    imageBg: 'from-blue-950/40 to-slate-900/50',
-    popular: true
-  },
-  {
-    id: 'sweatshirt',
-    title: 'SWEAT T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: 'Heavyweight streetwear French terry sweat t-shirt featuring a thick ribbed crewneck collar with athletic V-notch stitch, ribbed sleeve bands, and ribbed hem.',
-    features: ['Heavyweight French Terry', 'Ribbed Crewneck & V-Notch', 'Ribbed Sleeve Bands & Hem'],
-    imageBg: 'from-emerald-900/30 to-slate-950/40',
-    popular: true
+    description: 'Modern boxy fit with dropped shoulders, wider torso silhouette, and a clean cropped waistline.',
+    features: ['Boxy Streetwear Cut', 'Cropped Waistband', 'Walk Animation'],
+    imageBg: 'from-amber-900/30 to-slate-950/40',
+    popular: false
   },
   {
     id: 'hoodie',
@@ -79,17 +46,6 @@ export const GARMENT_PRODUCTS = [
     features: ['3D Draped Hood', 'Kangaroo Pocket', '4K & 60fps Video'],
     imageBg: 'from-purple-900/30 to-slate-950/40',
     popular: true
-  },
-  {
-    id: 'cropped_tee',
-    title: 'CROPPED, BOXY T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: 'Modern boxy fit with dropped shoulders, wider torso silhouette, and a clean cropped waistline.',
-    features: ['Boxy Streetwear Cut', 'Cropped Waistband', 'Walk Animation'],
-    imageBg: 'from-amber-900/30 to-slate-950/40',
-    popular: false
   },
   {
     id: 'zip_hoodie',
@@ -107,7 +63,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 9 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, all 5 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',
