@@ -1661,7 +1661,7 @@ export class SceneManager {
     const applyToMaterial = (mat) => {
       if (!mat || mat === this.decalMaterial) return;
       const mName = (mat.name || '').toLowerCase();
-      if (mName.includes('slider') || mName.includes('metal') || mName.includes('button') || mName.includes('polo_')) return;
+      if (mName.includes('slider') || mName.includes('metal') || mName.includes('button')) return;
 
       const hasDynamicCanvas = (mat === this.shirtMaterial || mat === this.fabricMaterial || mat.map === this.designManager?.texture);
       if (colorObj && mat.color) {
@@ -1826,7 +1826,7 @@ export class SceneManager {
     this.scene.traverse((obj) => {
       if (obj.isMesh && obj !== this.contactShadow && obj !== this.comparisonContactShadow) {
         const name = (obj.name || '').toLowerCase();
-        const isGarmentAttachmentMesh = name.includes('polo') || name.includes('sweatshirt') || name.includes('classic_') || name.includes('relax_');
+        const isGarmentAttachmentMesh = name.includes('sweatshirt') || name.includes('relax_');
         const isStray = !isGarmentAttachmentMesh && (strayNames.some(s => name === s.toLowerCase() || name.includes(s.toLowerCase())) ||
           (name.includes('cuff') && !name.includes('hoodie')) ||
           (name.includes('sleeve_extension')) ||
@@ -2074,363 +2074,11 @@ export class SceneManager {
     this.attachmentsGroup.scale.set(1, 1, 1);
     this.attachmentsGroup.visible = false;
 
-    this.setupPoloAttachments();
-    this.setupClassicPoloAttachments();
     this.setupSweatshirtAttachments();
     this.setupRelaxLongSleeveAttachments();
 
     this.scene.add(this.attachmentsGroup);
     this.applyGarmentTypeVisibility();
-  }
-
-  setupPoloAttachments() {
-    this.poloGroup = new THREE.Group();
-    this.poloGroup.name = 'garment_polo_attachments';
-    this.poloGroup.position.set(0, -0.427445, 0);
-    this.poloGroup.visible = false;
-
-    // 1. Turned-down continuous rib collar band contouring the neck with gold tipping trim
-    let poloCollarMat;
-    if (typeof document !== 'undefined') {
-      const collarCanvas = document.createElement('canvas');
-      collarCanvas.width = 512;
-      collarCanvas.height = 256;
-      const cCtx = collarCanvas.getContext('2d');
-      cCtx.fillStyle = '#1a243f'; // Deep navy
-      cCtx.fillRect(0, 0, 512, 256);
-      cCtx.fillStyle = '#ffd000'; // Vibrant gold/yellow tipping trim
-      cCtx.fillRect(0, 230, 512, 26);
-      const collarTex = new THREE.CanvasTexture(collarCanvas);
-      collarTex.wrapS = THREE.RepeatWrapping;
-      collarTex.wrapT = THREE.ClampToEdgeWrapping;
-
-      poloCollarMat = new THREE.MeshPhysicalMaterial({
-        name: 'polo_collar_material',
-        map: collarTex,
-        roughness: 0.96,
-        metalness: 0.0,
-        sheen: 0.1,
-        side: THREE.DoubleSide
-      });
-    } else {
-      poloCollarMat = new THREE.MeshPhysicalMaterial({
-        name: 'polo_collar_material',
-        color: 0x1a243f,
-        roughness: 0.96,
-        metalness: 0.0,
-        sheen: 0.1,
-        side: THREE.DoubleSide
-      });
-    }
-
-    const poloCollarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.48, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
-    poloCollarCurve.rotateX(-0.16);
-    const poloCollarMesh = new THREE.Mesh(poloCollarCurve, poloCollarMat);
-    poloCollarMesh.name = 'attachment_polo_collar';
-    poloCollarMesh.position.set(0, 3.24, 0.06);
-
-    // 2. Left and right folded lapel wings laying flat against upper chest
-    const lapelShape = new THREE.Shape();
-    lapelShape.moveTo(0, 0);
-    lapelShape.lineTo(0.82, -0.92);
-    lapelShape.lineTo(0.20, -1.02);
-    lapelShape.lineTo(-0.06, -0.15);
-    lapelShape.closePath();
-    const extrudeSettings = { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.015, bevelThickness: 0.015 };
-    const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, extrudeSettings);
-
-    const poloLapelMat = new THREE.MeshPhysicalMaterial({
-      name: 'polo_lapel_material',
-      color: 0x1a243f,
-      roughness: 0.96,
-      metalness: 0.0,
-      sheen: 0.1,
-      side: THREE.DoubleSide
-    });
-
-    const leftLapel = new THREE.Mesh(lapelGeom, poloLapelMat);
-    leftLapel.name = 'attachment_polo_left_lapel';
-    leftLapel.position.set(-0.14, 3.20, 0.95);
-    leftLapel.rotation.set(0.20, 0.10, -0.18);
-
-    const rightLapel = new THREE.Mesh(lapelGeom, poloLapelMat);
-    rightLapel.name = 'attachment_polo_right_lapel';
-    rightLapel.position.set(0.14, 3.20, 0.95);
-    rightLapel.rotation.set(0.20, -0.10, 0.18);
-    rightLapel.scale.set(-1, 1, 1);
-
-    // 3. Front center placket with stitch welt
-    const poloPlacketMat = new THREE.MeshPhysicalMaterial({
-      name: 'polo_placket_material',
-      color: 0x1a243f,
-      roughness: 0.96,
-      metalness: 0.0,
-      sheen: 0.1
-    });
-
-    const placketGeom = new THREE.BoxGeometry(0.44, 1.62, 0.045);
-    const placketMesh = new THREE.Mesh(placketGeom, poloPlacketMat);
-    placketMesh.name = 'attachment_polo_placket';
-    placketMesh.position.set(0, 2.14, 0.96);
-    placketMesh.rotation.set(0.14, 0, 0);
-
-    // Bottom box-stitch placket tab
-    const placketTabGeom = new THREE.BoxGeometry(0.48, 0.22, 0.055);
-    const placketTabMesh = new THREE.Mesh(placketTabGeom, poloPlacketMat);
-    placketTabMesh.name = 'attachment_polo_placket_tab';
-    placketTabMesh.position.set(0, 1.34, 0.88);
-    placketTabMesh.rotation.set(0.14, 0, 0);
-
-    // 4. Buttons (authentic dark polo placket buttons)
-    const buttonMat = new THREE.MeshStandardMaterial({
-      name: 'polo_button_material',
-      color: 0x1c2438,
-      roughness: 0.32,
-      metalness: 0.18
-    });
-    const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
-    buttonGeom.rotateX(Math.PI / 2 + 0.14);
-
-    const b1 = new THREE.Mesh(buttonGeom, buttonMat);
-    b1.name = 'attachment_polo_button_1';
-    b1.position.set(0, 2.70, 1.00);
-    const b2 = new THREE.Mesh(buttonGeom, buttonMat);
-    b2.name = 'attachment_polo_button_2';
-    b2.position.set(0, 2.14, 0.98);
-    const b3 = new THREE.Mesh(buttonGeom, buttonMat);
-    b3.name = 'attachment_polo_button_3';
-    b3.position.set(0, 1.58, 0.94);
-
-    // 5. Ribbed sleeve cuffs in crisp white
-    const poloCuffMat = new THREE.MeshPhysicalMaterial({
-      name: 'polo_cuff_material',
-      color: 0xffffff,
-      roughness: 0.96,
-      metalness: 0.0,
-      side: THREE.DoubleSide
-    });
-
-    const poloCuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
-    const leftPoloCuff = new THREE.Mesh(poloCuffGeom, poloCuffMat);
-    leftPoloCuff.name = 'attachment_polo_cuff_left';
-    leftPoloCuff.position.set(-3.25, 1.38, 0.06);
-    leftPoloCuff.rotation.set(0, 0, -0.58);
-
-    const rightPoloCuff = new THREE.Mesh(poloCuffGeom, poloCuffMat);
-    rightPoloCuff.name = 'attachment_polo_cuff_right';
-    rightPoloCuff.position.set(3.25, 1.38, 0.06);
-    rightPoloCuff.rotation.set(0, 0, 0.58);
-
-    this.poloGroup.add(
-      poloCollarMesh,
-      leftLapel,
-      rightLapel,
-      placketMesh,
-      placketTabMesh,
-      b1, b2, b3,
-      leftPoloCuff,
-      rightPoloCuff
-    );
-
-    this.attachmentsGroup.add(this.poloGroup);
-  }
-
-  setupSweatshirtAttachments() {
-    this.sweatshirtGroup = new THREE.Group();
-    this.sweatshirtGroup.name = 'garment_sweatshirt_attachments';
-    this.sweatshirtGroup.position.set(0, -0.427445, 0);
-    this.sweatshirtGroup.visible = false;
-
-    // High tactile 2x2 ribbed knit canvas texture
-    let sweatRibMat;
-    if (typeof document !== 'undefined') {
-      const ribCanvas = document.createElement('canvas');
-      ribCanvas.width = 128;
-      ribCanvas.height = 128;
-      const rCtx = ribCanvas.getContext('2d');
-      rCtx.fillStyle = '#ffffff';
-      rCtx.fillRect(0, 0, 128, 128);
-      // Vertical athletic rib wales
-      rCtx.fillStyle = 'rgba(0, 0, 0, 0.12)';
-      for (let rx = 0; rx < 128; rx += 8) {
-        rCtx.fillRect(rx, 0, 3, 128);
-      }
-      const ribTex = new THREE.CanvasTexture(ribCanvas);
-      ribTex.wrapS = THREE.RepeatWrapping;
-      ribTex.wrapT = THREE.RepeatWrapping;
-      ribTex.repeat.set(16, 2);
-
-      sweatRibMat = new THREE.MeshPhysicalMaterial({
-        name: 'sweatshirt_rib_material',
-        color: new THREE.Color(this.garmentColor || '#ffffff'),
-        map: ribTex,
-        roughness: 0.96,
-        metalness: 0.0,
-        sheen: 0.15,
-        side: THREE.DoubleSide
-      });
-    } else {
-      sweatRibMat = new THREE.MeshPhysicalMaterial({
-        name: 'sweatshirt_rib_material',
-        color: new THREE.Color(this.garmentColor || '#ffffff'),
-        roughness: 0.96,
-        metalness: 0.0,
-        sheen: 0.15,
-        side: THREE.DoubleSide
-      });
-    }
-
-    // 1. Turned continuous ribbed crewneck collar rim contouring neckline
-    const collarCurve = new THREE.CylinderGeometry(1.22, 1.34, 0.38, 36, 1, false);
-    collarCurve.rotateX(-0.16);
-    const sweatCollarMesh = new THREE.Mesh(collarCurve, sweatRibMat);
-    sweatCollarMesh.name = 'attachment_sweatshirt_crew_collar';
-    sweatCollarMesh.position.set(0, 3.24, 0.06);
-
-    // 2. Athletic V-notch triangular collar gusset at front neck center
-    const vShape = new THREE.Shape();
-    vShape.moveTo(-0.22, 0.16);
-    vShape.lineTo(0.22, 0.16);
-    vShape.lineTo(0, -0.22);
-    vShape.closePath();
-    const extrudeSettings = { depth: 0.02, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.008, bevelThickness: 0.008 };
-    const vGeom = new THREE.ExtrudeGeometry(vShape, extrudeSettings);
-    const vMesh = new THREE.Mesh(vGeom, sweatRibMat);
-    vMesh.name = 'attachment_sweatshirt_v_notch';
-    vMesh.position.set(0, 2.92, 0.95);
-    vMesh.rotation.set(0.18, 0, 0);
-
-    // 3. Ribbed sleeve cuffs / bands
-    const cuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.32, 32, 1, true);
-    const leftSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
-    leftSweatCuff.name = 'attachment_sweatshirt_cuff_left';
-    leftSweatCuff.position.set(-3.25, 1.38, 0.06);
-    leftSweatCuff.rotation.set(0, 0, -0.58);
-
-    const rightSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
-    rightSweatCuff.name = 'attachment_sweatshirt_cuff_right';
-    rightSweatCuff.position.set(3.25, 1.38, 0.06);
-    rightSweatCuff.rotation.set(0, 0, 0.58);
-
-    // 4. Ribbed bottom hem waistband
-    const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 36, 1, false);
-    const waistHem = new THREE.Mesh(waistGeom, sweatRibMat);
-    waistHem.name = 'attachment_sweatshirt_waist_hem';
-    waistHem.position.set(0, -4.18, 0.0);
-    waistHem.scale.set(1.0, 1.0, 0.52);
-
-    this.sweatshirtGroup.add(
-      sweatCollarMesh,
-      vMesh,
-      leftSweatCuff,
-      rightSweatCuff,
-      waistHem
-    );
-
-    this.attachmentsGroup.add(this.sweatshirtGroup);
-  }
-
-  setupClassicPoloAttachments() {
-    this.classicPoloGroup = new THREE.Group();
-    this.classicPoloGroup.name = 'garment_classic_polo_attachments';
-    this.classicPoloGroup.position.set(0, -0.427445, 0);
-    this.classicPoloGroup.visible = false;
-
-    const poloColor = new THREE.Color(this.garmentColor || '#ffffff');
-    const classicCollarMat = new THREE.MeshPhysicalMaterial({
-      name: 'classic_lacoste_collar_material',
-      color: poloColor,
-      roughness: 0.94,
-      metalness: 0.0,
-      sheen: 0.15,
-      side: THREE.DoubleSide
-    });
-    applyInsideFabricShader(classicCollarMat, () => this.garmentColor, null, this.fabricMicroNormalMap, false);
-
-    // Turned continuous collar band contouring neck
-    const collarCurve = new THREE.CylinderGeometry(1.22, 1.36, 0.46, 36, 1, false, Math.PI * 0.18, Math.PI * 1.64);
-    collarCurve.rotateX(-0.16);
-    const classicCollarMesh = new THREE.Mesh(collarCurve, classicCollarMat);
-    classicCollarMesh.name = 'attachment_classic_polo_collar';
-    classicCollarMesh.position.set(0, 3.24, 0.06);
-
-    // Folded lapel wings laying flat against upper chest
-    const lapelShape = new THREE.Shape();
-    lapelShape.moveTo(0, 0);
-    lapelShape.lineTo(0.78, -0.88);
-    lapelShape.lineTo(0.18, -0.98);
-    lapelShape.lineTo(-0.06, -0.15);
-    lapelShape.closePath();
-    const lapelGeom = new THREE.ExtrudeGeometry(lapelShape, { depth: 0.035, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.012, bevelThickness: 0.012 });
-
-    const leftLapel = new THREE.Mesh(lapelGeom, classicCollarMat);
-    leftLapel.name = 'attachment_classic_polo_left_lapel';
-    leftLapel.position.set(-0.14, 3.20, 0.95);
-    leftLapel.rotation.set(0.20, 0.10, -0.18);
-
-    const rightLapel = new THREE.Mesh(lapelGeom, classicCollarMat);
-    rightLapel.name = 'attachment_classic_polo_right_lapel';
-    rightLapel.position.set(0.14, 3.20, 0.95);
-    rightLapel.rotation.set(0.20, -0.10, 0.18);
-    rightLapel.scale.set(-1, 1, 1);
-
-    // Front center placket with stitch welt
-    const placketGeom = new THREE.BoxGeometry(0.42, 1.48, 0.045);
-    const placketMesh = new THREE.Mesh(placketGeom, classicCollarMat);
-    placketMesh.name = 'attachment_classic_polo_placket';
-    placketMesh.position.set(0, 2.20, 0.96);
-    placketMesh.rotation.set(0.14, 0, 0);
-
-    const placketTabGeom = new THREE.BoxGeometry(0.46, 0.20, 0.052);
-    const placketTabMesh = new THREE.Mesh(placketTabGeom, classicCollarMat);
-    placketTabMesh.name = 'attachment_classic_polo_placket_tab';
-    placketTabMesh.position.set(0, 1.46, 0.88);
-    placketTabMesh.rotation.set(0.14, 0, 0);
-
-    // Authentic Lacoste 2-Button Mother-of-Pearl Placket
-    const pearlButtonMat = new THREE.MeshPhysicalMaterial({
-      name: 'classic_lacoste_button_pearl',
-      color: 0xf3f2ee,
-      roughness: 0.28,
-      metalness: 0.08,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2
-    });
-    const buttonGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.025, 20);
-    buttonGeom.rotateX(Math.PI / 2 + 0.14);
-
-    const b1 = new THREE.Mesh(buttonGeom, pearlButtonMat);
-    b1.name = 'attachment_classic_polo_button_1';
-    b1.position.set(0, 2.50, 0.99);
-
-    const b2 = new THREE.Mesh(buttonGeom, pearlButtonMat);
-    b2.name = 'attachment_classic_polo_button_2';
-    b2.position.set(0, 1.88, 0.94);
-
-    // Ribbed short sleeve cuffs matching garment color
-    const cuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.26, 32, 1, true);
-    const leftPoloCuff = new THREE.Mesh(cuffGeom, classicCollarMat);
-    leftPoloCuff.name = 'attachment_classic_polo_cuff_left';
-    leftPoloCuff.position.set(-3.25, 1.38, 0.06);
-    leftPoloCuff.rotation.set(0, 0, -0.58);
-
-    const rightPoloCuff = new THREE.Mesh(cuffGeom, classicCollarMat);
-    rightPoloCuff.name = 'attachment_classic_polo_cuff_right';
-    rightPoloCuff.position.set(3.25, 1.38, 0.06);
-    rightPoloCuff.rotation.set(0, 0, 0.58);
-
-    this.classicPoloGroup.add(
-      classicCollarMesh,
-      leftLapel,
-      rightLapel,
-      placketMesh,
-      placketTabMesh,
-      b1, b2,
-      leftPoloCuff,
-      rightPoloCuff
-    );
-
-    this.attachmentsGroup.add(this.classicPoloGroup);
   }
 
   setupRelaxLongSleeveAttachments() {
@@ -2744,15 +2392,10 @@ export class SceneManager {
         this.tshirtStatic.scale.set(0.0104, 0.0100, 0.0104);
         this.tshirtStatic.position.set(0, -0.427445, 0);
         this.applyTshirtFit('oversized');
-      } else if (t === 'classic_polo') {
-        this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
-        this.tshirtStatic.position.set(0, -0.427445, 0);
-        this.applyTshirtFit('regular');
       } else {
         this.tshirtStatic.scale.set(0.0100, 0.0100, 0.0100);
         this.tshirtStatic.position.set(0, -0.427445, 0);
-        const fit = (t === 'polo') ? 'regular' : 'oversized';
-        this.applyTshirtFit(fit);
+        this.applyTshirtFit('oversized');
       }
     } else if (isRegularTee && isWalkingOrWaves) {
       this.applyTshirtFit('regular');
@@ -2772,18 +2415,10 @@ export class SceneManager {
     }
 
     // Attachments visibility
-    const isPolo = (t === 'polo');
-    const isClassicPolo = (t === 'classic_polo');
     const isSweatshirt = (t === 'sweatshirt' || t === 'sweat_tshirt');
     const isRelaxLongSleeve = (t === 'relax_long_sleeve');
     if (this.attachmentsGroup) {
-      this.attachmentsGroup.visible = isPolo || isClassicPolo || isSweatshirt || isRelaxLongSleeve;
-    }
-    if (this.poloGroup) {
-      this.poloGroup.visible = isPolo;
-    }
-    if (this.classicPoloGroup) {
-      this.classicPoloGroup.visible = isClassicPolo;
+      this.attachmentsGroup.visible = isSweatshirt || isRelaxLongSleeve;
     }
     if (this.sweatshirtGroup) {
       this.sweatshirtGroup.visible = isSweatshirt;

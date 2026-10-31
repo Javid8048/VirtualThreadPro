@@ -81,7 +81,6 @@ export function HeaderNav({
   const garmentNameMap = {
     regular_tee: 'Regular Tee',
     oversized_tee: 'Oversized Tee',
-    polo: 'Polo T-Shirt',
     cropped_tee: 'Cropped Tee',
     hoodie: 'Hoodie',
     zip_hoodie: 'Zip Hoodie'
