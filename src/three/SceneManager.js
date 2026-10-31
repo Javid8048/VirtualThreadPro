@@ -2081,6 +2081,103 @@ export class SceneManager {
     this.applyGarmentTypeVisibility();
   }
 
+  setupSweatshirtAttachments() {
+    this.sweatshirtGroup = new THREE.Group();
+    this.sweatshirtGroup.name = 'garment_sweatshirt_attachments';
+    this.sweatshirtGroup.position.set(0, -0.427445, 0);
+    this.sweatshirtGroup.visible = false;
+
+    // High tactile 2x2 ribbed knit canvas texture
+    let sweatRibMat;
+    if (typeof document !== 'undefined') {
+      const ribCanvas = document.createElement('canvas');
+      ribCanvas.width = 128;
+      ribCanvas.height = 128;
+      const rCtx = ribCanvas.getContext('2d');
+      rCtx.fillStyle = '#ffffff';
+      rCtx.fillRect(0, 0, 128, 128);
+      // Vertical athletic rib wales
+      rCtx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      for (let rx = 0; rx < 128; rx += 8) {
+        rCtx.fillRect(rx, 0, 3, 128);
+      }
+      const ribTex = new THREE.CanvasTexture(ribCanvas);
+      ribTex.wrapS = THREE.RepeatWrapping;
+      ribTex.wrapT = THREE.RepeatWrapping;
+      ribTex.repeat.set(16, 2);
+
+      sweatRibMat = new THREE.MeshPhysicalMaterial({
+        name: 'sweatshirt_rib_material',
+        color: new THREE.Color(this.garmentColor || '#ffffff'),
+        map: ribTex,
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.15,
+        side: THREE.DoubleSide
+      });
+      applyInsideFabricShader(sweatRibMat, () => this.garmentColor, null, this.fabricMicroNormalMap, false);
+    } else {
+      sweatRibMat = new THREE.MeshPhysicalMaterial({
+        name: 'sweatshirt_rib_material',
+        color: new THREE.Color(this.garmentColor || '#ffffff'),
+        roughness: 0.96,
+        metalness: 0.0,
+        sheen: 0.15,
+        side: THREE.DoubleSide
+      });
+      applyInsideFabricShader(sweatRibMat, () => this.garmentColor, null, this.fabricMicroNormalMap, false);
+    }
+
+    // 1. Turned continuous ribbed crewneck collar rim contouring neckline
+    const collarCurve = new THREE.CylinderGeometry(1.22, 1.34, 0.38, 36, 1, false);
+    collarCurve.rotateX(-0.16);
+    const sweatCollarMesh = new THREE.Mesh(collarCurve, sweatRibMat);
+    sweatCollarMesh.name = 'attachment_sweatshirt_crew_collar';
+    sweatCollarMesh.position.set(0, 3.24, 0.06);
+
+    // 2. Athletic V-notch triangular collar gusset at front neck center
+    const vShape = new THREE.Shape();
+    vShape.moveTo(-0.22, 0.16);
+    vShape.lineTo(0.22, 0.16);
+    vShape.lineTo(0, -0.22);
+    vShape.closePath();
+    const extrudeSettings = { depth: 0.02, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.008, bevelThickness: 0.008 };
+    const vGeom = new THREE.ExtrudeGeometry(vShape, extrudeSettings);
+    const vMesh = new THREE.Mesh(vGeom, sweatRibMat);
+    vMesh.name = 'attachment_sweatshirt_v_notch';
+    vMesh.position.set(0, 2.92, 0.95);
+    vMesh.rotation.set(0.18, 0, 0);
+
+    // 3. Ribbed sleeve cuffs / bands
+    const cuffGeom = new THREE.CylinderGeometry(0.82, 0.84, 0.32, 32, 1, true);
+    const leftSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
+    leftSweatCuff.name = 'attachment_sweatshirt_cuff_left';
+    leftSweatCuff.position.set(-3.25, 1.38, 0.06);
+    leftSweatCuff.rotation.set(0, 0, -0.58);
+
+    const rightSweatCuff = new THREE.Mesh(cuffGeom, sweatRibMat);
+    rightSweatCuff.name = 'attachment_sweatshirt_cuff_right';
+    rightSweatCuff.position.set(3.25, 1.38, 0.06);
+    rightSweatCuff.rotation.set(0, 0, 0.58);
+
+    // 4. Ribbed bottom hem waistband
+    const waistGeom = new THREE.CylinderGeometry(2.18, 2.14, 0.46, 36, 1, false);
+    const waistHem = new THREE.Mesh(waistGeom, sweatRibMat);
+    waistHem.name = 'attachment_sweatshirt_waist_hem';
+    waistHem.position.set(0, -4.18, 0.0);
+    waistHem.scale.set(1.0, 1.0, 0.52);
+
+    this.sweatshirtGroup.add(
+      sweatCollarMesh,
+      vMesh,
+      leftSweatCuff,
+      rightSweatCuff,
+      waistHem
+    );
+
+    this.attachmentsGroup.add(this.sweatshirtGroup);
+  }
+
   setupRelaxLongSleeveAttachments() {
     this.relaxLongSleeveGroup = new THREE.Group();
     this.relaxLongSleeveGroup.name = 'garment_relax_long_sleeve_attachments';
