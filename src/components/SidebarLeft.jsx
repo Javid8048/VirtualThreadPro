@@ -4,15 +4,17 @@ import { GARMENT_PRODUCTS } from './ProductsCatalogModal';
 
 const COLOR_SWATCHES = [
   { name: 'Pure White', hex: '#ffffff' },
-  { name: 'Heritage Green', hex: '#002D18' },
+  { name: 'Vintage Cream', hex: '#f0ede6' },
+  { name: 'Heather Grey', hex: '#7a7d85' },
+  { name: 'Washed Black', hex: '#24272e' },
+  { name: 'Dark Blue', hex: '#15254a' },
+  { name: 'Dark Violet', hex: '#371858' },
+  { name: 'Sky Blue', hex: '#8DC3DE' },
   { name: 'Court Green', hex: '#06532A' },
+  { name: 'Heritage Green', hex: '#002D18' },
   { name: 'Tennis Red', hex: '#D30018' },
   { name: 'Sunshine Yellow', hex: '#FCD757' },
-  { name: 'Sky Blue', hex: '#8DC3DE' },
-  { name: 'Navy', hex: '#1a243f' },
-  { name: 'Washed Black', hex: '#24272e' },
-  { name: 'Heather Grey', hex: '#7a7d85' },
-  { name: 'Vintage Cream', hex: '#f0ede6' }
+  { name: 'Royal Indigo', hex: '#233876' }
 ];
 
 export const DEFAULT_INTERNET_BACKGROUNDS = [];

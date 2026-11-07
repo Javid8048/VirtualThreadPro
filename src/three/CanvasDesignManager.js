@@ -406,17 +406,25 @@ export class CanvasDesignManager {
     }
     if (this.fabricPattern) {
       ctx.save();
-      // Subtle weave shading for matte woven cotton depth
-      ctx.globalAlpha = (this.fabricFinish === 'heavy_terry' || this.garmentType === 'sweatshirt' || this.garmentType === 'sweat_tshirt') ? 0.12 : 0.06;
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = this.fabricPattern;
-      ctx.fillRect(0, 0, S, S);
+      if (isGarmentDark(this.garmentColor)) {
+        // For rich dark fabrics (navy, dark violet, black), use soft-light overlay to sculpt cloth texture without crushing dye
+        ctx.globalAlpha = 0.05;
+        ctx.globalCompositeOperation = 'soft-light';
+        ctx.fillStyle = this.fabricPattern;
+        ctx.fillRect(0, 0, S, S);
+      } else {
+        // Subtle weave shading for matte woven cotton depth on lighter fabrics
+        ctx.globalAlpha = (this.fabricFinish === 'heavy_terry' || this.garmentType === 'sweatshirt' || this.garmentType === 'sweat_tshirt') ? 0.10 : 0.05;
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = this.fabricPattern;
+        ctx.fillRect(0, 0, S, S);
 
-      // Soft light diffuse fiber blend (matte, zero shiny highlights)
-      ctx.globalAlpha = 0.03;
-      ctx.globalCompositeOperation = 'soft-light';
-      ctx.fillStyle = this.fabricPattern;
-      ctx.fillRect(0, 0, S, S);
+        // Soft light diffuse fiber blend
+        ctx.globalAlpha = 0.03;
+        ctx.globalCompositeOperation = 'soft-light';
+        ctx.fillStyle = this.fabricPattern;
+        ctx.fillRect(0, 0, S, S);
+      }
 
       // Procedural mineral wash / sun fade distress if enabled
       if (this.fabricFinish === 'mineral_wash') {
