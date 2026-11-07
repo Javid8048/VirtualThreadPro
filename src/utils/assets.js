@@ -11,7 +11,10 @@ export function getAssetUrl(path, cacheBust = false) {
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
   let fullUrl = base.endsWith('/') ? `${base}${cleanPath}` : `${base}/${cleanPath}`;
 
-  if (cacheBust || import.meta.env.DEV) {
+  // Never append cache-busting query params to directory paths (ending with '/')
+  // to avoid breaking loaders like DRACOLoader that concatenate filenames directly.
+  const isDirectory = path.endsWith('/') || cleanPath.endsWith('/');
+  if (!isDirectory && (cacheBust || import.meta.env.DEV)) {
     const buildTag = typeof __APP_BUILD_TIME__ !== 'undefined' ? encodeURIComponent(__APP_BUILD_TIME__) : '1';
     const separator = fullUrl.includes('?') ? '&' : '?';
     fullUrl = `${fullUrl}${separator}_v=${buildTag}`;

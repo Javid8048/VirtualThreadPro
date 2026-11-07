@@ -44,7 +44,7 @@ const CAPABILITIES = [
   {
     icon: Video,
     title: 'Instant 60 FPS Video & 4K Export',
-    desc: 'Render client-side hardware-accelerated MP4/WebM video loops and 4K print-ready snapshots with zero server wait.'
+    desc: 'Render client-side hardware-accelerated MP4 video loops and 4K print-ready snapshots with zero server wait.'
   }
 ];
 
@@ -73,7 +73,7 @@ const PRICING_TIERS = [
     desc: 'Designed for independent streetwear designers and brands exporting high-resolution apparel campaigns.',
     features: [
       'Ultra-crisp 4K snapshot exports (PNG/JPG)',
-      'Smooth 60 FPS video loops (MP4 & WebM)',
+      'Smooth 60 FPS video loops (MP4)',
       'Attribution watermark removed',
       '3D Puff Print & Acid Wash visual effects',
       'Commercial apparel presentation license'

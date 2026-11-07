@@ -554,7 +554,6 @@ export class SceneManager {
         if (onComplete) onComplete();
       });
     } else if (family === 'regular_tee') {
-      this.loadTshirtModel();
       this.loadRegularTeeModel(() => {
         this.applyGarmentTypeVisibility();
         this.triggerLoadedIfReady();
@@ -790,7 +789,8 @@ export class SceneManager {
     if (onDone) this.regularTeeCallbacks.push(onDone);
 
     const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath(getAssetUrl('/draco/gltf/'));
+    const dracoPath = getAssetUrl('/draco/gltf/').split('?')[0].replace(/\/+$/, '') + '/';
+    dracoLoader.setDecoderPath(dracoPath);
     const gltfLoader = new GLTFLoader();
     gltfLoader.setDRACOLoader(dracoLoader);
 
@@ -815,7 +815,17 @@ export class SceneManager {
       false
     );
 
+    let meshFinalized = false;
+    let fallbackSafetyTimer = null;
+
     const finalizeMesh = (mesh) => {
+      if (meshFinalized) return;
+      meshFinalized = true;
+      if (fallbackSafetyTimer) {
+        clearTimeout(fallbackSafetyTimer);
+        fallbackSafetyTimer = null;
+      }
+
       this.regularTeeRoot = new THREE.Group();
       this.regularTeeRoot.name = 'regular_tee_root';
 
@@ -862,9 +872,11 @@ export class SceneManager {
     };
 
     const fallbackLoad = () => {
+      if (meshFinalized) return;
       fetch(getAssetUrl('/models/tshirt-tdesigner-geo.json'))
         .then(res => res.json())
         .then(geoData => {
+          if (meshFinalized) return;
           const geo = new THREE.BufferGeometry();
           geo.setAttribute('position', new THREE.Float32BufferAttribute(geoData.positions, 3));
           geo.setAttribute('normal', new THREE.Float32BufferAttribute(geoData.normals, 3));
@@ -877,6 +889,7 @@ export class SceneManager {
           finalizeMesh(mesh);
         })
         .catch(err => {
+          if (meshFinalized) return;
           console.warn('Fallback regular tee load error:', err);
           this.modelsLoaded.regular_tee = true;
           this.modelsLoading.regular_tee = false;
@@ -885,6 +898,12 @@ export class SceneManager {
           cbs.forEach(cb => cb());
         });
     };
+
+    fallbackSafetyTimer = setTimeout(() => {
+      if (!meshFinalized && !this.modelsLoaded.regular_tee) {
+        fallbackLoad();
+      }
+    }, 2000);
 
     gltfLoader.load(
       getAssetUrl('/models/tshirt-tdesigner.glb'),
@@ -3158,12 +3177,8 @@ export class SceneManager {
     }
 
     // High-precision clock delta
-    // During video recording, use exact deterministic fixed delta for silky-smooth 60/30 FPS motion pacing
-    const fixedRecordingDelta = 1.0 / (this.recordingFps || 30);
     const rawDelta = this.clock.getDelta();
-    const delta = this.isRecordingVideo
-      ? fixedRecordingDelta
-      : Math.min(Math.max(rawDelta, 0.001), 0.05);
+    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     // Smooth material preset transition (color, sheenColor, roughness, sheen, normalScale)
     if (this.targetMaterialProps) {
@@ -3353,9 +3368,10 @@ export class SceneManager {
     // Video recording showcase motion: smooth continuous 360° spin loop based on deterministic elapsed time
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
       const isMotionCycle = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
-      this.recordingElapsedSec = (this.recordingElapsedSec || 0) + delta;
       const totalDuration = this.recordingDuration || 5;
-      const progress = Math.min(1.0, this.recordingElapsedSec / totalDuration);
+      const elapsed = Math.max(0, (performance.now() - (this.recordingStartTime || performance.now())) / 1000);
+      this.recordingElapsedSec = elapsed;
+      const progress = Math.min(1.0, elapsed / totalDuration);
       const loops = totalDuration >= 15 ? 2 : 1;
       const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 

@@ -1,10 +1,10 @@
 /**
  * CanvasVideoRecorder
- * High-performance 60 FPS hardware video recorder for VirtualThreads 3D Studio.
+ * High-performance hardware video recorder for VirtualThreads 3D Studio.
  *
- * Captures silky-smooth 60 FPS video directly from the WebGL canvas using MediaRecorder
- * with hardware-accelerated GPU stream encoding, preserving the exact camera zoom,
- * background, lighting, and animation speeds.
+ * Captures silky-smooth video directly from the WebGL canvas using MediaRecorder
+ * with hardware-accelerated GPU stream encoding into universal MP4 video,
+ * preserving the exact camera zoom, background, lighting, and animation speeds.
  */
 export class CanvasVideoRecorder {
   constructor(canvasOrSceneManager) {
@@ -26,55 +26,56 @@ export class CanvasVideoRecorder {
   }
 
   /**
-   * Selects the highest quality supported MIME type for 60 FPS recording.
+   * Selects the highest quality supported MIME type for video recording.
+   * Universal MP4 container with H.264/AVC hardware acceleration is prioritized.
    */
-  static getSupportedMimeType(preferredFormat = 'webm') {
+  static getSupportedMimeType(preferredFormat = 'mp4') {
     if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
-      return 'video/webm';
+      return 'video/mp4';
     }
 
-    if (preferredFormat === 'mp4') {
-      const mp4Candidates = [
-        'video/mp4;codecs=avc1.640028,mp4a.40.2',
-        'video/mp4;codecs=avc1',
-        'video/mp4'
-      ];
-      for (const mime of mp4Candidates) {
-        if (MediaRecorder.isTypeSupported(mime)) return mime;
-      }
-    }
-
-    const webmCandidates = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp8',
-      'video/webm'
+    const mp4Candidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1.640028,mp4a.40.2',
+      'video/mp4;codecs=avc1',
+      'video/mp4;codecs=h264',
+      'video/mp4'
     ];
-    for (const mime of webmCandidates) {
+    for (const mime of mp4Candidates) {
       if (MediaRecorder.isTypeSupported(mime)) return mime;
     }
 
-    return 'video/webm';
+    const fallbackCandidates = [
+      'video/webm;codecs=h264',
+      'video/webm;codecs=vp8',
+      'video/webm'
+    ];
+    for (const mime of fallbackCandidates) {
+      if (MediaRecorder.isTypeSupported(mime)) return mime;
+    }
+
+    return 'video/mp4';
   }
 
   /**
-   * Starts recording the 3D studio canvas directly at 60 FPS with hardware acceleration.
+   * Starts recording the 3D studio canvas directly with hardware acceleration.
    * Preserves the active zoom, camera angle, animation speed, and studio background.
    * @param {Object} options
+   * @param {number} options.fps - Frame rate (24, 30, or 60)
    * @param {number} options.durationSeconds - Duration in seconds (1 to 30)
    * @param {'mobile' | 'desktop' | 'square'} options.format - Video aspect ratio
    * @param {'current' | 'showcase360'} options.motion - Motion mode
-   * @param {'webm' | 'mp4'} options.preferredFormat - Preferred video format
+   * @param {'mp4'} options.preferredFormat - Preferred video format
    * @param {string} options.backgroundColor - Studio background color
    * @param {Function} onProgress - Callback (pct: number, elapsedSec: number)
    */
   startRecording(
     {
-      fps = 24,
+      fps = 30,
       durationSeconds = 5,
       format = 'desktop',
       motion = 'current',
-      preferredFormat = 'webm',
+      preferredFormat = 'mp4',
       backgroundColor = null
     } = {},
     onProgress = () => {}
@@ -86,9 +87,9 @@ export class CanvasVideoRecorder {
           return;
         }
 
-        const targetFps = Number(fps) || 24;
+        const targetFps = Number(fps) || 30;
 
-        // Instruct SceneManager to initialize video recording session and setup offscreen canvas
+        // Instruct SceneManager to initialize video recording session and setup target canvas
         if (this.sceneManager && this.sceneManager.startVideoRecording) {
           this.sceneManager.startVideoRecording({
             fps: targetFps,
@@ -99,34 +100,12 @@ export class CanvasVideoRecorder {
           });
         }
 
-        // Direct hardware-accelerated video stream from formatted recording canvas (1080x1920 for mobile, 1080x1080 for square, 1920x1080 for desktop)
+        // Direct hardware-accelerated video stream from formatted recording canvas
         const captureCanvas = (this.sceneManager && this.sceneManager.recordingCanvas)
           ? this.sceneManager.recordingCanvas
           : this.canvas;
 
-        let stream = null;
-        let capturedTrack = null;
-        let useManualFrameRequest = false;
-
-        // Attempt deterministic frame-by-frame capture using track.requestFrame if supported
-        try {
-          if (captureCanvas.captureStream) {
-            const candidateStream = captureCanvas.captureStream(0);
-            const tracks = candidateStream ? candidateStream.getVideoTracks() : [];
-            if (tracks && tracks.length > 0 && typeof tracks[0].requestFrame === 'function') {
-              stream = candidateStream;
-              capturedTrack = tracks[0];
-              useManualFrameRequest = true;
-            }
-          }
-        } catch (e) {
-          useManualFrameRequest = false;
-        }
-
-        // Fallback to standard captureStream(targetFps) if manual frame capture is unavailable
-        if (!useManualFrameRequest || !stream) {
-          stream = captureCanvas.captureStream ? captureCanvas.captureStream(targetFps) : null;
-        }
+        const stream = captureCanvas.captureStream ? captureCanvas.captureStream(targetFps) : null;
 
         if (!stream) {
           if (this.sceneManager && this.sceneManager.stopVideoRecording) {
@@ -139,13 +118,13 @@ export class CanvasVideoRecorder {
         const selectedMime = CanvasVideoRecorder.getSupportedMimeType(preferredFormat);
         const options = {
           mimeType: selectedMime,
-          videoBitsPerSecond: 8000000 // 8 Mbps: pristine 1080p clarity with smooth hardware encoding
+          videoBitsPerSecond: 6000000 // 6 Mbps: pristine 1080p clarity with smooth hardware encoding
         };
 
         this.recordedChunks = [];
         this.mediaRecorder = new MediaRecorder(stream, options);
 
-        // Keep mobile display active during recording to prevent corruption or throttling
+        // Keep display active during recording to prevent throttling
         let screenWakeLock = null;
         if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
           navigator.wakeLock.request('screen')
@@ -192,7 +171,7 @@ export class CanvasVideoRecorder {
           }
 
           const blob = new Blob(this.recordedChunks, { type: selectedMime });
-          const isMp4 = selectedMime.includes('mp4');
+          const isMp4 = !selectedMime.includes('webm');
           resolve({ blob, mimeType: selectedMime, isMp4, format, durationSeconds });
         };
 
@@ -214,52 +193,28 @@ export class CanvasVideoRecorder {
         };
 
         this.isRecording = true;
-        const totalDurationMs = Math.max(1, durationSeconds * 1000);
-        const totalTargetFrames = Math.max(1, Math.round(durationSeconds * targetFps));
-        let recordedFrameCount = 0;
+        const totalDurationMs = Math.max(1000, durationSeconds * 1000);
         const startTime = performance.now();
 
-        // Connect scene manager frame render callback for exact frame submission and smooth progress
-        if (this.sceneManager) {
-          this.sceneManager.onRecordingFrame = () => {
-            if (!this.isRecording) return;
-            if (useManualFrameRequest && capturedTrack) {
-              try {
-                capturedTrack.requestFrame();
-              } catch (e) {}
-            }
-            recordedFrameCount++;
-            const pct = Math.min(99, Math.round((recordedFrameCount / totalTargetFrames) * 100));
-            const sec = Math.min(durationSeconds, +(recordedFrameCount / targetFps).toFixed(1));
-            onProgress(pct, sec);
-
-            if (recordedFrameCount >= totalTargetFrames) {
-              this.stopEarly();
-            }
-          };
-        }
-
-        // Timer-based progress updater for standard captureStream fallback
-        if (!useManualFrameRequest) {
-          this.progressTimer = setInterval(() => {
-            if (!this.isRecording) {
-              clearInterval(this.progressTimer);
-              return;
-            }
-            const elapsedMs = performance.now() - startTime;
-            const pct = Math.min(99, Math.round((elapsedMs / totalDurationMs) * 100));
-            const sec = Math.min(durationSeconds, +(elapsedMs / 1000).toFixed(1));
-            onProgress(pct, sec);
-          }, 50);
-        }
+        // High-precision smooth progress updater synchronized with real wall-clock time
+        this.progressTimer = setInterval(() => {
+          if (!this.isRecording) {
+            clearInterval(this.progressTimer);
+            return;
+          }
+          const elapsedMs = performance.now() - startTime;
+          const pct = Math.min(99, Math.round((elapsedMs / totalDurationMs) * 100));
+          const sec = Math.min(durationSeconds, +(elapsedMs / 1000).toFixed(1));
+          onProgress(pct, sec);
+        }, 50);
 
         // Start continuous recording
-        this.mediaRecorder.start();
+        this.mediaRecorder.start(100);
 
-        // Safety fallback timer to conclude recording
+        // Stop timer matching requested duration
         this.stopTimeout = setTimeout(() => {
           this.stopEarly();
-        }, totalDurationMs + 100);
+        }, totalDurationMs);
       } catch (err) {
         this.isRecording = false;
         if (this.sceneManager && this.sceneManager.stopVideoRecording) {
@@ -300,7 +255,7 @@ export class CanvasVideoRecorder {
     }
   }
 
-  downloadBlob(blob, filename = 'virtualthreads-animation.webm') {
+  downloadBlob(blob, filename = 'virtualthreads-animation.mp4') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.style.display = 'none';

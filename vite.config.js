@@ -9,7 +9,7 @@ function fastStaticModelsPlugin() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const cleanUrl = (req.url || '').split('?')[0];
-        if (cleanUrl.startsWith('/models/') || cleanUrl.startsWith('/garments/')) {
+        if (cleanUrl.startsWith('/models/') || cleanUrl.startsWith('/garments/') || cleanUrl.startsWith('/draco/')) {
           const filePath = path.join(process.cwd(), 'public', cleanUrl);
           if (fs.existsSync(filePath)) {
             try {
@@ -24,7 +24,9 @@ function fastStaticModelsPlugin() {
                   '.jpg': 'image/jpeg',
                   '.jpeg': 'image/jpeg',
                   '.hdr': 'application/octet-stream',
-                  '.obj': 'text/plain'
+                  '.obj': 'text/plain',
+                  '.wasm': 'application/wasm',
+                  '.js': 'text/javascript'
                 };
                 res.writeHead(200, {
                   'Content-Length': stat.size,
