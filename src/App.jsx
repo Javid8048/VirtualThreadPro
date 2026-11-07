@@ -1133,40 +1133,29 @@ export default function App() {
         setAsyncExportState={setAsyncExportState}
       />
 
-      {/* Studio Video Capture Loader Overlay (Guarantees unhindered 60 FPS recording) */}
+      {/* Floating Studio Recording Pill (Non-intrusive, zero screen obstruction for smooth recording) */}
       {asyncExportState.isRecording && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm select-none pointer-events-auto animate-fadeIn text-white">
-          <div className="flex flex-col items-center bg-white/95 dark:bg-studio-900/95 border border-gray-200/90 dark:border-studio-700/80 px-8 py-7 rounded-3xl shadow-2xl backdrop-blur-xl max-w-sm sm:max-w-md mx-4 text-center">
-            <div className="relative flex items-center justify-center mb-4">
-              <div className="size-16 rounded-full border-4 border-gray-200 dark:border-studio-800 border-t-red-500 border-r-rose-500 animate-spin" />
-              <div className="absolute size-9 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/40">
-                <Video className="size-4 animate-pulse" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-gray-900 dark:text-white flex items-center justify-center gap-2">
-                <span>Recording Studio Video</span>
-                <span className="size-2 rounded-full bg-red-500 animate-ping" />
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-studio-400">
-                Preserving active animation, zoom, speed & background at 60 FPS
-              </p>
-            </div>
-
-            <div className="w-56 sm:w-64 mt-5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono font-bold text-gray-700 dark:text-studio-300">
-                <span>{asyncExportState.progress}%</span>
-                <span>{asyncExportState.elapsedSec.toFixed(1)}s / {asyncExportState.duration}s</span>
-              </div>
-              <div className="w-full h-2 bg-gray-200 dark:bg-studio-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-red-500 to-rose-600 rounded-full transition-all duration-100"
-                  style={{ width: `${asyncExportState.progress}%` }}
-                />
-              </div>
-            </div>
+        <div className="fixed top-20 right-6 z-50 flex items-center gap-3 bg-gray-950/90 dark:bg-studio-900/90 border border-red-500/40 px-4 py-2.5 rounded-2xl shadow-xl backdrop-blur-md text-white animate-fadeIn">
+          <div className="size-2.5 rounded-full bg-red-500 animate-ping" />
+          <div className="flex flex-col">
+            <span className="text-xs font-black uppercase tracking-wider text-red-400">
+              Recording 60 FPS
+            </span>
+            <span className="text-[11px] font-mono font-bold text-gray-300">
+              {asyncExportState.elapsedSec.toFixed(1)}s / {asyncExportState.duration}s ({asyncExportState.progress}%)
+            </span>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.__ACTIVE_VIDEO_RECORDER__) {
+                window.__ACTIVE_VIDEO_RECORDER__.stopEarly();
+              }
+            }}
+            className="ml-2 px-2.5 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-[11px] font-bold text-white transition-all shadow-sm"
+          >
+            Stop
+          </button>
         </div>
       )}
 

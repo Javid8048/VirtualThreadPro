@@ -3426,12 +3426,13 @@ export class SceneManager {
 
 
   startVideoRecording({
-    fps = 24,
+    fps = 30,
     durationSeconds = 5,
     format = 'desktop',
     motion = 'current',
     backgroundColor = null,
-    onFrame = null
+    onFrame = null,
+    isScreenSource = false
   } = {}) {
     this.isRecordingVideo = true;
     this.recordingFps = fps;
@@ -3441,6 +3442,7 @@ export class SceneManager {
     this.recordingElapsedSec = 0;
     this.onRecordingFrame = onFrame;
     this.recordingStartTime = performance.now();
+    this.isScreenRecordingSession = isScreenSource;
 
     // Determine the solid studio background color matching active studio lighting
     const isLight = this.backdropMode === 'light';
@@ -3455,11 +3457,6 @@ export class SceneManager {
     const activeCustomTex = this.customBackgroundTexture || this.customBgTexture;
     if (this.backdropMode === 'custom' && activeCustomTex) {
       this.scene.background = activeCustomTex;
-      const imgW = this.customBackgroundImage?.naturalWidth || this.customBackgroundImage?.width || targetW;
-      const imgH = this.customBackgroundImage?.naturalHeight || this.customBackgroundImage?.height || targetH;
-      if (typeof this.fitTextureCover === 'function') {
-        this.fitTextureCover(activeCustomTex, imgW, imgH, targetW, targetH);
-      }
     } else {
       this.scene.background = new THREE.Color(solidBg);
     }
@@ -3469,7 +3466,8 @@ export class SceneManager {
       controlsEnabled: this.controls ? this.controls.enabled : true,
       width: this.width,
       height: this.height,
-      pixelRatio: this.renderer.getPixelRatio()
+      pixelRatio: this.renderer.getPixelRatio(),
+      wasResized: false
     };
     if (this.controls) {
       this.controls.enabled = false;
@@ -3483,23 +3481,19 @@ export class SceneManager {
       0
     );
 
-    let targetW = 1920;
-    let targetH = 1080;
-    if (format === 'mobile') {
-      targetW = 1080;
-      targetH = 1920;
-    } else if (format === 'square') {
-      targetW = 1080;
-      targetH = 1080;
+    // During screen recording or active view recording, preserve native on-screen canvas sizing
+    // to prevent buffer reallocation lag, maintain silky-smooth 60 FPS, and avoid visual popping.
+    if (!isScreenSource && format !== 'current' && (format === 'mobile' || format === 'square')) {
+      const targetW = 1080;
+      const targetH = (format === 'mobile') ? 1920 : 1080;
+      this.renderer.setPixelRatio(1);
+      this.renderer.setSize(targetW, targetH, false);
+      this.camera.aspect = targetW / targetH;
+      this.camera.updateProjectionMatrix();
+      this.preRecordState.wasResized = true;
     }
 
-    // Resize WebGL rendering context directly for zero-overhead native capture
-    this.renderer.setPixelRatio(1);
-    this.renderer.setSize(targetW, targetH, false);
-    this.camera.aspect = targetW / targetH;
-    this.camera.updateProjectionMatrix();
-
-    // Use renderer canvas directly for captureStream to avoid 2D canvas drawImage lag
+    // Use renderer canvas directly for capture
     this.recordingCanvas = this.renderer.domElement;
   }
 
@@ -3509,6 +3503,7 @@ export class SceneManager {
     this.onRecordingFrame = null;
     this.recordingFrame = 0;
     this.recordingElapsedSec = 0;
+    this.isScreenRecordingSession = false;
 
     // Restore background if modified
     if (this.originalSceneBackground !== undefined) {
@@ -3520,10 +3515,12 @@ export class SceneManager {
       if (this.controls) {
         this.controls.enabled = this.preRecordState.controlsEnabled;
       }
-      this.renderer.setSize(this.preRecordState.width, this.preRecordState.height, false);
-      this.renderer.setPixelRatio(this.preRecordState.pixelRatio);
-      this.camera.aspect = this.preRecordState.width / this.preRecordState.height;
-      this.camera.updateProjectionMatrix();
+      if (this.preRecordState.wasResized) {
+        this.renderer.setSize(this.preRecordState.width, this.preRecordState.height, false);
+        this.renderer.setPixelRatio(this.preRecordState.pixelRatio);
+        this.camera.aspect = this.preRecordState.width / this.preRecordState.height;
+        this.camera.updateProjectionMatrix();
+      }
       this.preRecordState = null;
     }
 
