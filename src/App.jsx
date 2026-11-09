@@ -44,14 +44,14 @@ export default function App() {
     console.warn('Could not decode design parameter:', err);
   }
 
-  const initialGarment = initialDesignPayload?.g || initialParams.get('garment') || 'regular_tee';
+  const initialGarment = initialDesignPayload?.g || initialParams.get('garment') || 'oversized_tee';
   const initialColor = initialDesignPayload?.c || '#ffffff';
   const initialPage = initialDesignPayload ? 'studio' : (initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing'));
 
   // App Page Route State ('landing' | 'studio')
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // Garment Blank Type State (5 Streetwear Blanks)
+  // Garment Blank Type State (Oversized T-Shirt Studio)
   const [garmentType, setGarmentType] = useState(initialGarment);
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
   const [currentCamera, setCurrentCamera] = useState('front');
@@ -418,10 +418,11 @@ export default function App() {
   window.__SET_VIEW_MODE__ = setViewMode;
 
   const handleSelectGarmentFromLanding = (type, color) => {
-    if (type && type !== garmentType) {
-      handleGarmentTypeChange(type);
+    const selectedType = 'oversized_tee';
+    if (selectedType !== garmentType) {
+      handleGarmentTypeChange(selectedType);
     } else if (sceneManagerRef.current) {
-      sceneManagerRef.current.setGarmentType(type || garmentType, () => {
+      sceneManagerRef.current.setGarmentType(selectedType, () => {
         setIsGarmentLoading(false);
         setPendingGarmentType(null);
       });

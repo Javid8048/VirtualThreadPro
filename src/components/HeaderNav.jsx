@@ -114,18 +114,13 @@ export function HeaderNav({
           </div>
         )}
 
-        {/* Mobile Garment Selector Pill */}
-        {onOpenProductsCatalog && (
-          <button
-            onClick={onOpenProductsCatalog}
-            className="md:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gray-100 dark:bg-studio-800 text-[11px] font-bold text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-studio-700/80 hover:bg-gray-200/70 dark:hover:bg-studio-700 transition-colors"
-            title="Switch Garment Blank"
-          >
-            <Shirt className="size-3 text-brand-500" />
-            <span className="truncate max-w-[100px]">{garmentNameMap[currentGarmentType] || 'Garments'}</span>
-            <span className="text-[9px] text-gray-400">▾</span>
-          </button>
-        )}
+        {/* Mobile Garment Pill */}
+        <div
+          className="md:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gray-100 dark:bg-studio-800 text-[11px] font-bold text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-studio-700/80"
+        >
+          <Shirt className="size-3 text-brand-500" />
+          <span className="truncate max-w-[110px]">Oversized Tee</span>
+        </div>
       </div>
 
       {/* 2. Center: Desktop Interaction Modes, Camera Angles & Animation Presets */}

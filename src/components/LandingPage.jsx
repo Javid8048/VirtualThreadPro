@@ -124,7 +124,7 @@ export function LandingPage({
   onSelectGarment,
   onResumeStudio,
   hasActiveSession = false,
-  currentGarmentType = 'regular_tee',
+  currentGarmentType = 'oversized_tee',
   theme = 'dark',
   onToggleTheme
 }) {
@@ -221,7 +221,7 @@ export function LandingPage({
               </button>
             ) : (
               <button
-                onClick={() => onSelectGarment('regular_tee')}
+                onClick={() => onSelectGarment('oversized_tee')}
                 className="h-9 px-4 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:opacity-90 active:scale-95 transition-all"
               >
                 <span>Launch Studio</span>
@@ -263,7 +263,7 @@ export function LandingPage({
                 </button>
               ) : (
                 <button
-                  onClick={() => onSelectGarment('regular_tee')}
+                  onClick={() => onSelectGarment('oversized_tee')}
                   className="h-11 px-6 rounded-xl bg-gray-950 dark:bg-white text-white dark:text-gray-950 font-bold text-sm flex items-center gap-2 shadow-md hover:opacity-90 active:scale-95 transition-all"
                 >
                   <span>Launch 3D Studio</span>
@@ -367,10 +367,14 @@ export function LandingPage({
                   key={product.id}
                   data-garment-id={product.id}
                   className="group flex flex-col cursor-pointer"
-                  onClick={() => onSelectGarment(product.id)}
+                  onClick={() => onSelectGarment('oversized_tee')}
                 >
                   {/* Clean Garment Preview Container */}
-                  <figure className="relative aspect-[16/11] w-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#181b20] shadow-sm hover:shadow-md transition-all overflow-hidden flex items-center justify-center p-6">
+                  <figure className={`relative aspect-[16/11] w-full rounded-2xl border border-gray-200 dark:border-white/10 ${
+                    product.id === 'oversized_tee'
+                      ? 'bg-[#0b0d11] dark:bg-[#07090c] p-0'
+                      : 'bg-white dark:bg-[#181b20] p-6'
+                  } shadow-sm hover:shadow-md transition-all overflow-hidden flex items-center justify-center`}>
                     
                     {/* Top-Right Fabric Weight Badge */}
                     {spec.gsm && (
@@ -389,12 +393,21 @@ export function LandingPage({
                     </div>
 
                     {/* High-Resolution Mockup Image */}
-                    <img
-                      src={getAssetUrl(`/garments/${product.id}.png`)}
-                      alt={cleanTitle}
-                      className="max-h-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300 ease-out z-0"
-                      loading="lazy"
-                    />
+                    {product.id === 'oversized_tee' ? (
+                      <img
+                        src={getAssetUrl('/garments/oversized_tee_landing.jpg')}
+                        alt={cleanTitle}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out z-0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <img
+                        src={getAssetUrl(`/garments/${product.id}.png`)}
+                        alt={cleanTitle}
+                        className="max-h-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300 ease-out z-0"
+                        loading="lazy"
+                      />
+                    )}
 
                     {/* Hover Button */}
                     <div className="absolute inset-0 bg-gray-950/30 dark:bg-black/40 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
