@@ -83,7 +83,7 @@ export function GetStartedModal({
                   }}
                   className="text-[11px] text-brand-accent hover:underline flex items-center gap-1 font-semibold"
                 >
-                  <span>View All 9 Blanks</span>
+                  <span>View All Blanks</span>
                   <ChevronRight className="size-3" />
                 </button>
               </div>

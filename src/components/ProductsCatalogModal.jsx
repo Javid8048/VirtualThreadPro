@@ -4,47 +4,14 @@ import { getAssetUrl } from '../utils/assets';
 
 export const GARMENT_PRODUCTS = [
   {
-    id: 'regular_tee',
-    title: 'REGULAR T-SHIRT STUDIO',
-    badge: 'LACOSTE MEN',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: "Lacoste Men's Regular T-Shirt - Everyday essential crewneck t-shirt in combed cotton jersey with tailored chest proportions, standard sleeves, and fine ribbed collar.",
-    features: ['Combed Cotton Jersey', 'Tailored Proportions', 'Fine Ribbed Crewneck', 'Tennis Heritage Cut'],
-    imageBg: 'from-sky-900/30 to-slate-950/40',
-    popular: true
-  },
-  {
-    id: 'relax_long_sleeve',
-    title: 'RELAX FIT LONG SLEEVE T-SHIRT STUDIO',
-    badge: 'LACOSTE MEN',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: "Lacoste Men's Relax Fit Long Sleeve T-Shirt - Streetwear relaxed cut with dropped shoulders, elongated sleeves with ribbed wrist cuffs, and clean open hem drape.",
-    features: ['Relaxed Dropped Shoulders', 'Extended Long Sleeves', 'Ribbed Wrist Cuffs', 'Open Hem Streetwear Drape'],
-    imageBg: 'from-slate-900/40 to-zinc-950/50',
-    popular: true
-  },
-  {
     id: 'oversized_tee',
     title: 'OVERSIZED T-SHIRT STUDIO',
     badge: 'STUDIO READY',
     badgeType: 'studio',
     category: 'Tops',
     description: 'Heavyweight streetwear oversized drop-shoulder t-shirt with wider torso, dropped shoulders, and loose drape.',
-    features: ['Streetwear Drop-Shoulder', 'Wider Boxy Silhouette', 'Elongated Loose Sleeves'],
+    features: ['Streetwear Drop-Shoulder', 'Wider Boxy Silhouette', 'Elongated Loose Sleeves', '280 GSM Heavyweight Cotton'],
     imageBg: 'from-blue-900/30 to-indigo-950/40',
-    popular: true
-  },
-  {
-    id: 'sweatshirt',
-    title: 'SWEAT T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: 'Heavyweight streetwear French terry sweat t-shirt featuring a thick ribbed crewneck collar with athletic V-notch stitch, ribbed sleeve bands, and ribbed hem.',
-    features: ['Heavyweight French Terry', 'Ribbed Crewneck & V-Notch', 'Ribbed Sleeve Bands & Hem'],
-    imageBg: 'from-emerald-900/30 to-slate-950/40',
     popular: true
   },
   {
@@ -54,30 +21,8 @@ export const GARMENT_PRODUCTS = [
     badgeType: 'studio',
     category: 'Outerwear',
     description: 'Heavyweight streetwear hoodie featuring a draped double-layer 3D hood, front kangaroo pocket, and ribbed cuffs.',
-    features: ['3D Draped Hood', 'Kangaroo Pocket', '4K & 60fps Video'],
+    features: ['3D Draped Hood', 'Kangaroo Pocket', '4K & 60fps Video', '420 GSM Heavyweight Fleece'],
     imageBg: 'from-purple-900/30 to-slate-950/40',
-    popular: true
-  },
-  {
-    id: 'cropped_tee',
-    title: 'CROPPED, BOXY T-SHIRT STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Tops',
-    description: 'Modern boxy fit with dropped shoulders, wider torso silhouette, and a clean cropped waistline.',
-    features: ['Boxy Streetwear Cut', 'Cropped Waistband', 'Walk Animation'],
-    imageBg: 'from-amber-900/30 to-slate-950/40',
-    popular: false
-  },
-  {
-    id: 'zip_hoodie',
-    title: 'ZIP HOODIE STUDIO',
-    badge: 'STUDIO READY',
-    badgeType: 'studio',
-    category: 'Outerwear',
-    description: 'Full-zip streetwear hoodie with front metallic zipper track, split kangaroo pockets, and draped hood.',
-    features: ['Front Metal Zipper', 'Split Kangaroo Pocket', 'Dual-side Decals'],
-    imageBg: 'from-rose-900/30 to-slate-950/40',
     popular: true
   }
 ];
@@ -85,7 +30,7 @@ export const GARMENT_PRODUCTS = [
 const FAQS = [
   {
     q: 'Can I create 3D mockups without a subscription?',
-    a: 'Yes! In this application, all 7 garment studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
+    a: 'Yes! In this application, both Oversized T-Shirt and Oversized Hoodie studios, 60fps video recording, 4K snapshots, and 3D glTF model downloads are completely unlocked with all studio features.'
   },
   {
     q: 'Do I need to sign up or log in to start?',

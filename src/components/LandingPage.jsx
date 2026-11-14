@@ -8,20 +8,15 @@ import { getAssetUrl } from '../utils/assets';
 
 // Garment categories definition
 const CATEGORIES = [
-  { id: 'all', label: 'All Blanks', count: 7 },
-  { id: 'tshirts', label: 'T-Shirts & Tops', count: 5, ids: ['regular_tee', 'relax_long_sleeve', 'oversized_tee', 'sweatshirt', 'cropped_tee'] },
-  { id: 'outerwear', label: 'Hoodies & Outerwear', count: 2, ids: ['hoodie', 'zip_hoodie'] }
+  { id: 'all', label: 'All Blanks', count: 2 },
+  { id: 'tshirts', label: 'T-Shirts', count: 1, ids: ['oversized_tee'] },
+  { id: 'outerwear', label: 'Hoodies', count: 1, ids: ['hoodie'] }
 ];
 
 // Curated blank specifications
 const BLANK_SPECS = {
-  regular_tee: { gsm: '220 GSM', subtitle: "Lacoste Men's Regular Fit · Combed Jersey" },
-  relax_long_sleeve: { gsm: '260 GSM', subtitle: "Lacoste Men's Relax Fit · Long Sleeve Cuffs" },
   oversized_tee: { gsm: '280 GSM', subtitle: 'Heavyweight Combed Cotton · Drop-Shoulder' },
-  sweatshirt: { gsm: '380 GSM', subtitle: 'Heavyweight French Terry · Structured Fit' },
-  hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' },
-  cropped_tee: { gsm: '240 GSM', subtitle: 'Organic Cotton · Boxy Streetwear Cut' },
-  zip_hoodie: { gsm: '400 GSM', subtitle: 'Brushed Fleece · Front Metal Runner' }
+  hoodie: { gsm: '420 GSM', subtitle: 'Heavyweight Fleece · Double-Layer Hood' }
 };
 
 // Studio Capabilities (Feature breakdown matching clone prompt)
@@ -56,7 +51,7 @@ const PRICING_TIERS = [
     frequency: 'Instant Access',
     desc: 'Launch the interactive 3D studio and customize all blanks immediately with no sign-up wall.',
     features: [
-      'Access to all 5 streetwear 3D blanks',
+      'Access to Oversized T-Shirt and Hoodie 3D blanks',
       'Front & back artwork positioning',
       'Real-time color customization',
       '360° turntable & walk animations',
@@ -95,7 +90,7 @@ const PRICING_TIERS = [
       'Priority client presentation rendering'
     ],
     buttonText: 'Enter Agency Studio',
-    garmentId: 'zip_hoodie',
+    garmentId: 'hoodie',
     featured: false
   }
 ];

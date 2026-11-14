@@ -10,11 +10,9 @@ A photorealistic 3D apparel customization studio and landing page inspired by [V
   - Replicates the official VirtualThreads landing experience with floating pill navigation, `[ Version 1 | Version 2 ]` catalog switcher, and garment preview cards.
   - Clicking any blank transitions directly into the 3D customization studio.
 
-- **100% Authentic 3D Garments**:
-  - **Streetwear Plain Hoodie**: Scanned from [virtualthreads.io/studio/hoodie](https://www.virtualthreads.io/studio/hoodie) with authentic cloth drape, crossover double-layer hood, front kangaroo pouch, ribbed cuffs, and bottom waistband.
-  - **Streetwear Jogger Sweatpants**: Anatomical waistband, hanging drawstrings with metal aglets, tapered knees, and ribbed ankle cuffs.
-  - **Structured 6-Panel Cap**: 3D crown panels, curved visor brim, squatchee top button, and catalog 3/4 camera perspective.
-  - **Oversized Streetwear T-Shirt**: Drop-shoulder silhouette, natural cloth creases, wind wave simulation, and seamless walking runway stride.
+- **Curated 3D Apparel Studios**:
+  - **Oversized Streetwear T-Shirt**: Heavyweight drop-shoulder cut, natural cloth drape, 360° turntable, and walking runway stride simulation.
+  - **Streetwear Plain Hoodie**: Authentic 3D cloth drape, crossover double-layer hood, front kangaroo pouch, ribbed cuffs, and animated motion cycles.
 
 - **Dynamic Garment Dyeing**:
   - Full fabric color palette dyeing in real-time while preserving natural cloth highlights, texture weave, and ribbing contrast.

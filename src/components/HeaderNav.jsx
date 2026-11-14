@@ -79,11 +79,8 @@ export function HeaderNav({
   ];
 
   const garmentNameMap = {
-    regular_tee: 'Regular Tee',
     oversized_tee: 'Oversized Tee',
-    cropped_tee: 'Cropped Tee',
-    hoodie: 'Hoodie',
-    zip_hoodie: 'Zip Hoodie'
+    hoodie: 'Oversized Hoodie'
   };
 
   return (
@@ -119,7 +116,7 @@ export function HeaderNav({
           className="md:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gray-100 dark:bg-studio-800 text-[11px] font-bold text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-studio-700/80"
         >
           <Shirt className="size-3 text-brand-500" />
-          <span className="truncate max-w-[110px]">Oversized Tee</span>
+          <span className="truncate max-w-[110px]">{garmentNameMap[currentGarmentType] || "Oversized Tee"}</span>
         </div>
       </div>
 

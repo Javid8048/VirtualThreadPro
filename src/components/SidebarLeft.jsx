@@ -201,7 +201,7 @@ export function SidebarLeft({
           </div>
         </div>
 
-        {/* Garment Blank Display (Oversized T-Shirt Studio) */}
+        {/* Garment Blank Display (Oversized T-Shirt & Hoodie) */}
         <div className="border-b border-gray-100 dark:border-studio-800 py-2.5">
           <button
             onClick={() => toggleSection('garment')}
@@ -213,7 +213,7 @@ export function SidebarLeft({
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-bold bg-indigo-50 dark:bg-brand-500/20 text-indigo-700 dark:text-brand-accent border border-indigo-100 dark:border-brand-500/30 px-2 py-0.5 rounded-full uppercase whitespace-nowrap">
-                OVERSIZED TEE
+                {currentGarmentType === 'hoodie' ? 'HOODIE' : 'OVERSIZED TEE'}
               </span>
               {openSection === 'garment' ? (
                 <ChevronDown className="size-4 text-gray-400 dark:text-studio-400" />
@@ -225,7 +225,16 @@ export function SidebarLeft({
 
           {openSection === 'garment' && (
             <div className="pt-2 pb-1 space-y-1.5 animate-fadeIn">
-              <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-studio-800/80 border border-gray-200 dark:border-studio-700/80 shadow-xs flex items-center justify-between">
+              {/* Oversized T-Shirt */}
+              <button
+                type="button"
+                onClick={() => onSelectGarment && onSelectGarment('oversized_tee')}
+                className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                  currentGarmentType === 'oversized_tee'
+                    ? 'bg-brand-500/10 border-brand-500/50 shadow-xs'
+                    : 'bg-gray-50 dark:bg-studio-800/80 border-gray-200 dark:border-studio-700/80 hover:border-gray-300 dark:hover:border-studio-600'
+                }`}
+              >
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-gray-900 dark:text-white">Oversized T-Shirt</span>
@@ -233,10 +242,36 @@ export function SidebarLeft({
                   </div>
                   <p className="text-[10px] text-gray-500 dark:text-studio-400 mt-0.5">Heavyweight Combed Cotton · Drop-Shoulder</p>
                 </div>
-                <div className="size-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Check className="size-3" />
+                {currentGarmentType === 'oversized_tee' && (
+                  <div className="size-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <Check className="size-3" />
+                  </div>
+                )}
+              </button>
+
+              {/* Oversized Hoodie */}
+              <button
+                type="button"
+                onClick={() => onSelectGarment && onSelectGarment('hoodie')}
+                className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                  currentGarmentType === 'hoodie'
+                    ? 'bg-brand-500/10 border-brand-500/50 shadow-xs'
+                    : 'bg-gray-50 dark:bg-studio-800/80 border-gray-200 dark:border-studio-700/80 hover:border-gray-300 dark:hover:border-studio-600'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">Oversized Hoodie</span>
+                    <span className="text-[9px] font-mono px-1 rounded bg-purple-500/20 text-purple-400 font-bold">420 GSM</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-studio-400 mt-0.5">Heavyweight Fleece · 3D Draped Hood</p>
                 </div>
-              </div>
+                {currentGarmentType === 'hoodie' && (
+                  <div className="size-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <Check className="size-3" />
+                  </div>
+                )}
+              </button>
             </div>
           )}
         </div>

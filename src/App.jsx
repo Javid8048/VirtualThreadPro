@@ -14,14 +14,8 @@ import { SceneManager } from './three/SceneManager';
 import { ProjectManager } from './utils/projectManager';
 
 const garmentNameMap = {
-  regular_tee: 'Regular Tee',
-  relax_long_sleeve: 'Relax Fit Long Sleeve',
   oversized_tee: 'Oversized Tee',
-  sweatshirt: 'Sweat T-Shirt',
-  sweat_tshirt: 'Sweat T-Shirt',
-  cropped_tee: 'Cropped Tee',
-  hoodie: 'Hoodie',
-  zip_hoodie: 'Zip Hoodie'
+  hoodie: 'Oversized Hoodie'
 };
 
 export default function App() {
@@ -44,7 +38,8 @@ export default function App() {
     console.warn('Could not decode design parameter:', err);
   }
 
-  const initialGarment = initialDesignPayload?.g || initialParams.get('garment') || 'oversized_tee';
+  const rawGarment = initialDesignPayload?.g || initialParams.get('garment') || 'oversized_tee';
+  const initialGarment = (rawGarment === 'hoodie') ? 'hoodie' : 'oversized_tee';
   const initialColor = initialDesignPayload?.c || '#ffffff';
   const initialPage = initialDesignPayload ? 'studio' : (initialParams.get('page') || (initialParams.get('garment') ? 'studio' : 'landing'));
 
