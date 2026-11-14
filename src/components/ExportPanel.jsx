@@ -51,8 +51,8 @@ export function ExportPanel({
   }, [defaultTab]);
 
   // Video recording state
-  const [videoFps, setVideoFps] = useState(60); // 60 | 30 | 24 - Default is 60 for silky-smooth motion
-  const [recordingSource, setRecordingSource] = useState('screen'); // 'screen' | 'canvas'
+  const [videoFps, setVideoFps] = useState(30); // 30 | 60 | 24 - 30 FPS standard ensures zero frame drops
+  const [recordingSource, setRecordingSource] = useState('canvas'); // 'canvas' | 'screen' - Direct Canvas is smooth and instant
   const [videoFormat, setVideoFormat] = useState('desktop'); // 'mobile' | 'desktop' | 'square'
   const [videoMotion, setVideoMotion] = useState('current'); // 'current' | 'showcase360'
   const [preferredFormat, setPreferredFormat] = useState('mp4'); // 'mp4'
@@ -203,7 +203,7 @@ export function ExportPanel({
 
       const result = await recorder.startRecording(
         {
-          fps: Number(videoFps) || 24,
+          fps: Number(videoFps) || 30,
           durationSeconds: numDuration,
           format: videoFormat,
           motion: videoMotion,
@@ -728,8 +728,8 @@ export function ExportPanel({
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { value: 30, label: '30 FPS', desc: 'Smooth Standard' },
-                  { value: 60, label: '60 FPS', desc: 'Ultra Smooth 60fps' },
+                  { value: 30, label: '30 FPS', desc: 'Silky Smooth (Recommended)' },
+                  { value: 60, label: '60 FPS', desc: 'Ultra 60 FPS' },
                   { value: 24, label: '24 FPS', desc: 'Cinematic' }
                 ].map((item) => (
                   <button
@@ -750,35 +750,13 @@ export function ExportPanel({
               </div>
             </div>
 
-            {/* Recording Method: Screen Recording vs Direct Canvas */}
+            {/* Recording Method: Direct Canvas vs Screen Recording */}
             <div>
               <label className="text-xs font-bold text-gray-700 dark:text-studio-200 mb-2 flex items-center gap-1.5">
-                <Monitor className="size-3.5 text-brand-500" />
+                <Film className="size-3.5 text-brand-500" />
                 <span>Recording Method</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={isRecording}
-                  onClick={() => setRecordingSource('screen')}
-                  className={`p-2.5 rounded-2xl border text-left transition-all ${
-                    recordingSource === 'screen'
-                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
-                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <Monitor className="size-3.5 text-brand-500" />
-                      <span className="text-xs font-extrabold text-gray-900 dark:text-white">Screen Record</span>
-                    </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">Smooth 60 FPS</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
-                    Silky-smooth browser tab capture with 0 dropped frames
-                  </div>
-                </button>
-
                 <button
                   type="button"
                   disabled={isRecording}
@@ -791,13 +769,35 @@ export function ExportPanel({
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <div className="flex items-center gap-1.5">
-                      <Film className="size-3.5 text-gray-500" />
+                      <Film className="size-3.5 text-brand-500" />
                       <span className="text-xs font-extrabold text-gray-900 dark:text-white">Direct Canvas</span>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400 font-bold">Auto</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">Recommended</span>
                   </div>
                   <div className="text-[10px] text-gray-500 dark:text-studio-400">
-                    Direct WebGL stream without browser prompt
+                    Direct WebGL stream with zero lag & no permission prompt
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isRecording}
+                  onClick={() => setRecordingSource('screen')}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    recordingSource === 'screen'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 ring-1 ring-brand-500 shadow-sm'
+                      : 'border-gray-200 dark:border-studio-800 bg-gray-50/70 dark:bg-studio-850/60 hover:bg-gray-100 dark:hover:bg-studio-800 text-gray-600 dark:text-studio-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <Monitor className="size-3.5 text-gray-500" />
+                      <span className="text-xs font-extrabold text-gray-900 dark:text-white">Screen Record</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-studio-800 text-gray-600 dark:text-studio-400 font-bold">Browser Tab</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 dark:text-studio-400">
+                    Capture active browser tab via screen share
                   </div>
                 </button>
               </div>

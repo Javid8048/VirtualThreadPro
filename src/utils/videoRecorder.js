@@ -36,8 +36,9 @@ export class CanvasVideoRecorder {
     }
 
     const mp4Candidates = [
-      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-      'video/mp4;codecs=avc1.640028,mp4a.40.2',
+      'video/mp4;codecs=avc1.42E01E', // Baseline profile (hardware-accelerated, universally smooth playback)
+      'video/mp4;codecs=avc1.4D401F', // Main profile
+      'video/mp4;codecs=avc1.640028', // High profile
       'video/mp4;codecs=avc1',
       'video/mp4;codecs=h264',
       'video/mp4'
@@ -47,8 +48,9 @@ export class CanvasVideoRecorder {
     }
 
     const fallbackCandidates = [
-      'video/webm;codecs=h264',
+      'video/webm;codecs=vp9',
       'video/webm;codecs=vp8',
+      'video/webm;codecs=h264',
       'video/webm'
     ];
     for (const mime of fallbackCandidates) {
@@ -169,8 +171,8 @@ export class CanvasVideoRecorder {
       try {
         const selectedMime = CanvasVideoRecorder.getSupportedMimeType(preferredFormat);
         const options = selectedMime
-          ? { mimeType: selectedMime, videoBitsPerSecond: 8000000 }
-          : { videoBitsPerSecond: 8000000 };
+          ? { mimeType: selectedMime, videoBitsPerSecond: 6000000 }
+          : { videoBitsPerSecond: 6000000 };
 
         this.recordedChunks = [];
         this.mediaRecorder = new MediaRecorder(stream, options);
@@ -266,8 +268,8 @@ export class CanvasVideoRecorder {
           onProgress(pct, sec);
         }, 50);
 
-        // Start continuous recording
-        this.mediaRecorder.start(100);
+        // Start continuous unfragmented recording for smooth lag-free playback
+        this.mediaRecorder.start();
 
         // Conclude recording after specified duration
         this.stopTimeout = setTimeout(() => {

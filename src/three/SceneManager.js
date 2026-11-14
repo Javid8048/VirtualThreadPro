@@ -3246,9 +3246,11 @@ export class SceneManager {
       return;
     }
 
-    // High-precision clock delta
+    // High-precision clock delta with deterministic frame stepping during video recording
     const rawDelta = this.clock.getDelta();
-    const delta = Math.min(Math.max(rawDelta, 0.001), 0.05);
+    const delta = this.isRecordingVideo
+      ? (1.0 / (this.recordingFps || 30))
+      : Math.min(Math.max(rawDelta, 0.001), 0.05);
 
     // Smooth material preset transition (color, sheenColor, roughness, sheen, normalScale)
     if (this.targetMaterialProps) {
@@ -3421,40 +3423,30 @@ export class SceneManager {
     const isShowcaseSpin = this.isRecordingVideo && this.recordingMotion === 'showcase360';
     if (!isShowcaseSpin && (this.animationMode === 'turntable' || this.animationMode === 'rotate_walk')) {
       const turnStep = delta * (this.turntableSpeed || 0.8) * 1.5;
-      if (this.regularTeeRoot && this.garmentType === 'regular_tee' && this.animationMode === 'turntable') {
-        this.regularTeeRoot.rotation.y += turnStep;
+      const activeRoot = this.getActiveGarmentRoot();
+      if (activeRoot) {
+        activeRoot.rotation.y += turnStep;
       }
-      if (this.tshirtPivot && (this.garmentType !== 'regular_tee' || this.animationMode === 'rotate_walk')) {
-        this.tshirtPivot.rotation.y += turnStep;
-      }
-      if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
-        this.realHoodieRoot.rotation.y += turnStep;
-      }
-      if (this.attachmentsGroup) {
+      if (this.attachmentsGroup && this.attachmentsGroup.visible) {
         this.attachmentsGroup.rotation.y += turnStep;
       }
     }
 
-    // Video recording showcase motion: smooth continuous 360° spin loop based on deterministic elapsed time
+    // Video recording showcase motion: smooth continuous 360° spin loop based on deterministic elapsed frames
     if (this.isRecordingVideo && this.recordingMotion === 'showcase360') {
-      const isMotionCycle = (this.animationMode === 'walking' || this.animationMode === 'rotate_walk' || this.animationMode === 'waves');
+      const activeRoot = this.getActiveGarmentRoot();
       const totalDuration = this.recordingDuration || 5;
-      const elapsed = Math.max(0, (performance.now() - (this.recordingStartTime || performance.now())) / 1000);
-      this.recordingElapsedSec = elapsed;
-      const progress = Math.min(1.0, elapsed / totalDuration);
+      const fps = this.recordingFps || 30;
+      this.recordingFrame = (this.recordingFrame || 0) + 1;
+      const totalFrames = Math.max(1, totalDuration * fps);
+      const progress = Math.min(1.0, this.recordingFrame / totalFrames);
       const loops = totalDuration >= 15 ? 2 : 1;
       const targetAngle = (this.recordingBaseAngle || 0) + progress * (2 * Math.PI * loops);
 
-      if (this.regularTeeRoot && this.garmentType === 'regular_tee' && !isMotionCycle) {
-        this.regularTeeRoot.rotation.y = targetAngle;
+      if (activeRoot) {
+        activeRoot.rotation.y = targetAngle;
       }
-      if (this.tshirtPivot && (this.garmentType !== 'regular_tee' || isMotionCycle)) {
-        this.tshirtPivot.rotation.y = targetAngle;
-      }
-      if (this.realHoodieRoot && (this.garmentType === 'hoodie' || this.garmentType === 'zip_hoodie')) {
-        this.realHoodieRoot.rotation.y = targetAngle;
-      }
-      if (this.attachmentsGroup) {
+      if (this.attachmentsGroup && this.attachmentsGroup.visible) {
         this.attachmentsGroup.rotation.y = targetAngle;
       }
     }
@@ -3544,15 +3536,11 @@ export class SceneManager {
     }
 
     // Preserve exact camera position, zoom, and orientation matching screen view
-    this.recordingBaseAngle = (
-      this.tshirtPivot?.rotation.y ||
-      this.realHoodieRoot?.rotation.y ||
-      this.attachmentsGroup?.rotation.y ||
-      0
-    );
+    const activeRoot = this.getActiveGarmentRoot();
+    this.recordingBaseAngle = activeRoot?.rotation.y || 0;
 
     // During screen recording or active view recording, preserve native on-screen canvas sizing
-    // to prevent buffer reallocation lag, maintain silky-smooth 60 FPS, and avoid visual popping.
+    // to prevent buffer reallocation lag, maintain silky-smooth motion, and avoid visual popping.
     if (!isScreenSource && format !== 'current' && (format === 'mobile' || format === 'square')) {
       const targetW = 1080;
       const targetH = (format === 'mobile') ? 1920 : 1080;
@@ -3561,7 +3549,15 @@ export class SceneManager {
       this.camera.aspect = targetW / targetH;
       this.camera.updateProjectionMatrix();
       this.preRecordState.wasResized = true;
+    } else if (!isScreenSource && this.preRecordState.pixelRatio > 1.25) {
+      // For desktop / current format, cap pixelRatio to 1.0 to prevent 4K framebuffer stalls during capture
+      this.renderer.setPixelRatio(1);
+      this.renderer.setSize(this.width, this.height, false);
+      this.preRecordState.wasResized = true;
     }
+
+    // Clear clock delta backlog so first recording frame doesn't suffer an accumulated delta jump
+    this.clock.getDelta();
 
     // Use renderer canvas directly for capture
     this.recordingCanvas = this.renderer.domElement;
@@ -3596,9 +3592,8 @@ export class SceneManager {
 
     // Restore rotation to pre-recording base angle
     if (this.recordingBaseAngle !== undefined) {
-      if (this.regularTeeRoot) this.regularTeeRoot.rotation.y = this.recordingBaseAngle;
-      if (this.tshirtPivot) this.tshirtPivot.rotation.y = this.recordingBaseAngle;
-      if (this.realHoodieRoot) this.realHoodieRoot.rotation.y = this.recordingBaseAngle;
+      const activeRoot = this.getActiveGarmentRoot();
+      if (activeRoot) activeRoot.rotation.y = this.recordingBaseAngle;
       if (this.attachmentsGroup) this.attachmentsGroup.rotation.y = this.recordingBaseAngle;
     }
 
